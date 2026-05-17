@@ -14,6 +14,8 @@
 
 - [ ] File ảnh
 - [ ] File SQL
+- [ ] File Draw.io
+...
 
 ---
 
