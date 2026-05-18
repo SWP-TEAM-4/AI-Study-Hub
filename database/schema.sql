@@ -64,3 +64,13 @@ CREATE TABLE storage_quota (
   plan_type ENUM('FREE', 'PREMIUM', 'ENTERPRISE') DEFAULT 'FREE',
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Storage quota table
+CREATE TABLE storage_quota2 (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE,
+  total_quota BIGINT DEFAULT 5368709120,
+  used_space BIGINT DEFAULT 0,
+  plan_type ENUM('FREE', 'PREMIUM', 'ENTERPRISE') DEFAULT 'FREE',
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
