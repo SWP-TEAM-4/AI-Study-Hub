@@ -1,0 +1,358 @@
+/* Container tổng bao ngoài */
+.pf-container {
+  padding: 32px;
+  max-width: 1150px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+/* Thanh quay lại */
+.pf-top-bar {
+  margin-bottom: 24px;
+}
+
+.pf-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 10px 18px;
+  border-radius: 12px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.pf-back-btn:hover {
+  color: #1e293b;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Bố cục Grid 2 cột */
+.pf-grid-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 28px;
+}
+
+@media (max-width: 768px) {
+  .pf-grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Khung Card nền trắng bo góc chuẩn UI */
+.pf-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  padding: 32px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.02), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+}
+
+/* Thẻ Avatar bên trái */
+.pf-avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  height: fit-content;
+}
+
+.pf-avatar-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #ffffff;
+  font-size: 34px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.2);
+}
+
+.pf-profile-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 6px 0;
+}
+
+.pf-profile-sub {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0 0 18px 0;
+}
+
+.pf-badge {
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 6px 16px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #dbeafe;
+}
+
+/* Thẻ chứa Form bên phải */
+.pf-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 6px 0;
+}
+
+.pf-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0 0 28px 0;
+}
+
+/* Lưới của Form (Chia 2 cột cho các ô nhập liệu) */
+.pf-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 640px) {
+  .pf-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pf-field label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+}
+
+/* Định dạng Input Đẹp */
+.pf-field input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.15s ease-in-out;
+}
+
+.pf-field input:focus {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
+}
+
+/* Input bị khóa (Email) */
+.pf-field input.pf-disabled {
+  background-color: #f8fafc;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+/* Nút Lưu Thay Đổi nằm hàng riêng bên dưới trải dài */
+.pf-save-btn {
+  grid-column: span 2;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #1e3a5f;
+  color: #ffffff;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.pf-save-btn:hover:not(:disabled) {
+  background: #11253f;
+}
+
+.pf-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .pf-save-btn {
+    grid-column: span 1;
+  }
+}
+/* ================= CĂN CHỈNH LAYER AVATAR & NÚT UPLOAD ================= */
+.pf-avatar-wrapper {
+  position: relative;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+.pf-avatar-upload-btn {
+  position: absolute;
+  bottom: 0;
+  right: 2px;
+  background: #2563eb;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.pf-avatar-upload-btn:hover {
+  background: #1d4ed8;
+  transform: scale(1.08);
+}
+
+
+/* ================= STYLE HỆ THỐNG MENU TAB (CỘT TRÁI) ================= */
+.pf-menu-tabs {
+  width: 100%;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.pf-tab-item:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.pf-tab-item.active {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+
+/* ================= SỬA TRIỆT ĐỂ LỖI VỠ GRID (CỘT PHẢI) ================= */
+/* Ép block divider phải chiếm trọn không gian 2 cột của form chính */
+.pf-section-divider {
+  grid-column: span 2; 
+  margin-top: 12px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pf-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 18px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Khởi tạo lưới phụ 2 cột riêng biệt cho phần mạng xã hội */
+.pf-social-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+}
+
+/* Nút Đổi mật khẩu đổi sang cụm màu đỏ/tím bảo mật */
+.pf-secure-btn {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+}
+.pf-secure-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6d28d9, #4338ca);
+}
+
+/* Responsive tinh chỉnh cho màn hình di động */
+@media (max-width: 640px) {
+  .pf-section-divider {
+    grid-column: span 1;
+  }
+  .pf-social-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================= TOAST NOTIFICATION SYSTEM ================= */
+.pf-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.03);
+  pointer-events: none; /* Tránh cản trở người dùng click đằng sau */
+}
+
+/* Kiểu thông báo thành công (Màu xanh lá nhẹ dịu mắt) */
+.pf-toast-success {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+.pf-toast-success .pf-toast-icon {
+  color: #15803d;
+}
+
+/* Kiểu thông báo lỗi (Màu đỏ san hô cảnh báo tốt) */
+.pf-toast-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+.pf-toast-error .pf-toast-icon {
+  color: #dc2626;
+}

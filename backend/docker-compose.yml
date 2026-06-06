@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai_study_hub_db
+    environment:
+      POSTGRES_DB: ai_study_hub
+      POSTGRES_USER: aistudyhub
+      POSTGRES_PASSWORD: aistudyhub123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U aistudyhub -d ai_study_hub" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai_study_hub_network
+  # Uncomment below if you want to run the app in Docker too
+  # app:
+  #   build: .
+  #   container_name: ai_study_hub_app
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DB_HOST: postgres
+  #     DB_PORT: 5432
+  #     DB_NAME: ai_study_hub
+  #     DB_USERNAME: aistudyhub
+  #     DB_PASSWORD: aistudyhub123
+  #     JWT_SECRET: change-this-secret-in-production
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - ai_study_hub_network
+
+volumes:
+  postgres_data:
+    name: ai_study_hub_postgres_data
+
+networks:
+  ai_study_hub_network:
+    name: ai_study_hub_network
