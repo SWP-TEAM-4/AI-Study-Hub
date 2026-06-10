@@ -37,6 +37,7 @@ public class AuthService {
     private final ComboRepository comboRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
 
     // ── Register ──────────────────────────────────────────────────────────────
 
@@ -72,7 +73,10 @@ public class AuthService {
         user = userRepository.save(user);
         log.info("New user registered: id={}, email={}", user.getId(), user.getEmail());
 
-        // 5. Sinh token và trả về
+        // 5. Gửi email chào mừng (async – không block)
+        emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
+
+        // 6. Sinh token và trả về
         String token = jwtTokenProvider.generateToken(user.getId());
         return toAuthResponse(user, token);
     }
@@ -125,12 +129,9 @@ public class AuthService {
                 .build();
         passwordResetRepository.save(reset);
 
-        // Mock gửi email – thay bằng real email service khi deploy
-        log.info("===== PASSWORD RESET EMAIL [MOCK] =====");
-        log.info("To: {}", email);
-        log.info("Reset Link: http://localhost:3000/reset-password?token={}", token);
-        log.info("Expires in: {} minutes", RESET_TOKEN_EXPIRE_MINUTES);
-        log.info("==========================================");
+        // Gửi email reset password thật qua Gmail SMTP (async – không block)
+        emailService.sendPasswordResetEmail(email, user.getFullName(), token);
+        log.info("Password reset email dispatched for userId={}", user.getId());
     }
 
     // ── Reset Password ────────────────────────────────────────────────────────
