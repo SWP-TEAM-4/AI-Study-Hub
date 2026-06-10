@@ -14,6 +14,9 @@ interface AuthState {
   /** Gọi sau khi login/register thành công – lưu token + user vào store & localStorage */
   setAuth: (data: AuthResponseData) => void;
 
+  /** Cập nhật thông tin user trong store & localStorage (sau khi PUT /api/users/me thành công) */
+  updateUser: (partial: Partial<AuthUser>) => void;
+
   /** Đăng xuất – xóa toàn bộ auth state */
   logout: () => void;
 }
@@ -38,7 +41,7 @@ function loadPersistedAuth(): { user: AuthUser | null; accessToken: string | nul
 // ─── Store ────────────────────────────────────────────────────────────────
 const persisted = loadPersistedAuth();
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   // Khởi tạo từ localStorage (persist qua F5)
   user: persisted.user,
   accessToken: persisted.accessToken,
@@ -64,6 +67,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       accessToken: data.accessToken,
       isLoggedIn: true,
     });
+  },
+
+  updateUser: (partial: Partial<AuthUser>) => {
+    const current = get().user;
+    if (!current) return;
+
+    const updated: AuthUser = { ...current, ...partial };
+
+    // Đồng bộ lên localStorage để persist qua F5
+    localStorage.setItem(USER_KEY, JSON.stringify(updated));
+
+    set({ user: updated });
   },
 
   logout: () => {
