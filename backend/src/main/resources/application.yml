@@ -30,6 +30,27 @@ spring:
       max-file-size: ${MAX_FILE_SIZE:50MB}
       max-request-size: ${MAX_REQUEST_SIZE:60MB}
 
+  # ===== Config server gửi email (Không sửa nha) =====
+  mail:
+    host: mail.tino.vn
+    port: 587
+    username: contact@huyplay.vn
+    password: 'dfhfDSFDHdgh45@fgjf@dgjdf'
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: mail.tino.vn
+          connectiontimeout: 10000
+          timeout: 15000
+          writetimeout: 15000
+        debug: true
+
 server:
   port: ${SERVER_PORT:8080}
 
@@ -53,6 +74,12 @@ app:
 
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+  mail:
+    from: contact@huyplay.vn
+    from-name: AI Study Hub
+    reset-password-url: ${FRONTEND_URL:http://localhost:3000}/reset-password
+    token-expire-minutes: 30
 
 # ===== Logging =====
 logging:
