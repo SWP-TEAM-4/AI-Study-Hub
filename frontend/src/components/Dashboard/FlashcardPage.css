@@ -1,0 +1,22 @@
+.fp-wrap{background:#fff;border-radius:24px;padding:22px;box-shadow:0 10px 30px rgba(15,23,42,.06);border:1px solid #f1f5f9;}
+.fp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px;}
+.fp-title{display:flex;gap:12px;align-items:center;}
+.fp-icon{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#ffd7cc,#ffddf2);display:grid;place-items:center;color:#831843;border:1px solid rgba(15,23,42,.06);}
+.fp-title h2{margin:0;font-size:22px;font-weight:950;letter-spacing:-.6px;color:#0f172a;}
+.fp-title p{margin:4px 0 0;color:#64748b;font-size:12px;font-weight:700;}
+.fp-pill{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;padding:10px 14px;border-radius:999px;font-weight:900;color:#0f172a;font-size:13px;}
+.fp-search{display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;padding:12px 14px;margin:10px 0 16px;}
+.fp-search input{border:none;outline:none;background:transparent;flex:1;font-size:14px;font-weight:700;color:#0f172a;}
+.fp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.fp-card{border:1px solid #f1f5f9;border-radius:20px;padding:16px;background:linear-gradient(180deg,#fff 0%,#fbfdff 100%);box-shadow:0 10px 30px rgba(15,23,42,.04);}
+.fp-top{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.fp-subject{font-size:12px;font-weight:950;color:#c2410c;background:#fff1f2;border:1px solid rgba(194,65,12,.18);padding:6px 10px;border-radius:999px;display:inline-block;}
+.fp-title-text{margin-top:10px;font-size:14px;font-weight:950;color:#0f172a;line-height:1.3;}
+.fp-count{font-size:11px;font-weight:950;background:#0ea5e9;color:#fff;border-radius:999px;padding:6px 10px;}
+.fp-meta{margin-top:6px;color:#94a3b8;font-size:12px;font-weight:850;}
+.fp-footer{margin-top:14px;display:flex;}
+.fp-btn{border:none;cursor:pointer;border-radius:14px;padding:11px 14px;font-weight:950;background:#1e3a5f;color:#fff;box-shadow:0 12px 28px rgba(30,58,95,.18);transition:transform .15s ease;}
+.fp-btn:hover{transform:translateY(-1px);}
+.fp-empty{margin-top:14px;color:#94a3b8;font-weight:900;}
+@media (max-width:1100px){.fp-grid{grid-template-columns:1fr;}}
+
