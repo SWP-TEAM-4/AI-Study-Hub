@@ -3,10 +3,9 @@ import { Mail, Lock, User, Sparkles, ArrowRight, ArrowLeft, Check, X, Eye, EyeOf
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
-import { type AuthUser } from "../../services/authService";
+import { login, register, forgotPassword, type AuthResponseData } from "../../services/authService";
 import { cn } from "../../lib/utils";
 
-// 1. IMPORT ẢNH NỀN AURORA (Lùi 2 nấc ra src/)
 import './LoginPanel.css';
 
 // COMPONENT: METEORS BACKGROUND
@@ -53,7 +52,8 @@ Notify.init({
 } as any);
 
 interface LoginPanelProps {
-  onLoginSuccess: (token: string, user: AuthUser) => void;
+  /** Callback sau khi login/register thành công – nhận toàn bộ data từ backend */
+  onLoginSuccess: (data: AuthResponseData) => void;
 }
 
 export default function LoginPanel({ onLoginSuccess }: LoginPanelProps) {
@@ -123,18 +123,15 @@ export default function LoginPanel({ onLoginSuccess }: LoginPanelProps) {
 
   const strength = getPasswordStrength(password);
 
-  // XỬ LÝ SUBMIT FORM
+  // XỬ LÝ SUBMIT FORM – kết nối backend thật
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!cleanEmail.endsWith("@gmail.com")) {
-      Notify.failure("Email phải có định dạng @gmail.com");
-      return;
-    }
+    // ── Validate phía client ───────────────────────────────────────────────
     if (mode === "signup") {
       if (strength.score < 2) {
-        Notify.failure("Mật khẩu quá yếu!");
+        Notify.failure("Mật khẩu quá yếu! Vui lòng tạo mật khẩu mạnh hơn.");
         return;
       }
       if (password !== confirmPassword) {
@@ -143,42 +140,29 @@ export default function LoginPanel({ onLoginSuccess }: LoginPanelProps) {
       }
     }
     if (mode === "login" && password.length < 6) {
-      Notify.failure("Mật khẩu phải từ 6 ký tự trở lên");
+      Notify.failure("Mật khẩu phải từ 6 ký tự trở lên.");
       return;
     }
 
     setLoading(true);
     try {
       if (mode === "login") {
-        const response = await fetch("https://httpbin.org/post", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: cleanEmail, password }),
-        });
-        if (!response.ok) throw new Error("Network error");
-        await response.json();
+        // ── Gọi POST /api/auth/login ────────────────────────────────────────
+        const data = await login(cleanEmail, password);
+        Notify.success(`Chào mừng trở lại, ${data.fullName}! ✨`);
+        // Chuyển toàn bộ data về App.tsx để lưu vào store
+        setTimeout(() => onLoginSuccess(data), 600);
 
-        if (cleanEmail === "khoa@gmail.com" && password === "123456") {
-          Notify.success("Đăng nhập thành công vào Hub! ✨");
-          const mockToken = "fake-jwt-token-for-anh-khoa-192585";
-          const mockUser: AuthUser = { email: cleanEmail, role: "student" };
-
-          localStorage.setItem("auth_token", mockToken);
-          localStorage.setItem("auth_user", JSON.stringify(mockUser));
-          setTimeout(() => onLoginSuccess(mockToken, mockUser), 600);
-        } else if (cleanEmail === "banned@gmail.com") {
-          Notify.failure("Tài khoản này đã bị khóa do vi phạm chính sách! ❌");
-        } else {
-          Notify.failure("Sai tài khoản hoặc mật khẩu không chính xác! ⚠️");
-        }
       } else {
-        await new Promise((r) => setTimeout(r, 1000));
-        Notify.success("Đăng ký thành công! Hãy đăng nhập.");
-        setMode("login");
-        setPassword(""); setConfirmPassword(""); setFullName("");
+        // ── Gọi POST /api/auth/register ─────────────────────────────────────
+        const data = await register(cleanEmail, password, fullName.trim());
+        Notify.success(`Tạo tài khoản thành công! Chào mừng ${data.fullName} 🎉`);
+        // Đăng ký xong tự động login luôn
+        setTimeout(() => onLoginSuccess(data), 600);
       }
-    } catch (err) {
-      Notify.failure("Mất kết nối mạng, không thể gửi request!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Đã xảy ra lỗi. Vui lòng thử lại!";
+      Notify.failure(msg);
     } finally {
       setLoading(false);
     }
@@ -199,25 +183,28 @@ export default function LoginPanel({ onLoginSuccess }: LoginPanelProps) {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail.endsWith("@gmail.com")) {
-      Notify.failure("Email không hợp lệ!");
+    if (!cleanEmail) {
+      Notify.failure("Vui lòng nhập địa chỉ email!");
       return;
     }
     setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1000));
-      setResetMessage(`Link reset đã gửi tới ${cleanEmail}.`);
-      Notify.success("Đã gửi link đặt lại mật khẩu!");
-      setTimeout(() => { setMode("login"); setResetMessage(""); setEmail(""); }, 3000);
-    } catch {
-      Notify.failure("Gửi yêu cầu thất bại.");
+      // ── Gọi POST /api/auth/forgot-password ─────────────────────────────
+      await forgotPassword(cleanEmail);
+      // Backend luôn trả 200 (không tiết lộ email có tồn tại không)
+      setResetMessage(`Nếu email tồn tại, link đặt lại đã được gửi tới ${cleanEmail}.`);
+      Notify.success("Đã gửi yêu cầu đặt lại mật khẩu! Kiểm tra hộp thư của bạn.");
+      setTimeout(() => { setMode("login"); setResetMessage(""); setEmail(""); }, 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gửi yêu cầu thất bại. Vui lòng thử lại.";
+      Notify.failure(msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    
+
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
@@ -233,8 +220,8 @@ export default function LoginPanel({ onLoginSuccess }: LoginPanelProps) {
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         className="liquid-glass relative overflow-hidden rounded-[32px] p-6 sm:p-9 border border-white/10 bg-space/40 backdrop-blur-xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transition-all duration-300 hover:border-white/20 will-change-transform"
       >
-      
-        
+
+
 
         {/* 🌠 HIỆU ỨNG SAO BĂNG CHẠY TRÊN NỀN */}
         <Meteors number={20} />

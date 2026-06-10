@@ -1,40 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import OrbisLanding from "./components/LoginPage/OrbisLanding";
-// 1. MỞ COMMENT DÒNG IMPORT NÀY
 import LoginPanel from "./components/LoginPage/LoginPanel";
 import Loader from "./components/LoginPage/Loader/Loader";
 import Dashboard from "./components/Dashboard/Dashboard";
+import { useAuthStore } from "./store/authStore";
+import type { AuthResponseData } from "./services/authService";
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    const savedState = localStorage.getItem("isLoggedIn");
-    return savedState === "true";
-  });
+  // Đọc trạng thái login từ authStore (có persist qua localStorage)
+  const { isLoggedIn, setAuth, logout } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  
-  // 2. THÊM STATE NÀY ĐỂ QUẢN LÝ ẨN/HIỆN LOGIN PANEL
   const [showLoginPanel, setShowLoginPanel] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      localStorage.setItem("isLoggedIn", "true");
-    } else {
-      localStorage.removeItem("isLoggedIn");
-    }
-  }, [isLoggedIn]);
-
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = (data: AuthResponseData) => {
+    // Lưu token + user vào Zustand store và localStorage
+    setAuth(data);
     setIsLoading(true);
     setTimeout(() => {
-      setIsLoggedIn(true);
       setIsLoading(false);
-      setShowLoginPanel(false); // Đăng nhập xong thì ẩn panel đi luôn
+      setShowLoginPanel(false);
     }, 2500);
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    // Xóa toàn bộ auth state khỏi store và localStorage
+    logout();
   };
 
   if (isLoading) {
