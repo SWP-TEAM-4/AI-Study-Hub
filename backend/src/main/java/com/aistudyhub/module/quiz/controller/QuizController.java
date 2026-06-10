@@ -102,30 +102,63 @@ public class QuizController {
     /**
      * API lấy danh sách, tìm kiếm và lọc phân trang các Quiz do chính người dùng hiện tại sở hữu.
      * <p>
-     * Hỗ trợ tìm kiếm theo keyword và lọc theo subjectId, notebookId, academicTermId, examType, visibility, marketStatus, kèm theo cấu hình sắp xếp động.
-     * 
-     * @param searchRequest bộ lọc tìm kiếm và phân loại Quiz
-     * @param page số trang bắt đầu (mặc định 0)
-     * @param size kích thước trang hiển thị (mặc định 10)
-     * @param sort trường sắp xếp và hướng (mặc định "createdAt,desc")
-     * @return ResponseEntity chứa danh sách phân trang chuẩn hóa PaginationResponse
+     * Hỗ trợ tìm kiếm theo keyword và lọc theo subjectId, notebookId, academicTermId,
+     * examType, visibility, marketStatus, kèm theo cấu hình sắp xếp động.
+     * Dùng @RequestParam riêng lẻ để tránh lỗi enum-binding của @ModelAttribute.
      */
     @Operation(summary = "Tìm kiếm và lọc danh sách Quiz cá nhân nâng cao (Query Params)")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<QuizResponse>>> searchMyQuizzes(
-            @ModelAttribute QuizSearchRequest searchRequest,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Long notebookId,
+            @RequestParam(required = false) Long academicTermId,
+            @RequestParam(required = false) String examType,
+            @RequestParam(required = false) String visibility,
+            @RequestParam(required = false) String marketStatus,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
 
+        // Parse enum an toàn – tránh IllegalArgumentException → 500
+        Visibility visibilityEnum = null;
+        if (visibility != null && !visibility.isBlank()) {
+            try {
+                visibilityEnum = Visibility.valueOf(visibility.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid visibility value: " + visibility, "VALIDATION_ERROR"));
+            }
+        }
+
+        MarketStatus marketStatusEnum = null;
+        if (marketStatus != null && !marketStatus.isBlank()) {
+            try {
+                marketStatusEnum = MarketStatus.valueOf(marketStatus.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid marketStatus value: " + marketStatus, "VALIDATION_ERROR"));
+            }
+        }
+
+        // Build search request
+        QuizSearchRequest searchRequest = new QuizSearchRequest();
+        searchRequest.setKeyword(keyword);
+        searchRequest.setSubjectId(subjectId);
+        searchRequest.setNotebookId(notebookId);
+        searchRequest.setAcademicTermId(academicTermId);
+        searchRequest.setExamType(examType);
+        searchRequest.setVisibility(visibilityEnum);
+        searchRequest.setMarketStatus(marketStatusEnum);
+
         String[] sortParts = sort.split(",");
-        String sortField = sortParts[0];
-        Sort.Direction direction = sortParts.length > 1 && sortParts[1].equalsIgnoreCase("asc") 
+        String sortField = sortParts[0].trim();
+        Sort.Direction direction = sortParts.length > 1 && sortParts[1].trim().equalsIgnoreCase("asc")
             ? Sort.Direction.ASC : Sort.Direction.DESC;
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
         Page<QuizResponse> quizPage = quizService.searchMyQuizzes(searchRequest, pageable);
-        
+
         return ResponseEntity.ok(ApiResponse.success(PaginationResponse.of(quizPage)));
     }
 }
