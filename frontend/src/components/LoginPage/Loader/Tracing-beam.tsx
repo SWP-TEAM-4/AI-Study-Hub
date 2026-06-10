@@ -5,8 +5,8 @@ import {
     useTransform,
     useScroll,
     useSpring,
-} from "motion/react";
-import { cn } from "../../../../utils";
+} from "framer-motion";
+import { cn } from "../../../lib/utils";
 
 export const TracingBeam = ({
     children,
