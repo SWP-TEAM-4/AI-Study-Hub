@@ -1,170 +1,212 @@
-import axios from "axios";
+// ─────────────────────────────────────────────────────────────────────────────
+// authService.ts  –  Kết nối trực tiếp với Backend Spring Boot
+// Base URL: http://localhost:8080/api/auth
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ─── Axios Instance ────────────────────────────────────────────────────────
-// baseURL rỗng → dùng Vite proxy (vite.config.ts) để forward /api → localhost:8080
-const api = axios.create({
-  baseURL: "",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 10000,
-});
+const BASE_URL = "http://localhost:8080/api/auth";
 
-// Attach JWT token vào mọi request nếu đã đăng nhập
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("auth_token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// ─── TypeScript Interfaces (mirror backend DTOs) ──────────────────────────
 
-// ─── Types ────────────────────────────────────────────────────────────────
+/** Role enum – phản ánh đúng enum Role.java của backend */
+export type UserRole = "STUDENT" | "REVIEWER" | "ADMIN";
 
+/**
+ * Thông tin user trả về sau khi login/register thành công.
+ * Phản ánh đúng AuthResponse.java của backend.
+ */
 export interface AuthUser {
   userId: number;
   email: string;
   fullName: string;
   avatarUrl: string | null;
-  role: string;
+  role: UserRole;
   reputationPoints: number;
   createdAt: string;
 }
 
-export interface AuthResponseData {
+/**
+ * Shape của trường `data` trong AuthResponse từ backend (login & register).
+ */
+export interface AuthResponseData extends AuthUser {
   accessToken: string;
   tokenType: string;
-  userId: number;
-  email: string;
-  fullName: string;
-  avatarUrl: string | null;
-  role: string;
-  reputationPoints: number;
-  createdAt: string;
 }
 
-/** Chuẩn response wrapper từ backend: { success, message, data?, errorCode? } */
-interface ApiResponse<T> {
+/**
+ * Wrapper chung cho mọi response từ backend.
+ * Success:  { success: true,  message: "...", data: T }
+ * Error:    { success: false, message: "...", errorCode: "..." }
+ */
+export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data?: T;
   errorCode?: string;
 }
 
-// ─── Error Mapping (errorCode → thông báo tiếng Việt) ─────────────────────
+// ─── Error Code → Thông báo tiếng Việt ───────────────────────────────────
+
 const ERROR_MESSAGES: Record<string, string> = {
-  EMAIL_ALREADY_EXISTS: "Email này đã được sử dụng. Vui lòng dùng email khác.",
-  INVALID_CREDENTIALS: "Email hoặc mật khẩu không đúng. Vui lòng thử lại.",
-  USER_INACTIVE: "Tài khoản của bạn đã bị vô hiệu hóa. Liên hệ hỗ trợ.",
-  INVALID_RESET_TOKEN: "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.",
-  SEMESTER_NOT_FOUND: "Học kỳ không tồn tại.",
-  COMBO_NOT_FOUND: "Gói combo không tồn tại.",
-  VALIDATION_ERROR: "Thông tin không hợp lệ. Vui lòng kiểm tra lại.",
-  UNAUTHORIZED: "Bạn chưa đăng nhập. Vui lòng đăng nhập để tiếp tục.",
+  EMAIL_ALREADY_EXISTS: "Email này đã được sử dụng! Vui lòng dùng email khác.",
+  INVALID_CREDENTIALS: "Email hoặc mật khẩu không chính xác!",
+  USER_INACTIVE:
+    "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ admin để được hỗ trợ.",
+  INVALID_RESET_TOKEN:
+    "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu lại.",
+  VALIDATION_ERROR: "Dữ liệu không hợp lệ!",
   ACCESS_DENIED: "Bạn không có quyền thực hiện thao tác này.",
-  INTERNAL_ERROR: "Lỗi hệ thống. Vui lòng thử lại sau.",
+  UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
 };
 
 /**
- * Trích xuất message lỗi thân thiện từ axios error.
- * Ưu tiên: errorCode mapping → message từ server → fallback
+ * Helper: parse lỗi từ response backend và throw Error với message tiếng Việt.
+ * Ưu tiên thứ tự: errorCode → message từ server → fallback message.
  */
-function extractErrorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data as ApiResponse<unknown> | undefined;
-    if (data) {
-      // Map errorCode sang tiếng Việt
-      if (data.errorCode && ERROR_MESSAGES[data.errorCode]) {
-        return ERROR_MESSAGES[data.errorCode];
-      }
-      // Dùng message server trả về nếu có
-      if (data.message) return data.message;
-    }
-    // Network error
-    if (!error.response) {
-      return "Không thể kết nối đến server. Vui lòng kiểm tra backend đang chạy.";
-    }
-  }
-  return "Đã có lỗi xảy ra. Vui lòng thử lại!";
-}
-
-// ─── Auth API Methods ─────────────────────────────────────────────────────
-
-/**
- * Đăng nhập – trả về AuthResponseData (chứa accessToken và thông tin user)
- */
-export async function login(email: string, password: string): Promise<AuthResponseData> {
+async function handleApiError(
+  response: Response,
+  fallback: string
+): Promise<never> {
+  let body: ApiResponse<unknown> | null = null;
   try {
-    const res = await api.post<ApiResponse<AuthResponseData>>("/api/auth/login", {
-      email,
-      password,
-    });
-    if (res.data.success && res.data.data) {
-      return res.data.data;
-    }
-    throw new Error(res.data.message || "Đăng nhập thất bại.");
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    body = await response.json();
+  } catch {
+    // body không phải JSON
   }
+
+  const errorCode = body?.errorCode;
+  const serverMessage = body?.message;
+
+  // 1. Ưu tiên message từ errorCode đã map
+  if (errorCode && ERROR_MESSAGES[errorCode]) {
+    throw new Error(ERROR_MESSAGES[errorCode]);
+  }
+  // 2. Nếu là VALIDATION_ERROR, đính kèm chi tiết từ server
+  if (errorCode === "VALIDATION_ERROR" && serverMessage) {
+    throw new Error(`Dữ liệu không hợp lệ: ${serverMessage}`);
+  }
+  // 3. Dùng message từ server nếu có
+  if (serverMessage) {
+    throw new Error(serverMessage);
+  }
+  // 4. Fallback message
+  throw new Error(fallback);
+}
+
+// ─── API Functions ────────────────────────────────────────────────────────
+
+/**
+ * Đăng nhập – POST /api/auth/login
+ * @returns AuthResponseData chứa accessToken và thông tin user
+ */
+export async function login(
+  email: string,
+  password: string
+): Promise<AuthResponseData> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    throw new Error(
+      "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng!"
+    );
+  }
+
+  if (!response.ok) {
+    await handleApiError(response, "Đăng nhập thất bại. Vui lòng thử lại.");
+  }
+
+  const body: ApiResponse<AuthResponseData> = await response.json();
+  return body.data!;
 }
 
 /**
- * Đăng ký tài khoản mới
+ * Đăng ký tài khoản mới – POST /api/auth/register
+ * @returns AuthResponseData chứa accessToken và thông tin user vừa tạo
  */
 export async function register(
   email: string,
   password: string,
-  fullName: string,
-  currentSemesterId?: number,
-  comboId?: number
+  fullName: string
 ): Promise<AuthResponseData> {
+  let response: Response;
   try {
-    const res = await api.post<ApiResponse<AuthResponseData>>("/api/auth/register", {
-      email,
-      password,
-      fullName,
-      ...(currentSemesterId && { currentSemesterId }),
-      ...(comboId && { comboId }),
+    response = await fetch(`${BASE_URL}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, fullName }),
     });
-    if (res.data.success && res.data.data) {
-      return res.data.data;
-    }
-    throw new Error(res.data.message || "Đăng ký thất bại.");
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
+  } catch {
+    throw new Error(
+      "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng!"
+    );
   }
+
+  if (!response.ok) {
+    await handleApiError(
+      response,
+      "Đăng ký thất bại. Vui lòng thử lại sau."
+    );
+  }
+
+  const body: ApiResponse<AuthResponseData> = await response.json();
+  return body.data!;
 }
 
 /**
- * Quên mật khẩu – server sẽ gửi email (mock trong dev: log ra console backend)
+ * Yêu cầu reset mật khẩu – POST /api/auth/forgot-password
+ * Backend luôn trả 200 (không tiết lộ email có tồn tại hay không).
  */
 export async function forgotPassword(email: string): Promise<void> {
+  let response: Response;
   try {
-    const res = await api.post<ApiResponse<void>>("/api/auth/forgot-password", { email });
-    if (!res.data.success) {
-      throw new Error(res.data.message || "Gửi yêu cầu thất bại.");
-    }
-    // success: server luôn trả 200 dù email có tồn tại hay không (security best practice)
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    response = await fetch(`${BASE_URL}/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new Error(
+      "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng!"
+    );
   }
+
+  if (!response.ok) {
+    await handleApiError(
+      response,
+      "Gửi yêu cầu thất bại. Vui lòng thử lại sau."
+    );
+  }
+  // Không cần parse body – backend trả ApiResponse<Void>
 }
 
 /**
- * Đặt lại mật khẩu bằng token nhận từ email
+ * Đặt lại mật khẩu bằng token từ email – POST /api/auth/reset-password
  */
-export async function resetPassword(token: string, newPassword: string): Promise<void> {
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<void> {
+  let response: Response;
   try {
-    const res = await api.post<ApiResponse<void>>("/api/auth/reset-password", {
-      token,
-      newPassword,
+    response = await fetch(`${BASE_URL}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, newPassword }),
     });
-    if (!res.data.success) {
-      throw new Error(res.data.message || "Đặt lại mật khẩu thất bại.");
-    }
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
+  } catch {
+    throw new Error(
+      "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng!"
+    );
+  }
+
+  if (!response.ok) {
+    await handleApiError(
+      response,
+      "Đặt lại mật khẩu thất bại. Vui lòng thử lại."
+    );
   }
 }
-
-export default api;

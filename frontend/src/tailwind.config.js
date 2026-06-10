@@ -7,7 +7,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Plus Jakarta Sans", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "sans-  serif"],
         grotesk: ["Anton", "sans-serif"],
         condiment: ["Condiment", "cursive"],
       },

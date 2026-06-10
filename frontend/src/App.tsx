@@ -3,32 +3,29 @@ import OrbisLanding from "./components/LoginPage/OrbisLanding";
 import LoginPanel from "./components/LoginPage/LoginPanel";
 import Loader from "./components/LoginPage/Loader/Loader";
 import Dashboard from "./components/Dashboard/Dashboard";
-import ResetPasswordPage from "./components/ResetPassword/ResetPasswordPage";
 import { useAuthStore } from "./store/authStore";
+import type { AuthResponseData } from "./services/authService";
 
 export default function App() {
-  const { isLoggedIn, logout } = useAuthStore();
+  // Đọc trạng thái login từ authStore (có persist qua localStorage)
+  const { isLoggedIn, setAuth, logout } = useAuthStore();
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showLoginPanel, setShowLoginPanel] = useState<boolean>(false);
 
-  // ── Phát hiện route /reset-password?token=... ──────────────────────────
-  const isResetPasswordRoute = window.location.pathname === "/reset-password";
-  const resetToken = new URLSearchParams(window.location.search).get("token");
-
-  if (isResetPasswordRoute && resetToken) {
-    return <ResetPasswordPage token={resetToken} />;
-  }
-
-  // ── Handler sau khi login thành công ──────────────────────────────────
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = (data: AuthResponseData) => {
+    // Lưu token + user vào Zustand store và localStorage
+    setAuth(data);
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-    }, 2000);
+      setShowLoginPanel(false);
+    }, 2500);
   };
 
-  // ── Handler đăng xuất ─────────────────────────────────────────────────
   const handleLogout = () => {
-    logout(); // Xóa token + user khỏi store & localStorage
+    // Xóa toàn bộ auth state khỏi store và localStorage
+    logout();
   };
 
   if (isLoading) {
@@ -40,24 +37,37 @@ export default function App() {
   }
 
   return (
-    <div className="flex w-screen h-screen overflow-hidden bg-space">
-      {/* BÊN TRÁI - Thêm ID "orbis-scroll-wrapper" phục vụ việc bám dính smooth scroll */}
-      <div 
-        id="orbis-scroll-wrapper" 
-        className="w-[65%] min-w-[65%] max-w-[65%] h-full overflow-y-auto hide-scrollbar relative flex-shrink-0"
-      >
-        <style>{`
-          .hide-scrollbar::-webkit-scrollbar { display: none; }
-        `}</style>
-        <OrbisLanding />
-      </div>
+    <div className="flex w-screen h-screen overflow-hidden bg-space relative">
+      
+      {/* 3. DIỆN TÍCH HIỂN THỊ ORBIS LANDING */}
+      {/* Nếu không showLoginPanel thì full màn hình, nếu show thì có thể ẩn đi hoặc thu nhỏ tùy layout bạn muốn */}
+      {!showLoginPanel ? (
+        <div
+          id="orbis-scroll-wrapper"
+          className="w-full h-full overflow-y-auto hide-scrollbar relative"
+        >
+          <style>{`
+            .hide-scrollbar::-webkit-scrollbar { display: none; }
+          `}</style>
 
-      {/* BÊN PHẢI - Giữ nguyên form đăng nhập cũ */}
-      <div className="w-[35%] min-w-[35%] max-w-[35%] h-full border-l border-white/10 overflow-hidden flex items-center justify-center bg-gradient-to-br from-[#010828] via-[#0a1440] to-[#1a0f3f] relative flex-shrink-0">
-        <div className="relative z-10 w-full max-w-sm sm:max-w-md px-6 py-8">
+          {/* KHI ẤN NÚT THÌ SET STATE THÀNH TRUE */}
+          <OrbisLanding onLoginClick={() => setShowLoginPanel(true)} />
+        </div>
+      ) : (
+        // 4. HIỂN THỊ LOGIN PANEL KHI STATE LÀ TRUE
+        // Thêm nút Back nếu bạn muốn người dùng quay lại Landing Page từ LoginPanel
+        <div className="w-full h-full flex items-center justify-center relative animate-fade-in">
+          <button 
+            onClick={() => setShowLoginPanel(false)} 
+            className="absolute top-6 left-6 text-xs uppercase tracking-widest text-neon border border-neon/30 px-4 py-2 hover:bg-neon hover:text-space transition-all duration-300"
+          >
+            ← Back to journey
+          </button>
+          
           <LoginPanel onLoginSuccess={handleLoginSuccess} />
         </div>
-      </div>
-    </div>  
+      )}
+
+    </div>
   );
 }

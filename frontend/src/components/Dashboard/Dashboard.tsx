@@ -1,19 +1,34 @@
+"use client";
+
+import {
+  useState,
+  useRef,
+  useEffect,
+  Suspense,
+  lazy,
+} from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import gsap from "gsap";
+import { BarChart, Bar, ResponsiveContainer, XAxis, Cell } from "recharts";
+import {
+  Home, FileText, Bot, GraduationCap, BookOpen,
+  Bell, Gem, Coins, HardDrive, MessageSquare, Clock,
+  Flame, Award, Heart, BookMarked, Library, ChevronRight, Trophy,
+  Plus, Search, TrendingUp, TrendingDown, User, LogOut, X
+} from "lucide-react";
+
+import { FloatingDock } from "../ui/floating-dock";
 import "./Dashboard.css";
 import AIAssistant from "./AIAssistant";
 import Documents from "./Documents";
-import Profile from "./Profile/Profile"; // 🎯 Import component Profile
-// 🎯 Import component AIChat
+import Profile from "./Profile/Profile";
 import { AIChat } from "./AIChat/Aichat";
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { BarChart, Bar, ResponsiveContainer, XAxis, Cell } from "recharts";
-import {
-  Home, FileText, Bot, GraduationCap, Settings, LogOut,
-  Bell, Gem, Coins, BookOpen, HardDrive, MessageSquare, Clock,
-  Flame, Award, Heart, BookMarked, Library, ChevronRight, Trophy,
-  Plus, Search, TrendingUp, TrendingDown, User
-} from "lucide-react";
-import { useAuthStore } from "../../store/authStore";
+import NotificationsPage from "./NotificationsPage";
+import QuizPage from "./QuizPage";
+import FlashcardPage from "./FlashcardPage";
+import { GooeyInput } from "../ui/gooey-input";
+import { LeaderboardModal } from "./LeaderboardModal";
+const Spline = lazy(() => import("@splinetool/react-spline"));
 
 interface DashboardProps {
   onLogout: () => void;
@@ -22,9 +37,6 @@ interface DashboardProps {
 const robotMind = new URL('../../assets/robot-mind.png', import.meta.url).href;
 const robotFocus = new URL('../../assets/robot-focus.png', import.meta.url).href;
 
-/* ==========================================================================
-   ✨ CONFIG ANIMATION VARIANTS FOR LAYOUT SHELL
-   ========================================================================== */
 const pageVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -51,51 +63,92 @@ const headerVariants = {
   },
 };
 
-/* ---------- SIDEBAR ---------- */
+// Hook count-up dùng cho các chỉ số thống kê
+function useCountUp(ref: React.RefObject<any>, target: string, duration = 1.8) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const numStr = target.replace(/[^0-9.]/g, "");
+    const endVal = parseFloat(numStr);
+    if (isNaN(endVal)) {
+      el.textContent = target;
+      return;
+    }
+
+    const suffix = target.replace(/[0-9,.\s]/g, "");
+    const hasCommas = target.includes(",");
+    const decimals = numStr.includes(".") ? numStr.split(".")[1].length : 0;
+
+    const obj = { val: 0 };
+    gsap.to(obj, {
+      val: endVal,
+      duration,
+      ease: "power2.out",
+      onUpdate: () => {
+        let formatted = obj.val.toFixed(decimals);
+        if (hasCommas) {
+          formatted = Number(formatted).toLocaleString("en-US", {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+          });
+        }
+        el.textContent = formatted + suffix;
+      },
+    });
+  }, [ref, target, duration]);
+}
+
 const navItems = [
   { icon: Home, label: "Home" },
   { icon: FileText, label: "Documents" },
   { icon: Bot, label: "AI Chat" },
   { icon: GraduationCap, label: "Courses" },
+  { icon: BookOpen, label: "Quiz" },
+  { icon: BookMarked, label: "Flashcards" },
 ];
 
 function Sidebar({ active, setActive }: { active: number; setActive: (i: number) => void }) {
   return (
     <motion.div className="dh-sidebar" variants={sidebarVariants as any}>
       <div className="dh-logo" onClick={() => setActive(0)} style={{ cursor: "pointer" }}>AI</div>
-      <nav className="dh-nav">
+      <nav className="dh-nav" style={{ position: "relative" }}>
         {navItems.map((it, i) => {
           const Icon = it.icon;
           return (
             <motion.button
               key={it.label}
-              whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActive(i)}
               className={`dh-nav-btn ${active === i ? "active" : ""}`}
               aria-label={it.label}
             >
-              <Icon size={20} />
+              {active === i && (
+                <motion.div
+                  layoutId="activeNavIndicator"
+                  className="dh-nav-indicator"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+              <Icon size={20} style={{ position: "relative", zIndex: 2 }} />
             </motion.button>
           );
         })}
       </nav>
-      {/* 🛠️ CODER FIX: Đã loại bỏ hoàn toàn nút Settings cơ đơn ở góc dưới này để làm sạch diện tích Sidebar */}
     </motion.div>
   );
 }
 
-/* ---------- HEADER WITH DROPDOWNS ---------- */
+const dropdownVariants = {
+  hidden: { opacity: 0, y: -10, scale: 0.97 },
+  visible: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -10, scale: 0.97 },
+};
+
 function Header({ onLogout, setActive }: { onLogout: () => void; setActive: (i: number) => void }) {
   const [showNoti, setShowNoti] = useState(false);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
-
-  // ── Lấy thông tin user thực từ authStore ──────────────────────────────
-  const { user } = useAuthStore();
-  const displayName = user?.fullName ?? "Người dùng";
-  const displayEmail = user?.email ?? "";
-  // Lấy chữ cái đầu của tên để hiển thị avatar
-  const avatarInitial = displayName.trim().charAt(0).toUpperCase();
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [notifications, setNotifications] = useState([
     { id: 1, text: "🤖 AI vừa tóm tắt xong tài liệu 'Calculus II'", time: "5 phút trước", unread: true },
@@ -113,18 +166,35 @@ function Header({ onLogout, setActive }: { onLogout: () => void; setActive: (i: 
     <motion.header className="dh-header" variants={headerVariants as any} style={{ position: "relative" }}>
       <h1 className="dh-title">
         Dashboard
-        <small>Chào mừng trở lại, {displayName} — hãy tiếp tục học nhé ✨</small>
+        <small>Welcome back, Khoa — let's keep learning </small>
       </h1>
 
+      <div
+        className="dh-search-container"
+        style={{
+          marginLeft: "24px",
+          marginRight: "auto",
+          minWidth: "110px"
+
+        }}
+      >
+        <GooeyInput
+          placeholder="Tìm kiếm tài liệu, quiz, flashcard..."
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          collapsedWidth={210}
+          expandedWidth={380}
+          expandedOffset={45}
+        />
+      </div>
+
       <div className="dh-header-right">
-        {/* 🚀 UX FEATURE ENHANCEMENT: Thêm ngọn lửa Streak (Chuỗi học tập) vào thanh điểm số */}
         <div className="dh-pill">
           <span className="dh-pill-item" style={{ color: "#ef4444", fontWeight: "bold" }}><Flame size={16} fill="#ef4444" /> 5 Days</span>
           <span className="dh-pill-item" style={{ color: "#0ea5e9" }}><Gem size={16} /> 144</span>
           <span className="dh-pill-item" style={{ color: "#f59e0b" }}><Coins size={16} /> 2,321</span>
         </div>
 
-        {/* --- NÚT NOTIFICATION --- */}
         <div style={{ position: "relative" }}>
           <button
             className="dh-bell"
@@ -138,29 +208,38 @@ function Header({ onLogout, setActive }: { onLogout: () => void; setActive: (i: 
             {unreadCount > 0 && <span className="dh-noti-badge">{unreadCount}</span>}
           </button>
 
-          {showNoti && (
-            <div className="dh-dropdown dh-noti-dropdown">
-              <div className="dh-dropdown-header">
-                <h3>Thông báo mới</h3>
-                {unreadCount > 0 && <button onClick={markAllAsRead}>Đọc tất cả</button>}
-              </div>
-              <div className="dh-dropdown-list">
-                {notifications.length === 0 ? (
-                  <div className="dh-dropdown-empty">Không có thông báo nào</div>
-                ) : (
-                  notifications.map(n => (
-                    <div key={n.id} className={`dh-noti-item ${n.unread ? "unread" : ""}`}>
-                      <p className="dh-noti-text">{n.text}</p>
-                      <span className="dh-noti-time">{n.time}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+          <AnimatePresence>
+            {showNoti && (
+              <motion.div
+                className="dh-dropdown dh-noti-dropdown"
+                key="noti-dropdown"
+                variants={dropdownVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                <div className="dh-dropdown-header">
+                  <h3>Thông báo mới</h3>
+                  {unreadCount > 0 && <button onClick={markAllAsRead}>Đọc tất cả</button>}
+                </div>
+                <div className="dh-dropdown-list">
+                  {notifications.length === 0 ? (
+                    <div className="dh-dropdown-empty">Không có thông báo nào</div>
+                  ) : (
+                    notifications.map((n: any) => (
+                      <div key={n.id} className={`dh-noti-item ${n.unread ? "unread" : ""}`}>
+                        <p className="dh-noti-text">{n.text}</p>
+                        <span className="dh-noti-time">{n.time}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* --- NÚT AVATAR – Hiển thị chữ cái đầu tên user --- */}
         <div style={{ position: "relative" }}>
           <div
             className="dh-avatar"
@@ -170,82 +249,56 @@ function Header({ onLogout, setActive }: { onLogout: () => void; setActive: (i: 
               setShowNoti(false);
             }}
           >
-            {avatarInitial}
+            M
           </div>
 
-          {showAvatarMenu && (
-            <div className="dh-dropdown dh-avatar-dropdown">
-              <div className="dh-user-info">
-                <strong>{displayName}</strong>
-                <span>{displayEmail}</span>
-              </div>
-              <hr />
-
-              {/* Nút thông tin tài khoản */}
-              <button
-                className="dh-dropdown-item"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  background: "none",
-                  border: "none",
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  color: "#334155",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  borderRadius: "6px"
-                }}
-                onClick={() => {
-                  setActive(4);
-                  setShowAvatarMenu(false);
-                }}
+          <AnimatePresence>
+            {showAvatarMenu && (
+              <motion.div
+                className="dh-dropdown dh-avatar-dropdown"
+                key="avatar-dropdown"
+                variants={dropdownVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ duration: 0.2, ease: "easeOut" }}
               >
-                <User size={16} />
-                <span>Thông tin tài khoản</span>
-              </button>
+                <div className="dh-user-info">
+                  <strong>Anh Khoa</strong>
+                  <span>anhkhoa@fpt.edu.vn</span>
+                </div>
+                <hr />
 
-              {/* 🛠️ CODER MOVE: Đã chuyển đổi nút Cài đặt hệ thống lên đây */}
-              <button
-                className="dh-dropdown-item"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  background: "none",
-                  border: "none",
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  color: "#334155",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  borderRadius: "6px"
-                }}
-                onClick={() => {
-                  setActive(5); // Chuyển đổi trạng thái màn hình sang tab Cài đặt (index 5)
-                  setShowAvatarMenu(false);
-                }}
-              >
-                <Settings size={16} />
-                <span>Cài đặt cấu hình</span>
-              </button>
+                <button
+                  className="dh-dropdown-item"
+                  style={{
+                    display: "flex", alignItems: "center", gap: "8px", width: "100%",
+                    background: "none", border: "none", padding: "10px 12px",
+                    fontSize: "14px", color: "#334155", cursor: "pointer",
+                    textAlign: "left", borderRadius: "6px"
+                  }}
+                  onClick={() => {
+                    setActive(6);
+                    setShowAvatarMenu(false);
+                  }}
+                >
+                  <User size={16} />
+                  <span>Thông tin tài khoản</span>
+                </button>
 
-              <button className="dh-logout-btn" onClick={onLogout}>
-                <LogOut size={16} />
-                <span>Đăng xuất</span>
-              </button>
-            </div>
-          )}
+                <button className="dh-logout-btn" onClick={onLogout}>
+                  <LogOut size={16} />
+                  <span>Đăng xuất</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.header>
   );
 }
 
-/* ---------- STAT CARDS ---------- */
 const statCards = [
   { label: "Tổng tài liệu", value: "128", icon: FileText, bg: "bg-blue" },
   { label: "Số môn học", value: "12", icon: BookOpen, bg: "bg-purple" },
@@ -253,6 +306,20 @@ const statCards = [
   { label: "Lượt hỏi AI", value: "2,341", icon: MessageSquare, bg: "bg-yellow" },
   { label: "Tài liệu gần đây", value: "14", icon: Clock, bg: "bg-mint" },
 ];
+
+function StatCard({ card }: { card: typeof statCards[number] }) {
+  const valRef = useRef<HTMLDivElement>(null);
+  const Icon = card.icon;
+  useCountUp(valRef, card.value);
+
+  return (
+    <motion.div whileHover={{ y: -6 }} className={`dh-stat ${card.bg}`}>
+      <div className="dh-stat-icon"><Icon size={18} /></div>
+      <div className="dh-stat-label">{card.label}</div>
+      <div className="dh-stat-value" ref={valRef}>0</div>
+    </motion.div>
+  );
+}
 
 function DashboardCards() {
   return (
@@ -263,26 +330,23 @@ function DashboardCards() {
       viewport={{ once: true }}
       transition={{ duration: 0.6 }}
     >
-      {statCards.map((c) => {
-        const Icon = c.icon;
-        return (
-          <motion.div key={c.label} whileHover={{ y: -6 }} className={`dh-stat ${c.bg}`}>
-            <div className="dh-stat-icon"><Icon size={18} /></div>
-            <div className="dh-stat-label">{c.label}</div>
-            <div className="dh-stat-value">{c.value}</div>
-          </motion.div>
-        );
-      })}
+      {statCards.map((c) => (
+        <StatCard key={c.label} card={c} />
+      ))}
     </motion.div>
   );
 }
 
-/* ---------- ROBOT CARD ---------- */
 interface RobotProps {
-  tag: string; name: string; desc: string; image: string; bg: string;
+  tag: string; name: string; desc: string;
+  image: string; splineUrl?: string; bg: string;
   gems: number; coins: number; floatDelay?: number;
 }
-function RobotCard({ tag, name, desc, image, bg, gems, coins, floatDelay = 0 }: RobotProps) {
+
+function RobotCard({ tag, name, desc, image, splineUrl, bg, gems, coins, floatDelay = 0 }: RobotProps) {
+  const [splineLoaded, setSplineLoaded] = useState(false);
+  const showSpline = !!splineUrl;
+
   return (
     <div className={`dh-robot ${bg}`}>
       <div className="dh-robot-badges">
@@ -291,14 +355,33 @@ function RobotCard({ tag, name, desc, image, bg, gems, coins, floatDelay = 0 }: 
       </div>
       <div className="dh-robot-fire"><Flame size={16} color="#f97316" /></div>
       <div className="dh-robot-body">
-        <motion.img
-          src={image}
-          alt={name}
-          className="dh-robot-img"
-          loading="lazy"
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut", delay: floatDelay }}
-        />
+        {showSpline ? (
+          <div className="dh-robot-spline-wrapper">
+            {!splineLoaded && (
+              <div className="dh-spline-loader">
+                <div className="dh-spinner" />
+                <span>Loading 3D...</span>
+              </div>
+            )}
+            <Suspense fallback={null}>
+              <Spline
+                scene={splineUrl}
+                onLoad={() => setSplineLoaded(true)}
+                style={{
+                  width: 130, height: 130,
+                  opacity: splineLoaded ? 1 : 0,
+                  transition: "opacity 0.4s ease",
+                }}
+              />
+            </Suspense>
+          </div>
+        ) : (
+          <motion.img
+            src={image} alt={name} className="dh-robot-img" loading="lazy"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut", delay: floatDelay }}
+          />
+        )}
         <div className="dh-robot-text">
           <div className="dh-robot-tag">{tag}</div>
           <h3 className="dh-robot-name">{name}</h3>
@@ -309,7 +392,6 @@ function RobotCard({ tag, name, desc, image, bg, gems, coins, floatDelay = 0 }: 
   );
 }
 
-/* ---------- STUDY PROGRESS ---------- */
 const chartData = [
   { m: "Sep", v: 22 }, { m: "Sep", v: 28 }, { m: "Oct", v: 24 }, { m: "Oct", v: 30 },
   { m: "Nov", v: 36 }, { m: "Nov", v: 32 }, { m: "Dec", v: 42 }, { m: "Dec", v: 48 },
@@ -352,7 +434,6 @@ function StudyProgress() {
   );
 }
 
-/* ---------- AI USAGE / BADGES ---------- */
 const badges = [
   { label: "Book Explorer", icon: BookMarked, bg: "var(--pink)", color: "#be185d" },
   { label: "Heart of Reader", icon: Heart, bg: "var(--blue)", color: "#0369a1" },
@@ -418,7 +499,6 @@ function AIUsagePanel() {
   );
 }
 
-/* ---------- RECENT DOCUMENTS ---------- */
 const categories = [
   { label: "Ethics", emoji: "🛡️", bg: "bg-coral" },
   { label: "Technology", emoji: "⚙️", bg: "bg-purple" },
@@ -478,7 +558,6 @@ function RecentDocuments() {
   );
 }
 
-/* ---------- LEADERBOARD ---------- */
 const top3 = [
   { name: "Jack Nicklson", score: "48,105", color: "#0ea5e9", initial: "J" },
   { name: "Brody Bellson", score: "65,322", color: "#16a34a", initial: "B" },
@@ -542,9 +621,8 @@ function Leaderboard() {
     </motion.div>
   );
 }
-
-/* ---------- HOME CONTENT ---------- */
 function HomeContent({ onLogout, setActive }: { onLogout: () => void; setActive: (i: number) => void }) {
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   return (
     <>
       <Header onLogout={onLogout} setActive={setActive} />
@@ -566,6 +644,7 @@ function HomeContent({ onLogout, setActive }: { onLogout: () => void; setActive:
               name="Mind Explorer"
               desc="A deep dive into thoughts, emotions and AI-assisted learning."
               image={robotMind}
+              splineUrl=""
               bg="bg-yellow"
               gems={5}
               coins={145}
@@ -575,6 +654,7 @@ function HomeContent({ onLogout, setActive }: { onLogout: () => void; setActive:
               name="Deep Focus AI"
               desc="Personalized concentration coaching for long study sessions."
               image={robotFocus}
+              splineUrl=""
               bg="bg-blue"
               gems={0}
               coins={0}
@@ -590,17 +670,42 @@ function HomeContent({ onLogout, setActive }: { onLogout: () => void; setActive:
           <RecentDocuments />
         </div>
 
-        <div className="dh-col-right">
+        <div className="dh-col-right" onClick={() => setIsLeaderboardOpen(true)} style={{ cursor: "pointer" }}>
           <Leaderboard />
         </div>
       </div>
+
+      {/* Modal Leaderboard */}
+      <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setIsLeaderboardOpen(false)}>
+        <Leaderboard />
+      </LeaderboardModal>
     </>
   );
 }
 
-/* ---------- MAIN DASHBOARD ---------- */
 export default function Dashboard({ onLogout }: DashboardProps) {
   const [active, setActive] = useState(0);
+
+  const dockItems = [
+    { title: "Home", icon: <Home />, onClick: () => setActive(0) },
+    { title: "Documents", icon: <FileText />, onClick: () => setActive(1) }, // Lưu ý vị trí này
+    { title: "AI Chat", icon: <Bot />, onClick: () => setActive(2) },
+    { title: "Courses", icon: <GraduationCap />, onClick: () => setActive(3) },
+    { title: "Quiz", icon: <BookOpen />, onClick: () => setActive(4) },      // Vị trí này
+    { title: "Flashcards", icon: <BookMarked />, onClick: () => setActive(5) },
+  ];
+  const renderByActive = () => {
+    switch (active) {
+      case 0: return <HomeContent onLogout={onLogout} setActive={setActive} />;
+      case 1: return <Documents />;
+      case 2: return <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}><AIChat /></div>;
+      case 3: return <NotificationsPage />;
+      case 4: return <QuizPage />;
+      case 5: return <FlashcardPage />;
+      case 6: return <Profile onBack={() => setActive(0)} />;
+      default: return <div style={{ padding: "32px", textAlign: "center" }}><h2>Coming soon</h2></div>;
+    }
+  };
 
   return (
     <div className="dh-root">
@@ -609,63 +714,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
+        style={{ paddingLeft: "24px", paddingRight: "24px" }} // Bỏ padding dành cho sidebar
       >
-        <Sidebar active={active} setActive={setActive} />
-
-        <main className="dh-main">
-          {active === 0 && <HomeContent onLogout={onLogout} setActive={setActive} />}
-          {active === 1 && <Documents />}
-
-          {active === 2 && (
-            <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
-              <AIChat />
-            </div>
-          )}
-
-          {active === 3 && <div style={{ padding: "32px", textAlign: "center" }}><h2>Courses Coming Soon</h2></div>}
-
-          {/* Màn hình Profile (Mục số 4) */}
-          {active === 4 && <Profile onBack={() => setActive(0)} />}
-
-          {/* 🚀 UX FEATURE ENHANCEMENT: Thêm Layout Màn hình Cài đặt Hệ thống (Mục số 5) */}
-          {active === 5 && (
-            <div style={{ padding: "32px", color: "#1e293b" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
-                <Settings size={28} className="text-slate-700" />
-                <h2 style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>Cài đặt hệ thống</h2>
-              </div>
-              <p style={{ color: "#64748b", marginTop: "-16px", marginBottom: "32px" }}>Thay đổi cấu hình cá nhân hóa trải nghiệm học tập AI của bạn.</p>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxWidth: "500px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <div>
-                    <strong style={{ display: "block", fontSize: "15px" }}>Chế độ tối (Dark Mode)</strong>
-                    <span style={{ fontSize: "12px", color: "#64748b" }}>Tiết kiệm pin và bảo vệ mắt khi học ban đêm</span>
-                  </div>
-                  <input type="checkbox" style={{ width: "40px", height: "20px", cursor: "pointer" }} />
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <div>
-                    <strong style={{ display: "block", fontSize: "15px" }}>Nhận thông báo qua Email</strong>
-                    <span style={{ fontSize: "12px", color: "#64748b" }}>Báo cáo khi AI hoàn tất tóm tắt giáo trình lớn</span>
-                  </div>
-                  <input type="checkbox" defaultChecked style={{ width: "40px", height: "20px", cursor: "pointer" }} />
-                </div>
-              </div>
-              
-              <button 
-                onClick={() => setActive(0)} 
-                style={{ marginTop: "32px", padding: "10px 20px", background: "#1e3a5f", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "500" }}
-              >
-                Quay lại Trang chủ
-              </button>
-            </div>
-          )}
+        <main className="dh-main" aria-live="polite">
+          {renderByActive()}
         </main>
       </motion.div>
 
-      {active !== 2 && active !== 4 && active !== 5 && <AIAssistant />}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <FloatingDock items={dockItems} />
+      </div>
+
+      {active !== 2 && active !== 4 && active !== 5 && active !== 6 && <AIAssistant />}
     </div>
   );
 }
