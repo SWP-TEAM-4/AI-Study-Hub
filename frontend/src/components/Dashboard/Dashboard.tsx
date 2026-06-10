@@ -28,6 +28,7 @@ import QuizPage from "./QuizPage";
 import FlashcardPage from "./FlashcardPage";
 import { GooeyInput } from "../ui/gooey-input";
 import { LeaderboardModal } from "./LeaderboardModal";
+import { useAuthStore } from "../../store/authStore";
 const Spline = lazy(() => import("@splinetool/react-spline"));
 
 interface DashboardProps {
@@ -146,6 +147,7 @@ const dropdownVariants = {
 };
 
 function Header({ onLogout, setActive }: { onLogout: () => void; setActive: (i: number) => void }) {
+  const { user } = useAuthStore();
   const [showNoti, setShowNoti] = useState(false);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -166,7 +168,7 @@ function Header({ onLogout, setActive }: { onLogout: () => void; setActive: (i: 
     <motion.header className="dh-header" variants={headerVariants as any} style={{ position: "relative" }}>
       <h1 className="dh-title">
         Dashboard
-        <small>Welcome back, Khoa — let's keep learning </small>
+        <small>Welcome back, {user?.fullName?.split(" ").pop() ?? "bạn"} — let's keep learning </small>
       </h1>
 
       <div
@@ -264,8 +266,8 @@ function Header({ onLogout, setActive }: { onLogout: () => void; setActive: (i: 
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 <div className="dh-user-info">
-                  <strong>Anh Khoa</strong>
-                  <span>anhkhoa@fpt.edu.vn</span>
+                  <strong>{user?.fullName ?? "—"}</strong>
+                  <span>{user?.email ?? "—"}</span>
                 </div>
                 <hr />
 

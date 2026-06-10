@@ -6,6 +6,28 @@
   font-family: inherit;
 }
 
+/* ================= LOADING STATE ================= */
+.pf-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 16px;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.pf-spinner {
+  animation: pf-spin 1s linear infinite;
+  color: #0ea5e9;
+}
+
+@keyframes pf-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Thanh quay lại */
 .pf-top-bar {
   margin-bottom: 24px;
@@ -77,6 +99,14 @@
   justify-content: center;
   margin-bottom: 20px;
   box-shadow: 0 8px 20px rgba(14, 165, 233, 0.2);
+  overflow: hidden;
+}
+
+.pf-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .pf-profile-name {
@@ -93,13 +123,80 @@
 }
 
 .pf-badge {
-  background: #eff6ff;
-  color: #2563eb;
-  padding: 6px 16px;
+  padding: 5px 14px;
   border-radius: 99px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pf-badge-student {
+  background: #eff6ff;
+  color: #2563eb;
   border: 1px solid #dbeafe;
+}
+
+.pf-badge-reviewer {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.pf-badge-admin {
+  background: #fdf4ff;
+  color: #7c3aed;
+  border: 1px solid #e9d5ff;
+}
+
+/* Stats row (điểm + badge) */
+.pf-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.pf-stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Academic info block */
+.pf-academic-info {
+  width: 100%;
+  margin: 8px 0 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-academic-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+
+/* Member since text */
+.pf-member-since {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0 0 4px;
 }
 
 /* Thẻ chứa Form bên phải */
@@ -114,6 +211,11 @@
   font-size: 14px;
   color: #64748b;
   margin: 0 0 28px 0;
+}
+
+.pf-last-updated {
+  font-size: 12px;
+  color: #94a3b8;
 }
 
 /* Lưới của Form (Chia 2 cột cho các ô nhập liệu) */
@@ -355,4 +457,228 @@
 }
 .pf-toast-error .pf-toast-icon {
   color: #dc2626;
+}
+
+/* ================= PASSWORD FIELD WITH SHOW/HIDE ================= */
+.pf-pwd-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pf-pwd-wrapper input {
+  width: 100%;
+  padding-right: 44px !important;
+}
+
+.pf-eye-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.pf-eye-btn:hover {
+  color: #475569;
+}
+
+/* ================= PASSWORD STRENGTH BAR ================= */
+.pf-pwd-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -12px;
+}
+
+.pf-pwd-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  transition: background 0.3s ease;
+}
+
+.pf-pwd-bar.weak   { background: #ef4444; }
+.pf-pwd-bar.medium { background: #f59e0b; }
+.pf-pwd-bar.strong { background: #10b981; }
+
+.pf-pwd-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* ================= BUTTON SPINNER ================= */
+.pf-btn-spinner {
+  animation: pf-spin 0.8s linear infinite;
+}
+
+/* ================= WARNING BANNER ================= */
+.pf-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-left: 4px solid #f59e0b;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+}
+
+.pf-warning-icon {
+  color: #d97706;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.pf-warning-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 14px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.pf-warning-text strong {
+  font-weight: 600;
+  color: #78350f;
+}
+
+.pf-warning-text span {
+  font-size: 13px;
+  color: #a16207;
+}
+
+/* ================= INFO GRID (read-only account details) ================= */
+.pf-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .pf-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card cơ bản */
+.pf-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: border-color 0.15s ease;
+}
+
+/* Card chiếm cả 2 cột (semester, combo) */
+.pf-info-card-wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .pf-info-card-wide {
+    grid-column: span 1;
+  }
+}
+
+/* Card bị thiếu thông tin – viền vàng amber */
+.pf-info-card-missing {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+/* Label trong card */
+.pf-info-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Value mặc định */
+.pf-info-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.pf-info-value strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Điểm uy tín */
+.pf-info-reputation {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0ea5e9;
+  line-height: 1;
+}
+
+.pf-info-unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: #64748b;
+}
+
+/* Role badge bên trong info-card */
+.pf-info-role {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+/* Trạng thái tài khoản */
+.pf-info-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 99px;
+  width: fit-content;
+}
+
+.pf-info-status.active {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.pf-info-status.inactive {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Trạng thái "Chưa cập nhật" */
+.pf-info-missing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #d97706;
 }
