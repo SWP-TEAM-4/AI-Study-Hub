@@ -10,14 +10,18 @@ import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizSearchRequest;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Service xử lý toàn bộ logic nghiệp vụ liên quan đến Quiz (Đề thi).
@@ -206,26 +210,67 @@ public class QuizService {
 
     /**
      * Tìm kiếm và lọc danh sách Quiz cá nhân (do chính người dùng đăng nhập tạo ra).
-     * 
-     * @param searchRequest bộ lọc tìm kiếm và phân loại Quiz
-     * @param pageable cấu hình phân trang và sắp xếp
-     * @return danh sách Quiz dạng phân trang (Page DTO)
+     * Dùng JPA Specification để tránh lỗi Hibernate 6 khi pass null vào JPQL params.
      */
     @Transactional(readOnly = true)
     public Page<QuizResponse> searchMyQuizzes(QuizSearchRequest searchRequest, Pageable pageable) {
         Long currentUserId = userService.getCurrentUserId();
         String keyword = searchRequest.getKeyword() != null ? searchRequest.getKeyword().trim() : null;
-        return quizRepository.searchMyQuizzes(
-            currentUserId,
-            keyword,
-            searchRequest.getSubjectId(),
-            searchRequest.getNotebookId(),
-            searchRequest.getAcademicTermId(),
-            searchRequest.getExamType(),
-            searchRequest.getVisibility(),
-            searchRequest.getMarketStatus(),
-            pageable
-        ).map(this::toQuizResponse);
+
+        Specification<Quiz> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Bắt buộc: chỉ lấy quiz của user hiện tại
+            predicates.add(cb.equal(root.get("creator").get("id"), currentUserId));
+
+            // Tìm kiếm theo keyword (title hoặc description)
+            if (keyword != null && !keyword.isEmpty()) {
+                String pattern = "%" + keyword.toLowerCase() + "%";
+                Predicate titleMatch = cb.like(cb.lower(root.get("title")), pattern);
+                Predicate descMatch = cb.and(
+                    cb.isNotNull(root.get("description")),
+                    cb.like(cb.lower(root.get("description")), pattern)
+                );
+                predicates.add(cb.or(titleMatch, descMatch));
+            }
+
+            // Lọc theo subjectId
+            if (searchRequest.getSubjectId() != null) {
+                predicates.add(cb.equal(root.get("subject").get("id"), searchRequest.getSubjectId()));
+            }
+
+            // Lọc theo notebookId
+            if (searchRequest.getNotebookId() != null) {
+                predicates.add(cb.equal(root.get("notebook").get("id"), searchRequest.getNotebookId()));
+            }
+
+            // Lọc theo academicTermId
+            if (searchRequest.getAcademicTermId() != null) {
+                predicates.add(cb.equal(root.get("academicTerm").get("id"), searchRequest.getAcademicTermId()));
+            }
+
+            // Lọc theo examType (case-insensitive)
+            if (searchRequest.getExamType() != null && !searchRequest.getExamType().isBlank()) {
+                predicates.add(cb.equal(
+                    cb.lower(root.get("examType")),
+                    searchRequest.getExamType().trim().toLowerCase()
+                ));
+            }
+
+            // Lọc theo visibility enum
+            if (searchRequest.getVisibility() != null) {
+                predicates.add(cb.equal(root.get("visibility"), searchRequest.getVisibility()));
+            }
+
+            // Lọc theo marketStatus enum
+            if (searchRequest.getMarketStatus() != null) {
+                predicates.add(cb.equal(root.get("marketStatus"), searchRequest.getMarketStatus()));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return quizRepository.findAll(spec, pageable).map(this::toQuizResponse);
     }
 
     // ── Mapping Helper ───────────────────────────────────────────────────────
