@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import { getMyNotebooks } from "../../services/notebookService";
 import {
-  Plus, MessageSquare, Trash2, Send, 
+  Plus, MessageSquare, Trash2, Send,
   Bot, User, CheckCircle2
 } from "lucide-react";
 // 🎯 Đã import thêm Variants để ép kiểu định nghĩa hiệu ứng chuẩn chỉnh
@@ -43,9 +44,9 @@ interface DocumentSource {
    ========================================================================== */
 const messageVariants: Variants = {
   hidden: { opacity: 0, y: 20, scale: 0.95 },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
+  visible: {
+    opacity: 1,
+    y: 0,
     scale: 1,
     transition: { type: "spring", stiffness: 350, damping: 25 }
   },
@@ -54,11 +55,11 @@ const messageVariants: Variants = {
 
 const citationVariants: Variants = {
   hidden: { opacity: 0, height: 0, scaleY: 0.8 },
-  visible: { 
-    opacity: 1, 
+  visible: {
+    opacity: 1,
     height: "auto",
     scaleY: 1,
-    transition: { type: "spring", stiffness: 400, damping: 30 } 
+    transition: { type: "spring", stiffness: 400, damping: 30 }
   },
 };
 
@@ -136,7 +137,7 @@ export function AIChat() {
       updatedAt: new Date(),
       attachedDocId: selectedDocId || undefined
     };
-    
+
     setSessions([newChat, ...sessions]);
     setMessages({
       ...messages,
@@ -144,7 +145,7 @@ export function AIChat() {
         {
           id: `m-${Date.now()}`,
           role: "assistant",
-          content: selectedDocId 
+          content: selectedDocId
             ? `Hệ thống đã sẵn sàng với tài liệu [${MOCK_DOCUMENTS.find(d => d.id === selectedDocId)?.name}]. Hãy đặt câu hỏi!`
             : "Xin chào! Bạn cần tôi giúp gì hôm nay?",
           timestamp: new Date()
@@ -158,7 +159,7 @@ export function AIChat() {
     e.stopPropagation();
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
-    
+
     const updatedMsgs = { ...messages };
     delete updatedMsgs[id];
     setMessages(updatedMsgs);
@@ -227,11 +228,11 @@ export function AIChat() {
 
   return (
     <div className="ai-chat-container">
-      
+
       {/* PANEL TRÁI */}
       <div className="ai-chat-sidebar">
-        <motion.button 
-          onClick={handleCreateNewChat} 
+        <motion.button
+          onClick={handleCreateNewChat}
           className="new-chat-btn"
           whileHover={{ scale: 1.03, backgroundColor: "#1e4a7a" }}
           whileTap={{ scale: 0.97 }}
@@ -241,8 +242,8 @@ export function AIChat() {
 
         <div className="section-doc">
           <div className="section-title">📚 Nguồn Kiến Thức (RAG)</div>
-          <select 
-            value={selectedDocId} 
+          <select
+            value={selectedDocId}
             onChange={(e) => {
               setSelectedDocId(e.target.value);
               if (activeSession) {
@@ -267,8 +268,8 @@ export function AIChat() {
           <div className="section-title">💬 Các cuộc hội thoại gần đây</div>
           <AnimatePresence initial={false}>
             {sessions.map(s => (
-              <motion.div 
-                key={s.id} 
+              <motion.div
+                key={s.id}
                 layout
                 onClick={() => setActiveSessionId(s.id)}
                 className={`chat-row ${s.id === activeSessionId ? "active" : ""}`}
@@ -279,8 +280,8 @@ export function AIChat() {
                   <MessageSquare size={16} style={{ marginRight: 8, color: "#64748b" }} />
                   <span className="chat-row-title">{s.title}</span>
                 </div>
-                <motion.button 
-                  onClick={(e) => handleDeleteChat(s.id, e)} 
+                <motion.button
+                  onClick={(e) => handleDeleteChat(s.id, e)}
                   className="delete-btn"
                   whileHover={{ scale: 1.2, color: "#ef4444" }}
                 >
@@ -310,11 +311,11 @@ export function AIChat() {
         <div className="message-list">
           <AnimatePresence initial={false}>
             {currentMessages.map((msg) => (
-              <motion.div 
-                key={msg.id} 
+              <motion.div
+                key={msg.id}
                 layout
                 className={`message-wrapper ${msg.role === "user" ? "user" : "assistant"}`}
-                initial="hidden"    
+                initial="hidden"
                 animate="visible"
                 exit="exit"
                 variants={messageVariants}
@@ -322,14 +323,14 @@ export function AIChat() {
                 {msg.role === "assistant" && (
                   <div className="avatar-bot"><Bot size={16} color="#fff" /></div>
                 )}
-                
+
                 <div className="message-container">
                   <div className={`bubble ${msg.role}`}>
                     {msg.content}
                   </div>
 
                   {msg.role === "assistant" && msg.citations && (
-                    <motion.div 
+                    <motion.div
                       className="citation-box"
                       initial="hidden"
                       animate="visible"
@@ -339,7 +340,7 @@ export function AIChat() {
                       <div className="citation-header">📌 Nguồn trích dẫn tài liệu:</div>
                       {msg.citations.map((cite, index) => (
                         <div key={index} className="citation-item">
-                          <strong>{cite.sourceDoc} (Trang {cite.page})</strong>: 
+                          <strong>{cite.sourceDoc} (Trang {cite.page})</strong>:
                           <em>"{cite.snippet}"</em>
                         </div>
                       ))}
@@ -358,7 +359,7 @@ export function AIChat() {
           {isLoading && (
             <motion.div layout className="message-wrapper assistant">
               <div className="avatar-bot"><Bot size={16} color="#fff" /></div>
-              <motion.div 
+              <motion.div
                 className="typing-indicator"
                 initial="initial"
                 animate="animate"
@@ -375,17 +376,17 @@ export function AIChat() {
 
         <form onSubmit={handleSendMessage} className="input-area">
           <div className="input-container">
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={activeSession?.attachedDocId ? "Hỏi bất kỳ điều gì về tài liệu..." : "Nhập câu hỏi tại đây..."}
               className="chat-input"
               disabled={isLoading}
             />
-            <motion.button 
-              type="submit" 
-              disabled={!inputValue.trim() || isLoading} 
+            <motion.button
+              type="submit"
+              disabled={!inputValue.trim() || isLoading}
               className="send-btn"
               whileHover={!isLoading ? { scale: 1.08, backgroundColor: "#1e4a7a" } : {}}
               whileTap={!isLoading ? { scale: 0.92 } : {}}
