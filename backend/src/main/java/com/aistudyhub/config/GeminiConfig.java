@@ -28,9 +28,9 @@ public class GeminiConfig {
 
     /**
      * Gemini API base URL.
-     * Default: https://generativelanguage.googleapis.com/v1/models
+     * Default: https://generativelanguage.googleapis.com/v1beta/models
      */
-    @Value("${app.ai.gemini.base-url:https://generativelanguage.googleapis.com/v1/models}")
+    @Value("${app.ai.gemini.base-url:https://generativelanguage.googleapis.com/v1beta/models}")
     private String baseUrl;
 
     /**
@@ -70,6 +70,6 @@ public class GeminiConfig {
      * @return Full API endpoint URL
      */
     public String getApiUrl() {
-        return String.format("%s/%s:generateContent?key=%s", baseUrl, model, apiKey);
+        return String.format("%s/%s:generateContent", baseUrl, model);
     }
 }

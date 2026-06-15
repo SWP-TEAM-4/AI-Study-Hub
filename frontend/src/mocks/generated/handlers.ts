@@ -2,7 +2,7 @@
 // ⚠️  FILE NÀY ĐƯỢC TỰ ĐỘNG SINH BỞI scripts/generateMswHandlers.cjs
 // ⚠️  KHÔNG SỬA TAY FILE NÀY — Chạy lại script khi cập nhật API contract
 //
-// Generated: 2026-06-12T17:53:42.953Z
+// Generated: 2026-06-15T16:30:43.583Z
 // Source:    ai_study_hub_mock_openapi_contract.json
 // Total:     154 handlers
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1284,13 +1284,11 @@ export const generatedHandlers = [
       "success": true,
       "message": "Success",
       "data": {
-        "id": 701,
-        "sessionId": 301,
-        "messageSequence": 1,
-        "senderRole": "USER",
-        "content": "SRS là gì?",
-        "citedSources": [],
-        "createdAt": "2026-06-12T21:56:00"
+        "id": 301,
+        "notebookId": 101,
+        "userId": 1,
+        "title": "Ôn tập SRS",
+        "createdAt": "2026-06-12T21:55:00"
       }
     },
     { status: 200 });
@@ -1303,15 +1301,34 @@ export const generatedHandlers = [
     {
       "success": true,
       "message": "Success",
-      "data": {
-        "id": 701,
-        "sessionId": 301,
-        "messageSequence": 1,
-        "senderRole": "USER",
-        "content": "SRS là gì?",
-        "citedSources": [],
-        "createdAt": "2026-06-12T21:56:00"
-      }
+      "data": [
+        {
+          "id": 701,
+          "sessionId": 301,
+          "messageSequence": 1,
+          "senderRole": "USER",
+          "content": "SRS là gì?",
+          "citedSources": [],
+          "createdAt": "2026-06-12T21:56:00"
+        },
+        {
+          "id": 702,
+          "sessionId": 301,
+          "messageSequence": 2,
+          "senderRole": "AI",
+          "content": "SRS là tài liệu đặc tả yêu cầu phần mềm, mô tả chức năng, phi chức năng, ràng buộc và tiêu chí chấp nhận.",
+          "citedSources": [
+            {
+              "documentId": 501,
+              "documentTitle": "Chapter 10 Requirement Specification",
+              "chunkIndex": 0,
+              "sourcePage": 12,
+              "excerpt": "Requirement specification should be clear..."
+            }
+          ],
+          "createdAt": "2026-06-12T21:56:04"
+        }
+      ]
     },
     { status: 200 });
   }),
@@ -1387,7 +1404,7 @@ export const generatedHandlers = [
     return HttpResponse.json(
     {
       "success": true,
-      "message": "Success",
+      "message": "Chat session created successfully",
       "data": {
         "id": 301,
         "notebookId": 101,
@@ -1396,7 +1413,7 @@ export const generatedHandlers = [
         "createdAt": "2026-06-12T21:55:00"
       }
     },
-    { status: 200 });
+    { status: 201 });
   }),
 
   // ── Community Growth ──────────────────────────────────────────────

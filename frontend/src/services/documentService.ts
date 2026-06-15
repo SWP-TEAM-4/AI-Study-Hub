@@ -74,6 +74,10 @@ export interface DeleteChunksResponse {
   processingStatus: ProcessingStatus;
 }
 
+export interface NotebookDocumentDeleteResponse {
+  deleted: boolean;
+}
+
 export interface DocumentSearchParams {
   keyword?: string;
   subjectId?: number;
@@ -99,6 +103,9 @@ const DOCUMENT_ERROR_MESSAGES: Record<string, string> = {
   UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
   ACCESS_DENIED: "Bạn không có quyền thực hiện thao tác này.",
   VALIDATION_ERROR: "Dữ liệu không hợp lệ.",
+  NOTEBOOK_NOT_FOUND: "Notebook không tồn tại.",
+  NOTEBOOK_ACCESS_DENIED: "Bạn không có quyền truy cập notebook này.",
+  NOTEBOOK_DOCUMENT_DUPLICATE: "Tài liệu này đã được gắn vào notebook.",
 };
 
 function getToken(): string | null {
@@ -249,5 +256,82 @@ export async function uploadDocument(request: UploadDocumentRequest): Promise<Do
   }
 
   const body: ApiResponse<DocumentItem> = await response.json();
+  return body.data!;
+}
+
+export async function getNotebookDocuments(
+  notebookId: number,
+  page = 0,
+  size = 20,
+  keyword?: string
+): Promise<PaginationData<DocumentItem>> {
+  const query = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+    sort: "newest",
+  });
+  if (keyword?.trim()) {
+    query.set("keyword", keyword.trim());
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`http://localhost:8080/api/notebooks/${notebookId}/documents?${query.toString()}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+  } catch {
+    throw new Error("Không thể kết nối đến server để tải tài liệu trong notebook.");
+  }
+
+  if (!response.ok) {
+    await handleApiError(response, "Không thể tải tài liệu trong notebook.");
+  }
+
+  const body: ApiResponse<PaginationData<DocumentItem>> = await response.json();
+  return body.data ?? { items: [], page, size, totalElements: 0, totalPages: 0 };
+}
+
+export async function attachDocumentToNotebook(
+  notebookId: number,
+  documentId: number
+): Promise<DocumentItem> {
+  let response: Response;
+  try {
+    response = await fetch(`http://localhost:8080/api/notebooks/${notebookId}/documents/${documentId}`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+  } catch {
+    throw new Error("Không thể kết nối đến server để gắn tài liệu vào notebook.");
+  }
+
+  if (!response.ok) {
+    await handleApiError(response, "Gắn tài liệu vào notebook thất bại.");
+  }
+
+  const body: ApiResponse<DocumentItem> = await response.json();
+  return body.data!;
+}
+
+export async function detachDocumentFromNotebook(
+  notebookId: number,
+  documentId: number
+): Promise<NotebookDocumentDeleteResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`http://localhost:8080/api/notebooks/${notebookId}/documents/${documentId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+  } catch {
+    throw new Error("Không thể kết nối đến server để gỡ tài liệu khỏi notebook.");
+  }
+
+  if (!response.ok) {
+    await handleApiError(response, "Gỡ tài liệu khỏi notebook thất bại.");
+  }
+
+  const body: ApiResponse<NotebookDocumentDeleteResponse> = await response.json();
   return body.data!;
 }
