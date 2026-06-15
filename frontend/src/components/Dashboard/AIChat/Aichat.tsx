@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getMyNotebooks } from "../../services/notebookService";
 import {
   Plus, MessageSquare, Trash2, Send,
   Bot, User, CheckCircle2
