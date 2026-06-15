@@ -39,6 +39,11 @@ public enum ErrorCode {
         NOTEBOOK_ACCESS_DENIED("NOTEBOOK_ACCESS_DENIED", "You don't have access to this notebook",
                         HttpStatus.FORBIDDEN),
 
+        // ── Chat / RAG ────────────────────────────────────────────────────────────
+        CHAT_SESSION_NOT_FOUND("CHAT_SESSION_NOT_FOUND", "Chat session not found", HttpStatus.NOT_FOUND),
+        CHAT_SESSION_ACCESS_DENIED("CHAT_SESSION_ACCESS_DENIED",
+                        "You don't have access to this chat session", HttpStatus.FORBIDDEN),
+
         // ── Document ──────────────────────────────────────────────────────────────
         DOCUMENT_NOT_FOUND("DOCUMENT_NOT_FOUND", "Document not found", HttpStatus.NOT_FOUND),
         DOCUMENT_ACCESS_DENIED("DOCUMENT_ACCESS_DENIED", "You don't have access to this document",
