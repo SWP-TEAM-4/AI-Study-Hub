@@ -35,3 +35,6 @@ Thumbs.db
 .env
 *.env
 secrets/
+
+# Firebase service account key – TUYỆT ĐỐI KHÔNG COMMIT
+src/main/resources/firebase-service-account.json

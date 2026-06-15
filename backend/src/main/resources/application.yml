@@ -1,4 +1,5 @@
 spring:
+
   datasource:
     url: jdbc:postgresql://localhost:5432/aistudyhub
     username: postgres
@@ -62,23 +63,47 @@ app:
     refresh-expiration-ms: ${JWT_REFRESH_MS:604800000} # 7 days
 
   storage:
-    type: ${STORAGE_TYPE:local}
-    local-path: ${LOCAL_STORAGE_PATH:./uploads}
-    base-url: ${STORAGE_BASE_URL:http://localhost:8080/files}
+    type: supabase                             # local | supabase
+    local-path: ./uploads
+    base-url: http://localhost:8080/files
+
+  supabase:
+    url: https://rfvuzrdayitfjzztgasl.supabase.co
+    service-role-key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdnV6cmRheWl0Zmp6enRnYXNsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTMzNjQ4NCwiZXhwIjoyMDk2OTEyNDg0fQ.1SAr9SxG3X99LPs-hgpnsw-XhElrfA01Pz4IJA6pJ-U
+    storage-bucket: documents
 
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY:}
-      model: ${OPENAI_MODEL:gpt-4o-mini}
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: Key-openai # Đã test ok r, tốn kém vãi ò
+      model: gpt-4o-mini
+      base-url: https://api.openai.com/v1
+      embedding-model: text-embedding-3-small
+      embedding-batch-size: 12
+      max-in-memory-bytes: 16777216
+      timeout: 60
+      max-retries: 3
+    
+    gemini:
+      api-key: Key gemini # Đã test ok r, rẻ hơn openai nhiều, chunking là ngon chứ trả lời thì hơi chuối
+      base-url: https://generativelanguage.googleapis.com/v1/models
+      model: gemini-3.5-flash
+      temperature: 0.1
+      timeout: 180
+      max-retries: 3
+
+  chunk:
+    size: 500                  # characters per chunk
+    overlap: 50               # overlap characters between chunks
+    max-chunks-per-doc: 500      # safety limit per document
+    gemini-max-input-chars: 15000
 
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:5173}
+    allowed-origins: http://localhost:3000,http://localhost:5173
 
   mail:
     from: contact@huyplay.vn
     from-name: AI Study Hub
-    reset-password-url: ${FRONTEND_URL:http://localhost:3000}/reset-password
+    reset-password-url: http://localhost:5173/reset-password
     token-expire-minutes: 30
 
 # ===== Logging =====
