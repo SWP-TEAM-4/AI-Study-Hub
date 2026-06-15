@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 
 @RestController
 @RequestMapping("/api/notebooks")
@@ -27,28 +29,30 @@ public class NotebookController {
     private final NotebookService notebookService;
 
     @PostMapping
-
-    public ApiResponse<NotebookResponse> createNotebook(@RequestParam long userId,
+    public ApiResponse<NotebookResponse> createNotebook(@RequestParam Long userId,
             @Valid @RequestBody CreateNotebookRequest request) {
         return ApiResponse.success(notebookService.createNotebook(userId, request));
     }
 
-    public ApiResponse<List<NotebookResponse>> getNotebooksByUserId(long userId) {
+    @GetMapping
+    public ApiResponse<List<NotebookResponse>> getNotebooksByUserId(@RequestParam Long userId) {
         return ApiResponse.success(notebookService.getNotebooksByUserId(userId));
     }
 
-    public ApiResponse<NotebookResponse> getDetail(long notebookId, long userId) {
-        return ApiResponse.success(notebookService.getDetail(notebookId, userId));
+    @GetMapping("/{id}")
+    public ApiResponse<NotebookResponse> getDetail(@PathVariable Long id, @RequestParam Long userId) {
+        return ApiResponse.success(notebookService.getDetail(id, userId));
     }
 
-    @PutMapping("/{notebookId}")
-    public ApiResponse<NotebookResponse> updateNotebook(@PathVariable long notebookId, @RequestParam long userId,
+    @PutMapping("/{id}")
+    public ApiResponse<NotebookResponse> updateNotebook(@PathVariable Long id, @RequestParam Long userId,
             @Valid @RequestBody UpdateNotebookRequest request) {
-        return ApiResponse.success(notebookService.updateNotebook(notebookId, userId, request));
+        return ApiResponse.success(notebookService.updateNotebook(id, userId, request));
     }
 
-    public ApiResponse<Void> deleteNotebook(long notebookId, long userId) {
-        notebookService.deleteNotebook(notebookId, userId);
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> deleteNotebook(@PathVariable Long id, @RequestParam Long userId) {
+        notebookService.deleteNotebook(id, userId);
         return ApiResponse.success("Notebook deleted successfully");
     }
 }
