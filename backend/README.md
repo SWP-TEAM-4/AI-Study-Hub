@@ -1,6 +1,9 @@
 # AI Study Hub – Backend
-//test boot
+
+//test boot2
+
 ## Tech Stack
+
 - **Java 17** + **Spring Boot 3.2.x**
 - **Spring Security 6** + **JWT (JJWT 0.12)**
 - **Spring Data JPA** + **Hibernate**
@@ -32,6 +35,7 @@
 ## Quick Start
 
 ### 1. Prerequisites
+
 - JDK 17+
 - Maven 3.8+
 - Docker & Docker Compose
@@ -63,6 +67,7 @@ app:
 ```
 
 Rồi chạy:
+
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
@@ -91,11 +96,12 @@ Migration files nằm ở `src/main/resources/db/migration/`:
 | `V2__seed_data.sql`     | BE1   | Dữ liệu mẫu admin + master data |
 | `V3__academic_data.sql` | BE2   | Semester, Subject, Combo seed   |
 
-> **Quy tắc migration:** Không sửa file Vx__ đã chạy. Luôn tạo file mới Vx+1__.
+> **Quy tắc migration:** Không sửa file Vx** đã chạy. Luôn tạo file mới Vx+1**.
 
 ## API Response Format
 
 **Success:**
+
 ```json
 {
   "success": true,
@@ -105,6 +111,7 @@ Migration files nằm ở `src/main/resources/db/migration/`:
 ```
 
 **Error:**
+
 ```json
 {
   "success": false,
@@ -114,6 +121,7 @@ Migration files nằm ở `src/main/resources/db/migration/`:
 ```
 
 **Pagination:**
+
 ```json
 {
   "success": true,
