@@ -1,0 +1,373 @@
+---
+config:
+  theme: mc
+  layout: elk
+---
+erDiagram
+
+%% === MODULE: USER & FPT ACADEMIC MASTER DATA ===
+users {
+    bigint id PK
+    varchar google_id 
+    varchar type
+    varchar email
+    varchar password_hash
+    varchar full_name
+    varchar avatar_url
+    bigint current_semester_id FK
+    bigint combo_id FK
+    varchar role "STUDENT, REVIEWER, ADMIN"
+    int reputation_points
+    boolean is_active
+    timestamp created_at
+}
+
+password_resets {
+    bigint id PK
+    bigint user_id FK
+    varchar reset_token
+    timestamp expired_at
+}
+
+notifications {
+    bigint id PK
+    bigint user_id FK
+    varchar title
+    text content
+    boolean is_read
+    timestamp created_at
+}
+
+system_feedbacks {
+    bigint id PK
+    bigint user_id FK
+    varchar title
+    text content
+    varchar screen_url
+    varchar status
+    timestamp created_at
+}
+
+semesters {
+    bigint id PK
+    varchar code
+    varchar name
+}
+
+combos {
+    bigint id PK
+    varchar code
+    varchar name
+    text description
+}
+
+combo_subjects {
+    bigint id PK
+    bigint combo_id FK
+    bigint subject_id FK
+}
+
+subjects {
+    bigint id PK
+    varchar code
+    varchar name
+    int standard_semester_number
+}
+
+
+%% === MODULE: USER REWARDS & BADGES ===
+badges {
+    bigint id PK
+    varchar name
+    text description
+    varchar icon_url
+    timestamp created_at
+}
+
+user_badges {
+    bigint id PK
+    bigint user_id FK
+    bigint badge_id FK
+    timestamp earned_at
+}
+
+
+%% === MODULE: LEARNING & PERSONAL REPOSITORY ===
+notebooks {
+    bigint id PK
+    bigint user_id FK
+    bigint subject_id FK
+    varchar title
+    timestamp created_at
+}
+
+chat_sessions {
+    bigint id PK
+    bigint notebook_id FK
+    bigint user_id FK
+    varchar title
+    timestamp created_at
+}
+
+chat_messages {
+    bigint id PK
+    bigint session_id FK
+    int message_sequence
+    varchar sender_role
+    text content
+    text cited_sources
+    timestamp created_at
+}
+
+quizzes {
+    bigint id PK
+    bigint notebook_id FK "Nullable"
+    bigint subject_id FK
+    bigint creator_id FK
+    varchar title
+    text description
+    bigint academic_term_id FK "Nullable"
+    varchar exam_type
+    varchar visibility
+    varchar market_status
+    int download_count
+    int review_count
+    decimal accept_percentage
+    text ai_verdict_note
+    timestamp created_at
+}
+
+quiz_questions {
+    bigint id PK
+    bigint quiz_id FK
+    text question_text
+    varchar question_type
+    text explanation
+}
+
+quiz_options {
+    bigint id PK
+    bigint question_id FK
+    text option_text
+    boolean is_correct
+}
+
+tests {
+    bigint id PK
+    bigint quiz_id FK
+    bigint user_id FK
+    varchar title
+    decimal total_score
+    int duration
+    varchar status
+    timestamp created_at
+}
+
+user_quiz_progress {
+    bigint id PK
+    bigint test_id FK
+    bigint question_id FK
+    bigint selected_option_id FK
+    text user_answer_text
+    boolean is_correct
+    timestamp answered_at
+}
+
+flashcard_decks {
+    bigint id PK
+    bigint user_id FK
+    bigint notebook_id FK "Nullable"
+    bigint subject_id FK
+    varchar title
+    varchar visibility
+    varchar market_status
+    int download_count
+    int review_count
+    decimal accept_percentage
+    text ai_verdict_note
+    timestamp created_at
+}
+
+flashcards {
+    bigint id PK
+    bigint deck_id FK
+    text front_text
+    text back_text
+}
+
+user_flashcard_progress {
+    bigint id PK
+    bigint user_id FK
+    bigint flashcard_id FK
+    int box_level
+    timestamp last_reviewed
+}
+
+
+%% === MODULE: DOCUMENT ===
+documents {
+    bigint id PK
+    bigint user_id FK
+    bigint subject_id FK
+    varchar title
+    text description
+    varchar file_url
+    varchar file_type
+    bigint file_size
+    varchar visibility
+    varchar market_status
+    int download_count
+    int review_count
+    decimal accept_percentage
+    text ai_verdict_note
+    varchar processing_status
+    timestamp created_at
+}
+
+notebook_documents {
+    bigint id PK
+    bigint notebook_id FK
+    bigint document_id FK
+}
+
+document_chunks {
+    bigint id PK
+    bigint document_id FK
+    int chunk_index
+    text text_content
+    varchar vector_id
+}
+
+tags {
+    bigint id PK
+    varchar name
+    varchar type
+    varchar color
+}
+
+document_tags {
+    bigint id PK
+    bigint document_id FK
+    bigint tag_id FK
+}
+
+
+%% === MODULE: SYSTEM & CONTENT GOVERNANCE ===
+market_reviews {
+    bigint id PK
+    bigint reviewer_id FK
+    bigint document_id FK "Nullable"
+    bigint quiz_id FK "Nullable"
+    bigint flashcard_deck_id FK "Nullable"
+    varchar vote_result
+    text review_note
+    timestamp created_at
+}
+
+content_reports {
+    bigint id PK
+    bigint reporter_id FK
+    bigint document_id FK
+    bigint quiz_id FK
+    bigint flashcard_deck_id FK
+    varchar reason_type
+    text report_details
+    varchar severity_level
+    varchar status
+    timestamp created_at
+}
+
+system_configs {
+    bigint id PK
+    varchar config_key
+    text config_value
+    varchar description
+}
+
+community_roles {
+    bigint id PK
+    bigint user_id FK
+    varchar role_type
+    varchar scope_type
+    bigint scope_id
+    timestamp start_at
+    timestamp end_at
+    varchar status
+    timestamp created_at
+}
+
+
+%% === RELATIONSHIPS ===
+
+class badges,user_badges,community_roles rewards
+users ||--o{ community_roles : "receives_role"
+users ||--o{ community_roles : "grants_role"
+subjects ||--o{ community_roles : "limits_subject_scope"
+documents ||--o{ community_roles : "limits_document_scope"
+quizzes ||--o{ community_roles : "limits_quiz_scope"
+flashcard_decks ||--o{ community_roles : "limits_flashcard_scope"
+
+
+users ||--o{ password_resets : "requests"
+users ||--o{ notifications : "receives"
+users ||--o{ system_feedbacks : "submits"
+semesters ||--o{ users : "enrolls_in"
+combos ||--o{ users : "specializes_in"
+combos ||--o{ combo_subjects : "configures"
+subjects ||--o{ combo_subjects : "maps_to"
+
+%% Badges Relations
+users ||--o{ user_badges : "earns"
+badges ||--o{ user_badges : "belongs_to"
+
+users ||--o{ notebooks : "owns"
+notebooks ||--o{ chat_sessions : "hosts"
+chat_sessions ||--o{ chat_messages : "contains"
+
+users ||--o{ quizzes : "owns_personal_repo"
+notebooks |o--o{ quizzes : "references_context"
+quizzes ||--o{ quiz_questions : "comprises"
+quiz_questions ||--o{ quiz_options : "offers"
+quizzes ||--o{ tests : "extracts_into"
+
+%% Quiz Progress Relations (Đã sửa đổi & bổ sung theo ảnh)
+tests ||--o{ user_quiz_progress : "records"
+quiz_questions ||--o{ user_quiz_progress : "tracks_question"
+quiz_options ||--o{ user_quiz_progress : "tracks_selection"
+
+users ||--o{ flashcard_decks : "owns_personal_repo"
+notebooks |o--o{ flashcard_decks : "references_context"
+flashcard_decks ||--o{ flashcards : "contains"
+users ||--o{ user_flashcard_progress : "studies"
+flashcards ||--o{ user_flashcard_progress : "tracks"
+
+users ||--o{ documents : "uploads"
+subjects ||--o{ documents : "labels"
+notebooks ||--o{ notebook_documents : "includes"
+documents ||--o{ notebook_documents : "references"
+documents ||--o{ document_tags : "tagged_with"
+tags ||--o{ document_tags : "applies_to"
+documents ||--o{ document_chunks : "decomposes"
+
+%% Governance & System Relations
+users ||--o{ market_reviews : "casts_vote"
+documents ||--o{ market_reviews : "receives_vote"
+quizzes ||--o{ market_reviews : "receives_vote"
+flashcard_decks ||--o{ market_reviews : "receives_vote"
+
+users ||--o{ content_reports : "flags"
+documents ||--o{ content_reports : "moderates"
+quizzes ||--o{ content_reports : "moderates"
+flashcard_decks ||--o{ content_reports : "moderates"
+
+%% === COLORS ===
+classDef userData stroke:#818cf8,fill:#eef2ff
+classDef learningRepo stroke:#2dd4bf,fill:#f0fdfa
+classDef document stroke:#a78bfa,fill:#f5f3ff
+classDef system stroke:#fb923c,fill:#fff7ed
+
+%% Assign color classes
+class users,password_resets,notifications,system_feedbacks,semesters,combos,combo_subjects,subjects,badges,user_badges userData
+class notebooks,chat_sessions,chat_messages,quizzes,quiz_questions,quiz_options,tests,user_quiz_progress,flashcard_decks,flashcards,user_flashcard_progress learningRepo
+class documents,notebook_documents,document_chunks,tags,document_tags document
+class content_reports,system_configs,market_reviews system
