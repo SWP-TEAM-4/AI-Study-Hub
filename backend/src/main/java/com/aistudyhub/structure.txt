@@ -1,0 +1,152 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 000000F2 4801:048A
+D:.
+¦   AiStudyHubApplication.java
+¦   structure.txt
+¦   
++---common
+¦   +---enums
+¦   ¦       CommunityRoleType.java
+¦   ¦       CommunityScopeType.java
+¦   ¦       MarketStatus.java
+¦   ¦       ProcessingStatus.java
+¦   ¦       QuestionType.java
+¦   ¦       ReportStatus.java
+¦   ¦       Role.java
+¦   ¦       Visibility.java
+¦   ¦       
+¦   +---exception
+¦   ¦       AppException.java
+¦   ¦       ErrorCode.java
+¦   ¦       GlobalExceptionHandler.java
+¦   ¦       
+¦   +---response
+¦   ¦       ApiResponse.java
+¦   ¦       PaginationResponse.java
+¦   ¦       
+¦   +---utils
+¦           DateUtil.java
+¦           FileUtil.java
+¦           ValidationUtil.java
+¦           
++---config
+¦       CorsConfig.java
+¦       MailConfig.java
+¦       OpenAIConfig.java
+¦       SecurityConfig.java
+¦       StorageConfig.java
+¦       SwaggerConfig.java
+¦       
++---entity
+¦       Badge.java
+¦       Combo.java
+¦       ComboSubject.java
+¦       CommunityRole.java
+¦       Notebook.java
+¦       Notification.java
+¦       PasswordReset.java
+¦       Quiz.java
+¦       Semester.java
+¦       Subject.java
+¦       SystemConfig.java
+¦       SystemFeedback.java
+¦       User.java
+¦       UserBadge.java
+¦       
++---module
+¦   +---academic
+¦   ¦   +---controller
+¦   ¦   +---dto
+¦   ¦   +---service
+¦   +---admin
+¦   ¦   +---controller
+¦   ¦           AdminUserController.java
+¦   ¦           HealthController.java
+¦   ¦           
+¦   +---auth
+¦   ¦   +---controller
+¦   ¦   ¦       AuthController.java
+¦   ¦   ¦       
+¦   ¦   +---dto
+¦   ¦   ¦       AuthResponse.java
+¦   ¦   ¦       ForgotPasswordRequest.java
+¦   ¦   ¦       LoginRequest.java
+¦   ¦   ¦       RegisterRequest.java
+¦   ¦   ¦       ResetPasswordRequest.java
+¦   ¦   ¦       
+¦   ¦   +---service
+¦   ¦           AuthService.java
+¦   ¦           EmailService.java
+¦   ¦           
+¦   +---notebook
+¦   ¦   +---controller
+¦   ¦   ¦       NotebookController.java
+¦   ¦   ¦       
+¦   ¦   +---dto
+¦   ¦   ¦       CreateNotebookRequest.java
+¦   ¦   ¦       NotebookResponse.java
+¦   ¦   ¦       UpdateNotebookRequest.java
+¦   ¦   ¦       
+¦   ¦   +---service
+¦   ¦           NotebookService.java
+¦   ¦           NotebookServiceImpl.java
+¦   ¦           
+¦   +---quiz
+¦   ¦   +---controller
+¦   ¦   ¦       QuizController.java
+¦   ¦   ¦       
+¦   ¦   +---dto
+¦   ¦   ¦       QuizRequest.java
+¦   ¦   ¦       QuizResponse.java
+¦   ¦   ¦       QuizSearchRequest.java
+¦   ¦   ¦       
+¦   ¦   +---service
+¦   ¦           QuizService.java
+¦   ¦           
+¦   +---Semester
+¦   ¦   +---controller
+¦   ¦   ¦       SemesterController.java
+¦   ¦   ¦       
+¦   ¦   +---dto
+¦   ¦   +---Service
+¦   ¦           SemesterService.java
+¦   ¦           
+¦   +---Subject
+¦   ¦   +---controller
+¦   ¦   ¦       SubjectController.java
+¦   ¦   ¦       
+¦   ¦   +---dto
+¦   ¦   +---service
+¦   ¦           SubjectService.java
+¦   ¦           
+¦   +---user
+¦       +---controller
+¦       ¦       UserController.java
+¦       ¦       
+¦       +---dto
+¦       ¦       ChangePasswordRequest.java
+¦       ¦       UpdateProfileRequest.java
+¦       ¦       UserProfileResponse.java
+¦       ¦       
+¦       +---service
+¦               UserService.java
+¦               
++---repository
+¦       ComboRepository.java
+¦       ComboSubjectRepository.java
+¦       NotebookRepository.java
+¦       NotificationRepository.java
+¦       PasswordResetRepository.java
+¦       QuizRepository.java
+¦       SemesterRepository.java
+¦       SubjectRepository.java
+¦       SystemConfigRepository.java
+¦       UserRepository.java
+¦       
++---security
+        CustomUserDetails.java
+        CustomUserDetailsService.java
+        JwtAuthenticationFilter.java
+        JwtTokenProvider.java
+        SecurityConstants.java
+        

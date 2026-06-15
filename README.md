@@ -28,4 +28,4 @@ Hệ thống được xây dựng nhằm giải quyết vấn đề tài liệu 
 - Hỏi đáp về tài liệu
 - Nhận câu trả lời AI
 - Xem lịch sử chat
- 
+ "# notebook" 
