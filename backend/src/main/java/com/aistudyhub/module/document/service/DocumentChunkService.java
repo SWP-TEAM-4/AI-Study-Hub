@@ -304,7 +304,7 @@ public class DocumentChunkService {
                     .limit(topK)
                     .toList();
 
-            if (scoredChunks.isEmpty() || scoredChunks.getFirst().score() <= 0) {
+            if (scoredChunks.isEmpty() || scoredChunks.get(0).score() <= 0) {
                 return List.of();
             }
 
