@@ -1,3 +1,4 @@
+[README.md](https://github.com/user-attachments/files/28955903/README.md)
 # AIStudyHub
 AI Study Hub là hệ thống hỗ trợ quản lý và chia sẻ tài liệu học tập tích hợp AI Chatbot. Ứng dụng giúp sinh viên lưu trữ tài liệu trên cloud, tìm kiếm nhanh tài liệu theo môn học và tương tác với AI để hỏi đáp nội dung học tập.
 
@@ -28,4 +29,3 @@ Hệ thống được xây dựng nhằm giải quyết vấn đề tài liệu 
 - Hỏi đáp về tài liệu
 - Nhận câu trả lời AI
 - Xem lịch sử chat
- "# notebook" 
