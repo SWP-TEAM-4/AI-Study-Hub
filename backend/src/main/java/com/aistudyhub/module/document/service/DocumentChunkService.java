@@ -349,10 +349,11 @@ public class DocumentChunkService {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
         }
 
-        List<TextChunkingService.ChunkResult> chunkResults = geminiChunkingService.chunkText(
+        GeminiChunkingService.ChunkingOutcome chunkingOutcome = geminiChunkingService.chunkTextWithMetadata(
                 rawText,
                 request != null ? request.getChunkSize() : null,
                 request != null ? request.getOverlap() : null);
+        List<TextChunkingService.ChunkResult> chunkResults = chunkingOutcome.chunks();
 
         if (chunkResults.isEmpty()) {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT,
@@ -393,15 +394,25 @@ public class DocumentChunkService {
                 .map(chunk -> toResponse(chunk, document.getTitle()))
                 .toList();
 
-        log.info("Document {} processed successfully with Gemini chunking + OpenAI embeddings: {} chunks created",
-                documentId, responses.size());
+        log.info("Document {} processed successfully with {} + OpenAI embeddings: {} chunks created",
+                documentId,
+                chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
+                        ? "Gemini semantic chunking"
+                        : "local heuristic chunking fallback",
+                responses.size());
 
         return DocumentProcessResponse.builder()
                 .documentId(documentId)
                 .processingStatus(ProcessingStatus.SUCCESS.name())
                 .chunkCount(responses.size())
                 .chunks(responses)
-                .message("Processed with Gemini chunking and OpenAI embeddings: " + responses.size() + " chunks")
+                .message("Processed with "
+                        + (chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
+                        ? "Gemini semantic chunking"
+                        : "local heuristic chunking fallback")
+                        + " and OpenAI embeddings: "
+                        + responses.size()
+                        + " chunks")
                 .build();
     }
 

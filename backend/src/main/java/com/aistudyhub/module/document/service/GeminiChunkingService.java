@@ -26,6 +26,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GeminiChunkingService {
 
+    public enum ChunkingStrategy {
+        GEMINI_SEMANTIC,
+        LOCAL_HEURISTIC_FALLBACK
+    }
+
     private final GeminiConfig geminiConfig;
     private final ChunkConfig chunkConfig;
     private final TextChunkingService fallbackChunkingService;
@@ -36,9 +41,17 @@ public class GeminiChunkingService {
             String rawText,
             Integer requestedChunkSize,
             Integer requestedOverlap) {
+        return chunkTextWithMetadata(rawText, requestedChunkSize, requestedOverlap).chunks();
+    }
+
+    public ChunkingOutcome chunkTextWithMetadata(
+            String rawText,
+            Integer requestedChunkSize,
+            Integer requestedOverlap) {
 
         if (rawText == null || rawText.isBlank()) {
-            return List.of();
+            return new ChunkingOutcome(List.of(), ChunkingStrategy.LOCAL_HEURISTIC_FALLBACK,
+                    "Input text is empty");
         }
         if (geminiConfig.getApiKey() == null || geminiConfig.getApiKey().isBlank()) {
             throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
@@ -49,7 +62,7 @@ public class GeminiChunkingService {
         int overlap = resolveOverlap(requestedOverlap, targetChunkSize);
 
         try {
-            WebClient webClient = webClientBuilder.build();
+            WebClient webClient = buildWebClient();
             List<TextChunkingService.ChunkResult> results = new ArrayList<>();
             int index = 0;
             List<String> segments = splitIntoGeminiInputs(rawText);
@@ -91,9 +104,10 @@ public class GeminiChunkingService {
                                 + chunkConfig.getMaxChunksPerDoc());
             }
 
-            log.info("Gemini chunking created {} semantic chunks across {} request(s)",
+            log.info("Gemini semantic chunking created {} chunks across {} request(s)",
                     results.size(), segments.size());
-            return results;
+            return new ChunkingOutcome(results, ChunkingStrategy.GEMINI_SEMANTIC,
+                    "Gemini semantic chunking completed successfully");
 
         } catch (AppException e) {
             if (e.getErrorCode() == ErrorCode.GEMINI_CHUNKING_FAILED
@@ -113,6 +127,12 @@ public class GeminiChunkingService {
             return fallbackToLocal(rawText, requestedChunkSize, requestedOverlap,
                     "Gemini chunking failed: " + e.getMessage());
         }
+    }
+
+    private WebClient buildWebClient() {
+        return webClientBuilder
+                .defaultHeader("x-goog-api-key", geminiConfig.getApiKey())
+                .build();
     }
 
     private Object buildRequestBody(String rawText, int targetChunkSize, int overlap) {
@@ -139,8 +159,7 @@ public class GeminiChunkingService {
                         "parts", List.of(java.util.Map.of("text", prompt))
                 )),
                 "generationConfig", java.util.Map.of(
-                        "temperature", geminiConfig.getTemperature(),
-                        "responseMimeType", "application/json"
+                        "temperature", geminiConfig.getTemperature()
                 )
         );
     }
@@ -259,15 +278,28 @@ public class GeminiChunkingService {
         return section.trim();
     }
 
-    private List<TextChunkingService.ChunkResult> fallbackToLocal(
+    private ChunkingOutcome fallbackToLocal(
             String rawText,
             Integer requestedChunkSize,
             Integer requestedOverlap,
             String reason) {
-        log.warn("Falling back to local heuristic chunking because Gemini is unavailable: {}", reason);
-        return fallbackChunkingService.chunkText(rawText, requestedChunkSize, requestedOverlap);
+        List<TextChunkingService.ChunkResult> fallbackChunks =
+                fallbackChunkingService.chunkText(rawText, requestedChunkSize, requestedOverlap);
+        log.warn("Gemini semantic chunking unavailable, switched to local heuristic chunking: {}", reason);
+        log.info("Local heuristic chunking created {} chunks as fallback", fallbackChunks.size());
+        return new ChunkingOutcome(
+                fallbackChunks,
+                ChunkingStrategy.LOCAL_HEURISTIC_FALLBACK,
+                reason
+        );
     }
 
     private record GeminiChunkDto(String textContent, Integer sourcePage, String sourceSection) {
+    }
+
+    public record ChunkingOutcome(
+            List<TextChunkingService.ChunkResult> chunks,
+            ChunkingStrategy strategy,
+            String detail) {
     }
 }
