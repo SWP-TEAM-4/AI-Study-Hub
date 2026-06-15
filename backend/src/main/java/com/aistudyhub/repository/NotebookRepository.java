@@ -11,4 +11,6 @@ public interface NotebookRepository extends JpaRepository<Notebook, Long> {
     Optional<Notebook> findByIdAndUserId(Long id, Long userId);
 
     boolean existsByIdAndUserId(Long id, Long userId);
+
+    boolean existsBySubjectId(Long subjectId);
 }
