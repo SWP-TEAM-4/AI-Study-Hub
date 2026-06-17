@@ -4,23 +4,23 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "combo_subjects", uniqueConstraints = @UniqueConstraint(columnNames = { "combo_id", "subject_id" }))
+@Table(name = "document_tags", uniqueConstraints = @UniqueConstraint(columnNames = { "document_id", "tag_id" }))
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ComboSubject {
+public class DocumentTag {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "combo_id", nullable = false)
-    private Combo combo;
+    @JoinColumn(name = "document_id", nullable = false)
+    private Document document;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subject_id", nullable = false)
-    private Subject subject;
+    @JoinColumn(name = "tag_id", nullable = false)
+    private Tag tag;
 }

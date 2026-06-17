@@ -32,6 +32,8 @@ public enum ErrorCode {
     SUBJECT_NOT_FOUND("SUBJECT_NOT_FOUND", "Subject not found", HttpStatus.NOT_FOUND),
     SUBJECT_CODE_DUPLICATE("SUBJECT_CODE_DUPLICATE", "Subject code already exists", HttpStatus.CONFLICT),
     COMBO_SUBJECT_DUPLICATE("COMBO_SUBJECT_DUPLICATE", "Subject already exists in this combo", HttpStatus.CONFLICT),
+    TAG_NOT_FOUND("TAG_NOT_FOUND", "Tag not found", HttpStatus.NOT_FOUND),
+    DOCUMENT_TAG_DUPLICATE("DOCUMENT_TAG_DUPLICATE", "Tag already added to this document", HttpStatus.CONFLICT),
 
     // ── Notebook ──────────────────────────────────────────────────────────────
     NOTEBOOK_NOT_FOUND("NOTEBOOK_NOT_FOUND", "Notebook not found", HttpStatus.NOT_FOUND),
