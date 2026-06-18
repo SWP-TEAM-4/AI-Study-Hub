@@ -7,6 +7,7 @@ import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.module.quiz.dto.QuizRequest;
 import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizSearchRequest;
+import com.aistudyhub.module.quiz.dto.GenerateQuizRequest;
 import com.aistudyhub.module.quiz.service.QuizService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -49,6 +50,20 @@ public class QuizController {
         QuizResponse response = quizService.createQuiz(request);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success("Quiz created successfully", response));
+    }
+
+    /**
+     * API tự động sinh (mock) Quiz từ notebook hoặc tài liệu.
+     * 
+     * @param request thông tin cấu hình sinh Quiz
+     * @return ResponseEntity chứa thông tin Quiz được tạo và mã HTTP 201 Created
+     */
+    @Operation(summary = "Sinh quiz mock từ notebook hoặc tài liệu")
+    @PostMapping("/generate")
+    public ResponseEntity<ApiResponse<QuizResponse>> generateQuiz(@Valid @RequestBody GenerateQuizRequest request) {
+        QuizResponse response = quizService.generateQuiz(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success("Quiz generated successfully", response));
     }
 
     /**
