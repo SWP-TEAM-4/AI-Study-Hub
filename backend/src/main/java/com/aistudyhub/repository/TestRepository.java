@@ -2,9 +2,33 @@ package com.aistudyhub.repository;
 
 import com.aistudyhub.entity.Test;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TestRepository extends JpaRepository<Test, Long> {
-    // đã có sẵn trong JpaRepository nên không cần khai báo thêm hàm gì ở đây.
 
+    /**
+     * Lấy danh sách bài thi phân trang của một User cụ thể.
+     * Sử dụng khi người dùng xem toàn bộ lịch sử thi (không tìm kiếm theo từ khóa).
+     *
+     * @param userId   ID của người dùng cần lấy lịch sử
+     * @param pageable đối tượng phân trang (chứa trang hiện tại, số lượng
+     *                 dòng/trang, và cách sắp xếp)
+     * @return Page<Test> chứa danh sách các lượt thi
+     */
+    Page<Test> findByUserId(Long userId, Pageable pageable);
+
+    /**
+     * Tìm kiếm bài thi theo tiêu đề (Title) có chứa từ khóa và phân trang của User
+     * cụ thể.
+     * "Containing": Tương đương điều kiện LIKE %keyword% trong SQL.
+     * "IgnoreCase": Tìm kiếm không phân biệt chữ hoa, chữ thường.
+     *
+     * @param userId   ID của người dùng
+     * @param title    từ khóa cần tìm kiếm trong tiêu đề bài thi (ví dụ: "SWR302")
+     * @param pageable đối tượng phân trang
+     * @return Page<Test> chứa danh sách lượt thi phù hợp từ khóa
+     */
+    Page<Test> findByUserIdAndTitleContainingIgnoreCase(Long userId, String title, Pageable pageable);
 }
