@@ -3,6 +3,9 @@ package com.aistudyhub.module.flashcard.controller;
 import com.aistudyhub.common.response.ApiResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardRequest;
 import com.aistudyhub.module.flashcard.dto.FlashcardResponse;
+import com.aistudyhub.module.flashcard.dto.FlashcardReviewRequest;
+import com.aistudyhub.module.flashcard.dto.FlashcardReviewResponse;
+import com.aistudyhub.module.flashcard.service.FlashcardProgressService;
 import com.aistudyhub.module.flashcard.service.FlashcardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -12,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,8 +33,8 @@ import java.util.Map;
 @RequestMapping("/api/flashcards")
 @RequiredArgsConstructor
 public class FlashcardController {
-
     private final FlashcardService flashcardService;
+    private final FlashcardProgressService progressService;
 
     /**
      * API cập nhật nội dung (mặt trước, mặt sau) của một thẻ nhớ cụ thể.
@@ -65,5 +69,35 @@ public class FlashcardController {
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> deleteCard(@PathVariable Long cardId) {
         flashcardService.deleteCard(cardId);
         return ResponseEntity.ok(ApiResponse.success("Deleted successfully", Map.of("deleted", true)));
+    }
+
+    /**
+     * API lấy danh sách các thẻ nhớ đến hạn cần ôn tập của người dùng đăng nhập hiện tại.
+     * 
+     * @param deckId ID của bộ bài flashcard cần lọc (tùy chọn)
+     * @return Danh sách các FlashcardResponse đến hạn
+     */
+    @Operation(summary = "Lấy danh sách các thẻ nhớ đến hạn ôn tập")
+    @GetMapping("/due")
+    public ResponseEntity<ApiResponse<List<FlashcardResponse>>> getDueCards(
+            @RequestParam(required = false) Long deckId) {
+        List<FlashcardResponse> response = progressService.getDueCards(deckId);
+        return ResponseEntity.ok(ApiResponse.success("Success", response));
+    }
+
+    /**
+     * API ghi nhận kết quả đánh giá (ôn tập) một thẻ flashcard cụ thể.
+     * 
+     * @param cardId  ID của thẻ nhớ được ôn
+     * @param request chứa kết quả đánh giá (REMEMBERED hoặc FORGOT)
+     * @return ResponseEntity chứa tiến độ ôn tập mới cập nhật của thẻ
+     */
+    @Operation(summary = "Ghi nhận kết quả ôn tập một thẻ flashcard")
+    @PostMapping("/{cardId}/review")
+    public ResponseEntity<ApiResponse<FlashcardReviewResponse>> reviewCard(
+            @PathVariable Long cardId,
+            @Valid @RequestBody FlashcardReviewRequest request) {
+        FlashcardReviewResponse response = progressService.reviewCard(cardId, request);
+        return ResponseEntity.ok(ApiResponse.success("Success", response));
     }
 }

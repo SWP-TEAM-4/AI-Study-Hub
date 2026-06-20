@@ -5,6 +5,7 @@ import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.response.ApiResponse;
 import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.module.flashcard.dto.*;
+import com.aistudyhub.module.flashcard.service.FlashcardProgressService;
 import com.aistudyhub.module.flashcard.service.FlashcardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -37,7 +38,7 @@ import java.util.Map;
 @RequestMapping("/api/flashcard-decks")
 @RequiredArgsConstructor
 public class FlashcardDeckController {
-
+    private final FlashcardProgressService progressService;
     private final FlashcardService flashcardService;
 
     /**
@@ -201,6 +202,23 @@ public class FlashcardDeckController {
             @PathVariable Long deckId,
             @Valid @RequestBody FlashcardRequest request) {
         FlashcardDeckResponse response = flashcardService.addCardToDeck(deckId, request);
+        return ResponseEntity.ok(ApiResponse.success("Success", response));
+    }
+
+    /**
+     * API lấy tiến độ ôn tập của một bộ bài flashcard đối với người dùng đăng nhập
+     * hiện tại.
+     * 
+     * @param deckId    ID của bộ bài cần lấy tiến độ
+     * @param subjectId ID môn học (tùy chọn lọc nếu có)
+     * @return ResponseEntity chứa thông tin tiến độ ôn tập bộ bài
+     */
+    @Operation(summary = "Lấy tiến độ ôn tập của bộ flashcard")
+    @GetMapping("/{deckId}/progress")
+    public ResponseEntity<ApiResponse<FlashcardDeckProgressResponse>> getDeckProgress(
+            @PathVariable Long deckId,
+            @RequestParam(required = false) Long subjectId) {
+        FlashcardDeckProgressResponse response = progressService.getDeckProgress(deckId);
         return ResponseEntity.ok(ApiResponse.success("Success", response));
     }
 }
