@@ -44,7 +44,6 @@ public class QuizService {
     private final NotebookDocumentRepository notebookDocumentRepository;
     private final DocumentChunkRepository documentChunkRepository;
     private final QuizQuestionRepository quizQuestionRepository;
-    private final QuizOptionRepository quizOptionRepository;
 
     /**
      * Tạo một Quiz mới thuộc về người dùng hiện tại đăng nhập.
