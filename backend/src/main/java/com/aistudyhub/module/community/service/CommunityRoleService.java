@@ -10,6 +10,7 @@ import com.aistudyhub.entity.CommunityRole;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.module.community.dto.CommunityRoleResponse;
 import com.aistudyhub.module.community.dto.CreateCommunityRoleRequest;
+import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.repository.CommunityRoleRepository;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.FlashcardDeckRepository;
@@ -39,6 +40,7 @@ public class CommunityRoleService {
     private final DocumentRepository documentRepository;
     private final QuizRepository quizRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public CommunityRoleResponse grantRole(CreateCommunityRoleRequest request, Long grantedByUserId) {
@@ -75,6 +77,10 @@ public class CommunityRoleService {
                 .build();
 
         CommunityRole saved = communityRoleRepository.save(communityRole);
+        notificationService.createNotification(
+                targetUser.getId(),
+                "Community role granted",
+                buildGrantNotificationContent(saved));
         log.info("Granted community role {} for userId={} by adminId={} scopeType={} scopeId={}",
                 roleType, targetUser.getId(), grantedByUserId, scopeType, request.getScopeId());
 
@@ -124,6 +130,10 @@ public class CommunityRoleService {
 
         communityRole.setStatus(CommunityRoleStatus.REVOKED);
         CommunityRole saved = communityRoleRepository.save(communityRole);
+        notificationService.createNotification(
+                communityRole.getUser().getId(),
+                "Community role revoked",
+                buildRevokeNotificationContent(saved, reason));
 
         if (StringUtils.hasText(reason)) {
             log.info("Revoked community role id={} by adminId={} reason={}", id, revokedByUserId, reason.trim());
@@ -244,6 +254,64 @@ public class CommunityRoleService {
             return CommunityRoleStatus.valueOf(rawStatus.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Invalid status: " + rawStatus);
+        }
+    }
+
+    private String buildGrantNotificationContent(CommunityRole communityRole) {
+        StringBuilder content = new StringBuilder()
+                .append("You have been granted role ")
+                .append(communityRole.getRoleType());
+
+        appendScope(content, communityRole);
+        appendTimeRange(content, communityRole);
+        content.append(".");
+
+        return content.toString();
+    }
+
+    private String buildRevokeNotificationContent(CommunityRole communityRole, String reason) {
+        StringBuilder content = new StringBuilder()
+                .append("Your role ")
+                .append(communityRole.getRoleType())
+                .append(" has been revoked");
+
+        appendScope(content, communityRole);
+        if (StringUtils.hasText(reason)) {
+            content.append(". Reason: ").append(reason.trim());
+        } else {
+            content.append(".");
+        }
+
+        return content.toString();
+    }
+
+    private void appendScope(StringBuilder content, CommunityRole communityRole) {
+        CommunityScopeType scopeType = communityRole.getScopeType();
+        if (scopeType == null || scopeType == CommunityScopeType.GLOBAL) {
+            content.append(" with GLOBAL scope");
+            return;
+        }
+
+        content.append(" with ")
+                .append(scopeType)
+                .append(" scope");
+
+        if (communityRole.getScopeId() != null) {
+            content.append(" #").append(communityRole.getScopeId());
+        }
+    }
+
+    private void appendTimeRange(StringBuilder content, CommunityRole communityRole) {
+        if (communityRole.getStartAt() == null && communityRole.getEndAt() == null) {
+            return;
+        }
+
+        content.append(" effective");
+        if (communityRole.getStartAt() != null) {
+            content.append(" from ").append(communityRole.getStartAt());
+        }
+        if (communityRole.getEndAt() != null) {
+            content.append(" until ").append(communityRole.getEndAt());
         }
     }
 }
