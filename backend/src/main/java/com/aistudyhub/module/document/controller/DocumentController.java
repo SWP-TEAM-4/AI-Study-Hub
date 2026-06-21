@@ -1,68 +1,56 @@
 package com.aistudyhub.module.document.controller;
 
-import org.springframework.web.bind.annotation.RestController;
-
-import com.aistudyhub.common.enums.ProcessingStatus;
-import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.response.ApiResponse;
 import com.aistudyhub.module.document.dto.CreateDocumentRequest;
 import com.aistudyhub.module.document.dto.DocumentResponse;
 import com.aistudyhub.module.document.dto.UpdateDocumentRequest;
 import com.aistudyhub.module.document.service.DocumentService;
-
+import com.aistudyhub.security.CustomUserDetails;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-
-import java.util.List;
-
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/documents")
 @RequiredArgsConstructor
+@Tag(name = "Documents", description = "Write APIs cho document metadata của current user")
 public class DocumentController {
     private final DocumentService documentService;
 
+    @Operation(summary = "Tạo metadata document cho current user")
     @PostMapping
-    public ApiResponse<DocumentResponse> createDocument(@PathVariable Long userId,
-            @Valid @RequestBody CreateDocumentRequest request) {
-        return ApiResponse.success(documentService.createDocument(userId, request));
+    public ResponseEntity<ApiResponse<DocumentResponse>> createDocument(
+            @Valid @RequestBody CreateDocumentRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(documentService.createDocument(principal.getId(), request)));
     }
 
-    @GetMapping
-    public ApiResponse<List<DocumentResponse>> getMyDocument(@RequestParam Long userId,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long subjectId,
-            @RequestParam(required = false) String fileType,
-            @RequestParam(required = false) Visibility visibility,
-            @RequestParam(required = false) ProcessingStatus processingStatus) {
-        return ApiResponse.success(
-                documentService.getMyDocument(userId, keyword, subjectId, fileType, visibility, processingStatus));
-    }
-
-    @GetMapping("/{id}")
-    public ApiResponse<DocumentResponse> getDocumentDetails(@PathVariable Long id,
-            @RequestParam Long userId) {
-        return ApiResponse.success(documentService.getDocumentDetails(id, userId));
-    }
-
+    @Operation(summary = "Cập nhật metadata document của current user")
     @PutMapping("/{id}")
-    public ApiResponse<DocumentResponse> updateDocument(@PathVariable String id, @RequestBody Long userId,
-            @Valid @RequestBody UpdateDocumentRequest request) {
-        return ApiResponse.success(documentService.updateDocument(userId, userId, request));
+    public ResponseEntity<ApiResponse<DocumentResponse>> updateDocument(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateDocumentRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(documentService.updateDocument(id, principal.getId(), request)));
     }
 
+    @Operation(summary = "Xóa document của current user")
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteDocument(@PathVariable Long id, @RequestParam Long userId) {
-        documentService.deleteDocument(id, userId);
-        return ApiResponse.success("Deleted document is successfully");
+    public ResponseEntity<ApiResponse<Boolean>> deleteDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        documentService.deleteDocument(id, principal.getId());
+        return ResponseEntity.ok(ApiResponse.success("Deleted successfully", true));
     }
 
 }
