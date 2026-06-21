@@ -85,6 +85,9 @@ public class Document {
     @Column(name = "ai_verdict_note", columnDefinition = "TEXT")
     private String aiVerdictNote;
 
+    @Column(name = "submit_note", columnDefinition = "TEXT")
+    private String submitNote;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "processing_status", nullable = false, length = 50)
     @Builder.Default
