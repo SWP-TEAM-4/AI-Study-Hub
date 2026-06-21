@@ -4,6 +4,7 @@ import com.aistudyhub.common.enums.CommunityRoleStatus;
 import com.aistudyhub.common.enums.CommunityRoleType;
 import com.aistudyhub.common.enums.CommunityScopeType;
 import com.aistudyhub.common.enums.Role;
+import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.entity.CommunityRole;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.FlashcardDeck;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -185,6 +187,64 @@ class BE047Test {
         assertTrue(communityPermissionService.hasReviewerPermissionForDocument(admin.getId(), documentA.getId()));
         assertTrue(communityPermissionService.hasReviewerPermissionForQuiz(admin.getId(), quizA.getId()));
         assertTrue(communityPermissionService.hasReviewerPermissionForFlashcardDeck(admin.getId(), deckB.getId()));
+        assertTrue(communityPermissionService.canModerateReport(admin.getId(),
+                CommunityPermissionService.ContentTarget.document(documentA.getId())));
+        assertTrue(communityPermissionService.canManageScope(admin.getId(), CommunityScopeType.DOCUMENT, documentA.getId()));
+    }
+
+    @Test
+    void marketplaceReviewer_CanReviewButCannotModerateReport() {
+        saveRole(reviewer, CommunityRoleType.MARKETPLACE_REVIEWER, CommunityScopeType.SUBJECT, subjectA.getId(),
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(5), CommunityRoleStatus.ACTIVE);
+
+        assertTrue(communityPermissionService.canReviewMarketplace(reviewer.getId(),
+                CommunityPermissionService.ContentTarget.document(documentA.getId())));
+        assertFalse(communityPermissionService.canModerateReport(reviewer.getId(),
+                CommunityPermissionService.ContentTarget.document(documentA.getId())));
+    }
+
+    @Test
+    void contentModerator_CanModerateOnlyWithinMatchingScope() {
+        saveRole(reviewer, CommunityRoleType.CONTENT_MODERATOR, CommunityScopeType.SUBJECT, subjectA.getId(),
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(5), CommunityRoleStatus.ACTIVE);
+
+        assertTrue(communityPermissionService.canModerateReport(reviewer.getId(),
+                CommunityPermissionService.ContentTarget.document(documentA.getId())));
+        assertTrue(communityPermissionService.canModerateReport(reviewer.getId(),
+                CommunityPermissionService.ContentTarget.quiz(quizA.getId())));
+        assertFalse(communityPermissionService.canModerateReport(reviewer.getId(),
+                CommunityPermissionService.ContentTarget.flashcardDeck(deckB.getId())));
+    }
+
+    @Test
+    void subjectModerator_CanManageContentInsideGrantedSubject() {
+        saveRole(reviewer, CommunityRoleType.SUBJECT_MODERATOR, CommunityScopeType.SUBJECT, subjectA.getId(),
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(5), CommunityRoleStatus.ACTIVE);
+
+        assertTrue(communityPermissionService.canManageScope(reviewer.getId(), CommunityScopeType.DOCUMENT, documentA.getId()));
+        assertTrue(communityPermissionService.canManageScope(reviewer.getId(), CommunityScopeType.QUIZ, quizA.getId()));
+        assertFalse(communityPermissionService.canManageScope(reviewer.getId(), CommunityScopeType.DOCUMENT, documentB.getId()));
+    }
+
+    @Test
+    void hasActiveCommunityRole_UsesStartEndAndStatusChecks() {
+        saveRole(reviewer, CommunityRoleType.CONTENT_MODERATOR, CommunityScopeType.SUBJECT, subjectA.getId(),
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(5), CommunityRoleStatus.ACTIVE);
+        saveRole(anotherReviewer, CommunityRoleType.CONTENT_MODERATOR, CommunityScopeType.SUBJECT, subjectA.getId(),
+                LocalDateTime.now().minusDays(10), LocalDateTime.now().minusDays(1), CommunityRoleStatus.ACTIVE);
+
+        assertTrue(communityPermissionService.hasActiveCommunityRole(reviewer.getId(), CommunityRoleType.CONTENT_MODERATOR));
+        assertFalse(communityPermissionService.hasActiveCommunityRole(anotherReviewer.getId(), CommunityRoleType.CONTENT_MODERATOR));
+    }
+
+    @Test
+    void assertCanModerateReport_ThrowsWhenUserLacksModeratorScope() {
+        saveRole(reviewer, CommunityRoleType.CONTENT_MODERATOR, CommunityScopeType.SUBJECT, subjectA.getId(),
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(5), CommunityRoleStatus.ACTIVE);
+
+        assertThrows(AppException.class, () -> communityPermissionService.assertCanModerateReport(
+                reviewer.getId(),
+                CommunityPermissionService.ContentTarget.document(documentB.getId())));
     }
 
     private void saveRole(User user,

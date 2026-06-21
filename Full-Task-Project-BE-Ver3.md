@@ -2031,47 +2031,7 @@ PATCH /api/admin/users/{id}/role
 
 ## EPIC 12B – Leader Core Control: RAG & Community Permission
 
-### Issue BE-053: Define RAG Core Contract and Service Interfaces
 
-- **Owner:** BE1
-- **Labels:** `type:feature`, `priority:critical`, `area:rag`, `owner:BE1`
-- **Estimate:** 4h
-- **Start:** 11/06/2026
-- **Deadline:** 12/06/2026
-- **Depends on:** BE-012, BE-011
-- **Branch:** `feature/rag-core-contract`
-
-#### Description
-
-BE1 định nghĩa contract trung tâm cho RAG để BE2, BE3 và FE không gọi API lộn xộn. Issue này không nhất thiết tạo nhiều endpoint mới, nhưng phải tạo service contract rõ để các module khác tích hợp.
-
-#### Service contract đề xuất
-
-```java
-processDocument(documentId, currentUserId)
-findRelevantChunks(notebookId, question, topK, currentUserId)
-buildMockAnswer(question, relevantChunks)
-buildCitedSources(relevantChunks)
-```
-
-#### Tasks
-
-- [ ] Tạo DTO nội bộ `RelevantChunkResponse`
-- [ ] Tạo DTO nội bộ `CitedSourceResponse`
-- [ ] Tạo request/response chuẩn cho process document
-- [ ] Chốt rule chunk size/overlap trong config
-- [ ] Chốt format citation trả về frontend
-- [ ] Chốt ownership rule khi RAG đọc document trong notebook
-- [ ] Viết note trong README hoặc Swagger mô tả flow RAG demo
-
-#### Acceptance Criteria
-
-- [ ] BE2 biết cần cung cấp field nào cho Document/NotebookDocument
-- [ ] BE3 có thể gọi chunk data để generate quiz/flashcard mock nếu cần
-- [ ] FE biết format response của Chat/RAG
-- [ ] Không có module nào tự tạo format citation riêng
-
----
 
 ### Issue BE-054: Implement CommunityPermissionService for Reviewer/Moderator Scope
 

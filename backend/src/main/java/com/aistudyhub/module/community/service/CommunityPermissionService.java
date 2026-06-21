@@ -10,6 +10,7 @@ import com.aistudyhub.entity.CommunityRole;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.FlashcardDeck;
 import com.aistudyhub.entity.Quiz;
+import com.aistudyhub.entity.User;
 import com.aistudyhub.repository.CommunityRoleRepository;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.FlashcardDeckRepository;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,6 +36,24 @@ public class CommunityPermissionService {
     private final FlashcardDeckRepository flashcardDeckRepository;
 
     @Transactional(readOnly = true)
+    public boolean isAdmin(User user) {
+        return user != null && user.getRole() == Role.ADMIN;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasActiveCommunityRole(Long userId, CommunityRoleType roleType) {
+        if (userId == null || roleType == null) {
+            return false;
+        }
+
+        return !communityRoleRepository.findActiveRolesByUserIdAndRoleType(
+                userId,
+                roleType,
+                CommunityRoleStatus.ACTIVE,
+                LocalDateTime.now()).isEmpty();
+    }
+
+    @Transactional(readOnly = true)
     public boolean hasCommunityPermission(Long userId,
             CommunityRoleType roleType,
             CommunityScopeType scopeType,
@@ -43,21 +63,51 @@ public class CommunityPermissionService {
             return true;
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        List<CommunityRole> roles = communityRoleRepository.findActiveRolesByUserIdAndRoleType(
-                userId,
-                roleType,
-                CommunityRoleStatus.ACTIVE,
-                now);
+        return hasScopedPermission(userId, ContentTarget.of(scopeType, scopeId), roleType);
+    }
 
-        PermissionContext permissionContext = resolvePermissionContext(scopeType, scopeId);
-        return roles.stream().anyMatch(role -> matchesScope(role, permissionContext));
+    @Transactional(readOnly = true)
+    public boolean canReviewMarketplace(Long userId, ContentTarget target) {
+        if (isAdmin(userId)) {
+            return true;
+        }
+        if (target == null) {
+            return false;
+        }
+
+        return hasScopedPermission(userId, target,
+                CommunityRoleType.REVIEWER,
+                CommunityRoleType.MARKETPLACE_REVIEWER);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canModerateReport(Long userId, ContentTarget target) {
+        if (isAdmin(userId)) {
+            return true;
+        }
+        if (target == null) {
+            return false;
+        }
+
+        return hasScopedPermission(userId, target,
+                CommunityRoleType.CONTENT_MODERATOR,
+                CommunityRoleType.SUBJECT_MODERATOR);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canManageScope(Long userId, CommunityScopeType scopeType, Long scopeId) {
+        if (isAdmin(userId)) {
+            return true;
+        }
+
+        return hasScopedPermission(userId, ContentTarget.of(scopeType, scopeId),
+                CommunityRoleType.CONTENT_MODERATOR,
+                CommunityRoleType.SUBJECT_MODERATOR);
     }
 
     @Transactional(readOnly = true)
     public boolean hasReviewerPermission(Long userId, CommunityScopeType scopeType, Long scopeId) {
-        return hasCommunityPermission(userId, CommunityRoleType.REVIEWER, scopeType, scopeId)
-                || hasCommunityPermission(userId, CommunityRoleType.MARKETPLACE_REVIEWER, scopeType, scopeId);
+        return canReviewMarketplace(userId, ContentTarget.of(scopeType, scopeId));
     }
 
     @Transactional(readOnly = true)
@@ -97,10 +147,47 @@ public class CommunityPermissionService {
         assertReviewerPermission(userId, CommunityScopeType.FLASHCARD_DECK, flashcardDeckId);
     }
 
+    @Transactional(readOnly = true)
+    public void assertCanReviewMarketplace(Long userId, ContentTarget target) {
+        if (!canReviewMarketplace(userId, target)) {
+            throw new AppException(ErrorCode.COMMUNITY_ROLE_PERMISSION_DENIED);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void assertCanModerateReport(Long userId, ContentTarget target) {
+        if (!canModerateReport(userId, target)) {
+            throw new AppException(ErrorCode.COMMUNITY_ROLE_PERMISSION_DENIED);
+        }
+    }
+
     private boolean isAdmin(Long userId) {
+        if (userId == null) {
+            return false;
+        }
         return userRepository.findById(userId)
-                .map(user -> user.getRole() == Role.ADMIN)
+                .map(this::isAdmin)
                 .orElse(false);
+    }
+
+    private boolean hasScopedPermission(Long userId, ContentTarget target, CommunityRoleType... roleTypes) {
+        if (userId == null || target == null || roleTypes == null || roleTypes.length == 0) {
+            return false;
+        }
+
+        PermissionContext permissionContext = resolvePermissionContext(target.scopeType(), target.scopeId());
+        LocalDateTime now = LocalDateTime.now();
+
+        return Arrays.stream(roleTypes)
+                .filter(Objects::nonNull)
+                .anyMatch(roleType -> {
+                    List<CommunityRole> roles = communityRoleRepository.findActiveRolesByUserIdAndRoleType(
+                            userId,
+                            roleType,
+                            CommunityRoleStatus.ACTIVE,
+                            now);
+                    return roles.stream().anyMatch(role -> matchesScope(role, permissionContext));
+                });
     }
 
     private boolean matchesScope(CommunityRole role, PermissionContext permissionContext) {
@@ -167,5 +254,34 @@ public class CommunityPermissionService {
             CommunityScopeType scopeType,
             Long scopeId,
             Long subjectId) {
+    }
+
+    public record ContentTarget(
+            CommunityScopeType scopeType,
+            Long scopeId) {
+
+        public static ContentTarget of(CommunityScopeType scopeType, Long scopeId) {
+            return new ContentTarget(scopeType, scopeId);
+        }
+
+        public static ContentTarget global() {
+            return new ContentTarget(CommunityScopeType.GLOBAL, null);
+        }
+
+        public static ContentTarget subject(Long subjectId) {
+            return new ContentTarget(CommunityScopeType.SUBJECT, subjectId);
+        }
+
+        public static ContentTarget document(Long documentId) {
+            return new ContentTarget(CommunityScopeType.DOCUMENT, documentId);
+        }
+
+        public static ContentTarget quiz(Long quizId) {
+            return new ContentTarget(CommunityScopeType.QUIZ, quizId);
+        }
+
+        public static ContentTarget flashcardDeck(Long flashcardDeckId) {
+            return new ContentTarget(CommunityScopeType.FLASHCARD_DECK, flashcardDeckId);
+        }
     }
 }
