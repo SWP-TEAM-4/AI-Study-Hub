@@ -1,9 +1,12 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Upload, Folder, Search, Plus, MoreVertical, FileText } from "lucide-react";
+import { Upload, Folder, Search, Plus, MoreVertical, FileText, Cpu } from "lucide-react";
 import HeroBackground from "./BackGroundForDocuments/HeroBackground"; 
+import DocumentChunkModal from "./DocumentChunkModal";
+import { getMyDocuments, type DocumentItem as ApiDocument, uploadDocument } from "../../services/documentService";
+import { Report } from "notiflix/build/notiflix-report-aio";
 
-interface DocumentItem {
+interface FolderItem {
     id: string;
     name: string;
     type: "file" | "folder";
@@ -13,39 +16,25 @@ interface DocumentItem {
     uploadedBy?: string;
 }
 
-interface UploadedFile {
-    id: string;
-    name: string;
-    date: string;
-    size: string;
-    uploadedBy: string;
-    status: "success" | "pending" | "error";
-}
-
 const Documents = () => {
-    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([
-        { id: "1", name: "Health Data.pdf", date: "30.11.2024", size: "56 MB", uploadedBy: "Cameron Williamson", status: "success" },
-        { id: "2", name: "Medical reports.docx", date: "30.11.2024", size: "12 MB", uploadedBy: "Jenny Wilson", status: "success" },
-        { id: "3", name: "Lab results.xlsx", date: "30.11.2024", size: "4.2 MB", uploadedBy: "Floyd Miles", status: "success" },
-        { id: "4", name: "Vaccine Passport.pdf", date: "30.11.2024", size: "850 KB", uploadedBy: "Kristin Watson", status: "success" },
-    ]);
+    const [uploadedFiles, setUploadedFiles] = useState<ApiDocument[]>([]);
+    const [loadingDocuments, setLoadingDocuments] = useState(true);
 
-    const [folders] = useState<DocumentItem[]>([
+    const [folders] = useState<FolderItem[]>([
         { id: "1", name: "Health Report", type: "folder", date: "30.11.2024", files: 80, size: "168 MB" },
         { id: "2", name: "Medical Information", type: "folder", date: "30.11.2024", files: 8, size: "56 MB" },
         { id: "3", name: "Prescriptions", type: "folder", date: "30.11.2024", files: 20, size: "11 MB" },
         { id: "4", name: "Archieved", type: "folder", date: "30.11.2024", files: 99, size: "267 MB" },
     ]);
 
-    const [recentFiles] = useState<DocumentItem[]>([
-        { id: "1", name: "Health data.pdf", date: "30.11.2024", size: "56 MB", type: "file" },
-        { id: "2", name: "Medical report.docx", date: "30.11.2024", size: "12 MB", type: "file" },
-        { id: "3", name: "Prescriptions.pdf", date: "30.11.2024", size: "56 MB", type: "file" },
-    ]);
-
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragActive, setIsDragActive] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedDocForAI, setSelectedDocForAI] = useState<{ id: string, name: string } | null>(null);
+
+    useEffect(() => {
+        void fetchDocuments();
+    }, []);
 
     const handleDrag = (e: React.DragEvent) => {
         e.preventDefault();
@@ -76,16 +65,35 @@ const Documents = () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
     };
 
-    const handleFileUpload = (file: File) => {
-        const newFile: UploadedFile = {
-            id: Date.now().toString(),
-            name: file.name,
-            date: new Date().toLocaleDateString("vi-VN"),
-            size: formatFileSize(file.size),
-            uploadedBy: "You",
-            status: "success"
-        };
-        setUploadedFiles([newFile, ...uploadedFiles]);
+    const formatDisplayDate = (value: string): string => {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("vi-VN");
+    };
+
+    const formatFileType = (fileType: string | null): string => {
+        return fileType ? fileType.toUpperCase() : "FILE";
+    };
+
+    const fetchDocuments = async () => {
+        setLoadingDocuments(true);
+        try {
+            const response = await getMyDocuments({ size: 50 });
+            setUploadedFiles(response.items ?? []);
+        } catch (error: any) {
+            Report.failure("Load Failed", error.message || "Failed to load documents", "OK");
+        } finally {
+            setLoadingDocuments(false);
+        }
+    };
+
+    const handleFileUpload = async (file: File) => {
+        try {
+            const uploaded = await uploadDocument({ file });
+            setUploadedFiles((prev) => [uploaded, ...prev]);
+            Report.success("Upload Success", `${uploaded.title} uploaded successfully.`, "OK");
+        } catch (error: any) {
+            Report.failure("Upload Failed", error.message || "Failed to upload document", "OK");
+        }
     };
 
     const handleClickUpload = () => {
@@ -98,10 +106,13 @@ const Documents = () => {
         }
     };
 
-    const filteredFiles = uploadedFiles.filter(file =>
-        file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.uploadedBy.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredFiles = uploadedFiles.filter((file) =>
+        file.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (file.description ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        formatFileType(file.fileType).toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const recentFiles = uploadedFiles.slice(0, 3);
 
     const pageVariants = {
         hidden: { opacity: 0, y: 20 },
@@ -151,7 +162,7 @@ const Documents = () => {
                             </div>
                             {/* Chỉnh lại chữ màu trắng hoặc sáng hơn để nổi bật trên nền video */}
                             <h3 className="text-white font-semibold">Click to upload or drag and drop</h3>
-                            <p className="text-slate-300">Supported formats: PDF, DOCX, PPTX, XLSX, etc.</p>
+                            <p className="text-slate-300">Supported formats: PDF, DOCX, PPTX, TXT</p>
                             <button className="doc-upload-btn" type="button">
                                 <Plus size={16} /> New file / Folder
                             </button>
@@ -195,21 +206,39 @@ const Documents = () => {
                         <section className="doc-section">
                             <h2 className="doc-section-title">Recent files</h2>
                             <div className="doc-recent-files">
-                                {recentFiles.map((file) => (
-                                    <motion.div
-                                        key={file.id}
-                                        className="doc-recent-item"
-                                        whileHover={{ x: 4 }}
-                                    >
-                                        <div className="doc-recent-icon">
-                                            <FileText size={20} />
-                                        </div>
-                                        <div className="doc-recent-info">
-                                            <p className="doc-recent-name">{file.name}</p>
-                                            <span className="doc-recent-meta">{file.date} • {file.size}</span>
-                                        </div>
-                                    </motion.div>
-                                ))}
+                                {recentFiles.length > 0 ? (
+                                    recentFiles.map((file) => (
+                                        <motion.div
+                                            key={file.id}
+                                            className="doc-recent-item"
+                                            whileHover={{ x: 4 }}
+                                        >
+                                            <div className="doc-recent-icon">
+                                                <FileText size={20} />
+                                            </div>
+                                            <div className="doc-recent-info">
+                                                <p className="doc-recent-name">{file.title}</p>
+                                                <span className="doc-recent-meta">
+                                                    {formatDisplayDate(file.createdAt)} • {formatFileSize(file.fileSize ?? 0)}
+                                                </span>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedDocForAI({ id: file.id.toString(), name: file.title });
+                                                }}
+                                                className="ml-auto p-2 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 rounded-lg transition-colors"
+                                                title="Manage AI RAG Chunks"
+                                            >
+                                                <Cpu size={16} />
+                                            </button>
+                                        </motion.div>
+                                    ))
+                                ) : (
+                                    <div className="rounded-xl border border-dashed border-slate-200 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
+                                        Documents you upload will appear here for quick AI processing.
+                                    </div>
+                                )}
                             </div>
                         </section>
                     </motion.div>
@@ -239,7 +268,11 @@ const Documents = () => {
                                 </div>
 
                                 <div className="doc-table-body">
-                                    {filteredFiles.map((file) => (
+                                    {loadingDocuments ? (
+                                        <div style={{ padding: "32px", textAlign: "center", color: "#94a3b8", fontSize: "14px" }}>
+                                            Loading your documents...
+                                        </div>
+                                    ) : filteredFiles.map((file) => (
                                         <motion.div
                                             key={file.id}
                                             className="doc-table-row"
@@ -247,14 +280,31 @@ const Documents = () => {
                                         >
                                             <div className="doc-file-item">
                                                 <FileText size={18} />
-                                                <span>{file.name}</span>
+                                                <div className="doc-file-info">
+                                                    <span>{file.title}</span>
+                                                    <span className="doc-file-meta">
+                                                        {formatFileType(file.fileType)} • {formatFileSize(file.fileSize ?? 0)} • {file.processingStatus}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <span className="doc-date">{file.date}</span>
+                                            <span className="doc-date">{formatDisplayDate(file.createdAt)}</span>
                                             <div className="doc-uploaded-by">
-                                                <div className="doc-avatar">{file.uploadedBy[0]}</div>
-                                                <span>{file.uploadedBy}</span>
+                                                <div className="doc-avatar">Y</div>
+                                                <span>You</span>
                                             </div>
                                             <div className="doc-actions">
+                                                <motion.button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedDocForAI({ id: file.id.toString(), name: file.title });
+                                                    }}
+                                                    className="doc-action-btn hover:text-cyan-500 hover:bg-cyan-50"
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    title="Manage AI RAG Chunks"
+                                                >
+                                                    <Cpu size={16} />
+                                                </motion.button>
                                                 <motion.button
                                                     className="doc-action-btn"
                                                     whileHover={{ scale: 1.1 }}
@@ -267,9 +317,11 @@ const Documents = () => {
                                         </motion.div>
                                     ))}
 
-                                    {filteredFiles.length === 0 && (
+                                    {!loadingDocuments && filteredFiles.length === 0 && (
                                         <div style={{ padding: "32px", textAlign: "center", color: "#94a3b8", fontSize: "14px" }}>
-                                            No files matched your search.
+                                            {uploadedFiles.length === 0
+                                                ? "You have not uploaded any documents yet."
+                                                : "No files matched your search."}
                                         </div>
                                     )}
                                 </div>
@@ -277,6 +329,14 @@ const Documents = () => {
                         </section>
                     </motion.div>
                 </div>
+
+                {selectedDocForAI && (
+                    <DocumentChunkModal
+                        documentId={selectedDocForAI.id}
+                        documentName={selectedDocForAI.name}
+                        onClose={() => setSelectedDocForAI(null)}
+                    />
+                )}
 
                 {/* CSS Tinh Chỉnh */}
                 <style dangerouslySetInnerHTML={{
@@ -563,6 +623,22 @@ const Documents = () => {
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
+            }
+
+            .doc-file-info {
+              display: flex;
+              flex-direction: column;
+              min-width: 0;
+            }
+
+            .doc-file-info span:first-child {
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            .doc-file-meta {
+              color: #64748b;
+              font-size: 12px;
             }
 
             .doc-file-item svg {
