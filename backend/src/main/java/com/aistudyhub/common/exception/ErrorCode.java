@@ -33,6 +33,8 @@ public enum ErrorCode {
         SUBJECT_NOT_FOUND("SUBJECT_NOT_FOUND", "Subject not found", HttpStatus.NOT_FOUND),
         SUBJECT_CODE_DUPLICATE("SUBJECT_CODE_DUPLICATE", "Subject code already exists", HttpStatus.CONFLICT),
         COMBO_SUBJECT_DUPLICATE("COMBO_SUBJECT_DUPLICATE", "Subject already exists in this combo", HttpStatus.CONFLICT),
+        TAG_NOT_FOUND("TAG_NOT_FOUND", "Tag not found", HttpStatus.NOT_FOUND),
+        DOCUMENT_TAG_DUPLICATE("DOCUMENT_TAG_DUPLICATE", "Tag already added to this document", HttpStatus.CONFLICT),
 
         // ── Notebook ──────────────────────────────────────────────────────────────
         NOTEBOOK_NOT_FOUND("NOTEBOOK_NOT_FOUND", "Notebook not found", HttpStatus.NOT_FOUND),
@@ -117,7 +119,7 @@ public enum ErrorCode {
         // ── Community Role ────────────────────────────────────────────────────────
         COMMUNITY_ROLE_NOT_FOUND("COMMUNITY_ROLE_NOT_FOUND", "Community role not found", HttpStatus.NOT_FOUND),
         COMMUNITY_ROLE_ALREADY_ACTIVE("COMMUNITY_ROLE_ALREADY_ACTIVE",
-                        "An active community role already exists for this user and scope", HttpStatus.CONFLICT),
+                        "An active community role with the same scope already exists", HttpStatus.CONFLICT),
         COMMUNITY_ROLE_PERMISSION_DENIED("COMMUNITY_ROLE_PERMISSION_DENIED",
                         "You don't have the required community role for this action", HttpStatus.FORBIDDEN),
 
