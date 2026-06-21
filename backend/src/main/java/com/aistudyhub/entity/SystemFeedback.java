@@ -1,5 +1,6 @@
 package com.aistudyhub.entity;
 
+import com.aistudyhub.common.enums.SystemFeedbackStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -35,9 +36,13 @@ public class SystemFeedback {
     @Column(name = "screen_url", length = 500)
     private String screenUrl;
 
-    @Column(length = 50)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
     @Builder.Default
-    private String status = "PENDING";
+    private SystemFeedbackStatus status = SystemFeedbackStatus.OPEN;
+
+    @Column(name = "admin_note", columnDefinition = "TEXT")
+    private String adminNote;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

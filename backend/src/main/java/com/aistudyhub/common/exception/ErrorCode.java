@@ -124,6 +124,9 @@ public enum ErrorCode {
         // ── Notification ──────────────────────────────────────────────────────────
         NOTIFICATION_NOT_FOUND("NOTIFICATION_NOT_FOUND", "Notification not found", HttpStatus.NOT_FOUND),
 
+        // ── System Feedback ───────────────────────────────────────────────────────
+        SYSTEM_FEEDBACK_NOT_FOUND("SYSTEM_FEEDBACK_NOT_FOUND", "System feedback not found", HttpStatus.NOT_FOUND),
+
         // ── System Config ─────────────────────────────────────────────────────────
         SYSTEM_CONFIG_NOT_FOUND("SYSTEM_CONFIG_NOT_FOUND", "System config not found", HttpStatus.NOT_FOUND),
         SYSTEM_CONFIG_KEY_DUPLICATE("SYSTEM_CONFIG_KEY_DUPLICATE", "Config key already exists", HttpStatus.CONFLICT),
