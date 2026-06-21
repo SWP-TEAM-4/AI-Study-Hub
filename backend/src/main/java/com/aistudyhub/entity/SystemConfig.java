@@ -28,4 +28,8 @@ public class SystemConfig {
 
     @Column(length = 500)
     private String description;
+
+    @Column(name = "is_public", nullable = false)
+    @Builder.Default
+    private Boolean isPublic = false;
 }

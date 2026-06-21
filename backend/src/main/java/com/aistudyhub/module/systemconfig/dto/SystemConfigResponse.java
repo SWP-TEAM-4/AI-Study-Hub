@@ -1,5 +1,6 @@
 package com.aistudyhub.module.systemconfig.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,4 +18,7 @@ public class SystemConfigResponse {
     private String configKey;
     private String configValue;
     private String description;
+
+    @JsonProperty("isPublic")
+    private Boolean isPublic;
 }

@@ -262,6 +262,7 @@ class BE036Test {
                 .configKey(key.trim().toUpperCase())
                 .configValue(value)
                 .description(description)
+                .isPublic(false)
                 .build());
     }
 

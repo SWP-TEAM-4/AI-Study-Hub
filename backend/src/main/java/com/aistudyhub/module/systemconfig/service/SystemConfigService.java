@@ -29,6 +29,13 @@ public class SystemConfigService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<SystemConfigResponse> listPublicConfigs() {
+        return systemConfigRepository.findAllByIsPublicTrueOrderByConfigKeyAsc().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     @Transactional
     public SystemConfigResponse create(SystemConfigRequest request) {
         String normalizedKey = normalizeKey(request.getConfigKey());
@@ -38,6 +45,7 @@ public class SystemConfigService {
                 .configKey(normalizedKey)
                 .configValue(normalizeRequiredValue(request.getConfigValue()))
                 .description(normalizeNullable(request.getDescription()))
+                .isPublic(Boolean.TRUE.equals(request.getIsPublic()))
                 .build();
 
         SystemConfig saved = systemConfigRepository.save(config);
@@ -54,6 +62,7 @@ public class SystemConfigService {
         config.setConfigKey(normalizedKey);
         config.setConfigValue(normalizeRequiredValue(request.getConfigValue()));
         config.setDescription(normalizeNullable(request.getDescription()));
+        config.setIsPublic(Boolean.TRUE.equals(request.getIsPublic()));
 
         SystemConfig saved = systemConfigRepository.save(config);
         log.info("Updated system config id={} key={}", saved.getId(), saved.getConfigKey());
@@ -75,6 +84,17 @@ public class SystemConfigService {
                 .orElseThrow(() -> new AppException(
                         ErrorCode.SYSTEM_CONFIG_NOT_FOUND,
                         "System config not found for key: " + normalizedKey));
+    }
+
+    @Transactional(readOnly = true)
+    public int getIntValueByKeyOrDefault(String configKey, int defaultValue) {
+        String normalizedKey = normalizeKey(configKey);
+        return systemConfigRepository.findByConfigKey(normalizedKey)
+                .map(SystemConfig::getConfigValue)
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .map(value -> parseIntOrDefault(normalizedKey, value, defaultValue))
+                .orElse(defaultValue);
     }
 
     private SystemConfig findByIdOrThrow(Long id) {
@@ -112,12 +132,22 @@ public class SystemConfigService {
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
+    private int parseIntOrDefault(String normalizedKey, String value, int defaultValue) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            log.warn("Invalid integer value for system config key={}. Using default={}", normalizedKey, defaultValue);
+            return defaultValue;
+        }
+    }
+
     private SystemConfigResponse toResponse(SystemConfig config) {
         return SystemConfigResponse.builder()
                 .id(config.getId())
                 .configKey(config.getConfigKey())
                 .configValue(config.getConfigValue())
                 .description(config.getDescription())
+                .isPublic(Boolean.TRUE.equals(config.getIsPublic()))
                 .build();
     }
 }

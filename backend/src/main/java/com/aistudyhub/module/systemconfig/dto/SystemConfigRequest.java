@@ -1,5 +1,6 @@
 package com.aistudyhub.module.systemconfig.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -18,4 +19,7 @@ public class SystemConfigRequest {
 
     @Size(max = 500, message = "Description must not exceed 500 characters")
     private String description;
+
+    @JsonProperty("isPublic")
+    private Boolean isPublic;
 }
