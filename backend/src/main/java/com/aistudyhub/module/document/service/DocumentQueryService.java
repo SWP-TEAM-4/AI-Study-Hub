@@ -24,8 +24,7 @@ public class DocumentQueryService {
 
     @Transactional(readOnly = true)
     public Page<DocumentResponse> searchMyDocuments(Long userId, DocumentSearchRequest request, Pageable pageable) {
-        Specification<Document> specification = Specification
-                .where(hasUserId(userId))
+        Specification<Document> specification = hasUserId(userId)
                 .and(hasKeyword(request.getKeyword()))
                 .and(hasSubjectId(request.getSubjectId()))
                 .and(hasFileType(request.getFileType()))

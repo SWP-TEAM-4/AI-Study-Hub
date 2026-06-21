@@ -12,12 +12,14 @@ import com.aistudyhub.entity.Subject;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.module.document.dto.CreateDocumentRequest;
 import com.aistudyhub.module.document.dto.DocumentResponse;
+import com.aistudyhub.module.document.dto.DocumentResponseMapper;
 import com.aistudyhub.module.document.dto.UpdateDocumentRequest;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.SubjectRepository;
 import com.aistudyhub.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
 
 @Service
 @RequiredArgsConstructor
@@ -41,54 +43,23 @@ public class DocumentServiceImpl implements DocumentService {
                                 .cloudFilePath(request.getCloudFilePath()).fileType(request.getFileType())
                                 .fileSize(request.getFileSize()).build();
                 document = documentRepository.save(document);
-                return DocumentResponse.builder()
-                                .id(document.getId())
-                                .subjectId(
-                                                document.getSubject() != null
-                                                                ? document.getSubject().getId()
-                                                                : null)
-                                .title(document.getTitle())
-                                .description(document.getDescription())
-                                .fileUrl(document.getFileUrl())
-                                .cloudFilePath(document.getCloudFilePath())
-                                .filetype(document.getFileType())
-                                .fileSize(document.getFileSize())
-                                .visibility(document.getVisibility())
-                                .marketStatus(document.getMarketStatus())
-                                .downloadCount(document.getDownloadCount())
-                                .reviewCount(document.getReviewCount())
-                                .acceptPercentage(document.getAcceptPercentage())
-                                .aiVerdictNote(document.getAiVerdictNote())
-                                .processingStatus(document.getProcessingStatus())
-                                .build();
+                return DocumentResponseMapper.toResponse(document);
         }
 
         @Override
         public List<DocumentResponse> getMyDocument(Long userId, String keyword, Long subjectId, String fileType,
                         Visibility visibility, ProcessingStatus processingStatus) {
+                Specification<Document> specification = hasUserId(userId)
+                                .and(hasKeyword(keyword))
+                                .and(hasSubjectId(subjectId))
+                                .and(hasFileType(fileType))
+                                .and(hasVisibility(visibility))
+                                .and(hasProcessingStatus(processingStatus));
+
                 return documentRepository
-                                .searchDocuments(userId, keyword, subjectId, fileType, visibility, processingStatus)
+                                .findAll(specification)
                                 .stream()
-                                .map(document -> DocumentResponse.builder()
-                                                .id(document.getId())
-                                                .subjectId(
-                                                                document.getSubject() != null
-                                                                                ? document.getSubject().getId()
-                                                                                : null)
-                                                .title(document.getTitle())
-                                                .description(document.getDescription())
-                                                .fileUrl(document.getFileUrl())
-                                                .cloudFilePath(document.getCloudFilePath())
-                                                .filetype(document.getFileType())
-                                                .fileSize(document.getFileSize())
-                                                .visibility(document.getVisibility())
-                                                .marketStatus(document.getMarketStatus())
-                                                .downloadCount(document.getDownloadCount())
-                                                .reviewCount(document.getReviewCount())
-                                                .acceptPercentage(document.getAcceptPercentage())
-                                                .aiVerdictNote(document.getAiVerdictNote())
-                                                .processingStatus(document.getProcessingStatus())
-                                                .build())
+                                .map(DocumentResponseMapper::toResponse)
                                 .toList();
         }
 
@@ -96,26 +67,7 @@ public class DocumentServiceImpl implements DocumentService {
         public DocumentResponse getDocumentDetails(Long id, Long userId) {
                 Document document = documentRepository.findByIdAndUserId(id, userId)
                                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED));
-                return DocumentResponse.builder()
-                                .id(document.getId())
-                                .subjectId(
-                                                document.getSubject() != null
-                                                                ? document.getSubject().getId()
-                                                                : null)
-                                .title(document.getTitle())
-                                .description(document.getDescription())
-                                .fileUrl(document.getFileUrl())
-                                .cloudFilePath(document.getCloudFilePath())
-                                .filetype(document.getFileType())
-                                .fileSize(document.getFileSize())
-                                .visibility(document.getVisibility())
-                                .marketStatus(document.getMarketStatus())
-                                .downloadCount(document.getDownloadCount())
-                                .reviewCount(document.getReviewCount())
-                                .acceptPercentage(document.getAcceptPercentage())
-                                .aiVerdictNote(document.getAiVerdictNote())
-                                .processingStatus(document.getProcessingStatus())
-                                .build();
+                return DocumentResponseMapper.toResponse(document);
         }
 
         @Override
@@ -134,26 +86,7 @@ public class DocumentServiceImpl implements DocumentService {
                         document.setVisibility(request.getVisibility());
                 }
                 document = documentRepository.save(document);
-                return DocumentResponse.builder()
-                                .id(document.getId())
-                                .subjectId(
-                                                document.getSubject() != null
-                                                                ? document.getSubject().getId()
-                                                                : null)
-                                .title(document.getTitle())
-                                .description(document.getDescription())
-                                .fileUrl(document.getFileUrl())
-                                .cloudFilePath(document.getCloudFilePath())
-                                .filetype(document.getFileType())
-                                .fileSize(document.getFileSize())
-                                .visibility(document.getVisibility())
-                                .marketStatus(document.getMarketStatus())
-                                .downloadCount(document.getDownloadCount())
-                                .reviewCount(document.getReviewCount())
-                                .acceptPercentage(document.getAcceptPercentage())
-                                .aiVerdictNote(document.getAiVerdictNote())
-                                .processingStatus(document.getProcessingStatus())
-                                .build();
+                return DocumentResponseMapper.toResponse(document);
         }
 
         @Override
@@ -161,6 +94,49 @@ public class DocumentServiceImpl implements DocumentService {
                 Document document = documentRepository.findByIdAndUserId(id, userId)
                                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED));
                 documentRepository.delete(document);
+        }
+
+        private Specification<Document> hasUserId(Long userId) {
+                return (root, query, cb) -> cb.equal(root.get("user").get("id"), userId);
+        }
+
+        private Specification<Document> hasKeyword(String keyword) {
+                return (root, query, cb) -> {
+                        if (keyword == null || keyword.isBlank()) {
+                                return cb.conjunction();
+                        }
+                        String likeKeyword = "%" + keyword.trim().toLowerCase() + "%";
+                        return cb.or(
+                                        cb.like(cb.lower(root.get("title")), likeKeyword),
+                                        cb.like(cb.lower(root.get("description")), likeKeyword));
+                };
+        }
+
+        private Specification<Document> hasSubjectId(Long subjectId) {
+                return (root, query, cb) -> subjectId == null
+                                ? cb.conjunction()
+                                : cb.equal(root.get("subject").get("id"), subjectId);
+        }
+
+        private Specification<Document> hasFileType(String fileType) {
+                return (root, query, cb) -> {
+                        if (fileType == null || fileType.isBlank()) {
+                                return cb.conjunction();
+                        }
+                        return cb.equal(cb.lower(root.get("fileType")), fileType.trim().toLowerCase());
+                };
+        }
+
+        private Specification<Document> hasVisibility(Visibility visibility) {
+                return (root, query, cb) -> visibility == null
+                                ? cb.conjunction()
+                                : cb.equal(root.get("visibility"), visibility);
+        }
+
+        private Specification<Document> hasProcessingStatus(ProcessingStatus processingStatus) {
+                return (root, query, cb) -> processingStatus == null
+                                ? cb.conjunction()
+                                : cb.equal(root.get("processingStatus"), processingStatus);
         }
 
 }
