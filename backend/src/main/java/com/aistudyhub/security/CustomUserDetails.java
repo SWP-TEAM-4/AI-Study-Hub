@@ -25,12 +25,16 @@ public class CustomUserDetails implements UserDetails {
     private final Collection<? extends GrantedAuthority> authorities;
 
     public CustomUserDetails(User user) {
+        this(user, List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
+    }
+
+    public CustomUserDetails(User user, Collection<? extends GrantedAuthority> authorities) {
         this.id = user.getId();
         this.email = user.getEmail();
         this.password = user.getPasswordHash();
         this.role = user.getRole();
         this.active = Boolean.TRUE.equals(user.getIsActive());
-        this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        this.authorities = List.copyOf(authorities);
     }
 
     @Override

@@ -1,32 +1,38 @@
 package com.aistudyhub.module.document.dto;
 
-import java.math.BigDecimal;
-
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Visibility;
-
-import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
-@Data
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * Response DTO trả về thông tin document sau khi tạo/upload.
+ * Dùng chung cho BE-012 (metadata) và BE-013 (upload).
+ */
+@Getter
 @Builder
 public class DocumentResponse {
-    @NotBlank
-    private long id;
+
+    private Long id;
+    private Long userId;
     private Long subjectId;
     private String title;
     private String description;
     private String fileUrl;
     private String cloudFilePath;
-    private String filetype;
+    private String fileType;
     private Long fileSize;
     private Visibility visibility;
     private MarketStatus marketStatus;
+    private ProcessingStatus processingStatus;
     private Integer downloadCount;
     private Integer reviewCount;
     private BigDecimal acceptPercentage;
     private String aiVerdictNote;
-    private ProcessingStatus processingStatus;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

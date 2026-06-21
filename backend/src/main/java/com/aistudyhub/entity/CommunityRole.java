@@ -1,7 +1,8 @@
 package com.aistudyhub.entity;
 
-import com.aistudyhub.common.enums.CommunityRoleType;
 import com.aistudyhub.common.enums.CommunityScopeType;
+import com.aistudyhub.common.enums.CommunityRoleStatus;
+import com.aistudyhub.common.enums.CommunityRoleType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -59,9 +60,10 @@ public class CommunityRole {
     @Column(name = "end_at")
     private LocalDateTime endAt;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     @Builder.Default
-    private String status = "ACTIVE"; // ACTIVE, EXPIRED, REVOKED
+    private CommunityRoleStatus status = CommunityRoleStatus.ACTIVE;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
