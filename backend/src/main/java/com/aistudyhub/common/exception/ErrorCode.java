@@ -116,6 +116,8 @@ public enum ErrorCode {
 
         // ── Community Role ────────────────────────────────────────────────────────
         COMMUNITY_ROLE_NOT_FOUND("COMMUNITY_ROLE_NOT_FOUND", "Community role not found", HttpStatus.NOT_FOUND),
+        COMMUNITY_ROLE_ALREADY_ACTIVE("COMMUNITY_ROLE_ALREADY_ACTIVE",
+                        "An active community role already exists for this user and scope", HttpStatus.CONFLICT),
         COMMUNITY_ROLE_PERMISSION_DENIED("COMMUNITY_ROLE_PERMISSION_DENIED",
                         "You don't have the required community role for this action", HttpStatus.FORBIDDEN),
 
