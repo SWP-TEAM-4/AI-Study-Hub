@@ -1,5 +1,6 @@
 package com.aistudyhub.module.user.service;
 
+import com.aistudyhub.common.enums.Role;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.User;
@@ -17,6 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.Locale;
 
 /**
  * Owner: BE1
@@ -95,36 +98,40 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<UserProfileResponse> searchUsers(
-            String keyword, org.springframework.data.domain.Pageable pageable) {
-        return userRepository.searchUsers(keyword, pageable)
+            String keyword,
+            String roleName,
+            Boolean isActive,
+            org.springframework.data.domain.Pageable pageable) {
+        return userRepository.searchUsers(
+                normalizeKeyword(keyword),
+                parseRoleOrNull(roleName),
+                isActive,
+                pageable)
                 .map(this::toProfileResponse);
     }
 
     @Transactional
-    public void setUserActive(Long userId, boolean active, Long adminId) {
+    public UserProfileResponse setUserActive(Long userId, boolean active, Long adminId) {
         if (userId.equals(adminId) && !active) {
             throw new AppException(ErrorCode.CANNOT_DEACTIVATE_SELF);
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         user.setIsActive(active);
-        userRepository.save(user);
+        user = userRepository.save(user);
         log.info("Admin {} set user {} active={}", adminId, userId, active);
+        return toProfileResponse(user);
     }
 
     @Transactional
-    public void changeUserRole(Long userId, String roleName) {
+    public UserProfileResponse changeUserRole(Long userId, String roleName) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-        com.aistudyhub.common.enums.Role role;
-        try {
-            role = com.aistudyhub.common.enums.Role.valueOf(roleName.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR, "Invalid role: " + roleName);
-        }
+        Role role = parseAdminManagedRole(roleName);
         user.setRole(role);
-        userRepository.save(user);
+        user = userRepository.save(user);
         log.info("User {} role changed to {}", userId, role);
+        return toProfileResponse(user);
     }
 
     // ── Helper: get authenticated user ────────────────────────────────────────
@@ -140,6 +147,32 @@ public class UserService {
         CustomUserDetails principal = (CustomUserDetails) SecurityContextHolder.getContext().getAuthentication()
                 .getPrincipal();
         return principal.getId();
+    }
+
+    private String normalizeKeyword(String keyword) {
+        return StringUtils.hasText(keyword) ? keyword.trim() : null;
+    }
+
+    private Role parseRoleOrNull(String roleName) {
+        if (!StringUtils.hasText(roleName)) {
+            return null;
+        }
+        try {
+            return Role.valueOf(roleName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Invalid role: " + roleName);
+        }
+    }
+
+    private Role parseAdminManagedRole(String roleName) {
+        Role role = parseRoleOrNull(roleName);
+        if (role == null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Role is required");
+        }
+        if (role != Role.STUDENT && role != Role.ADMIN) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Role must be STUDENT or ADMIN");
+        }
+        return role;
     }
 
     // ── Private mapping ───────────────────────────────────────────────────────
