@@ -69,6 +69,9 @@ public class FlashcardDeck {
     @Column(name = "ai_verdict_note", columnDefinition = "TEXT")
     private String aiVerdictNote;
 
+    @Column(name = "submit_note", columnDefinition = "TEXT")
+    private String submitNote;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
