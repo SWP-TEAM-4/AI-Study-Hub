@@ -10,6 +10,8 @@ import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizSearchRequest;
 import com.aistudyhub.module.quiz.dto.GenerateQuizRequest;
 import com.aistudyhub.common.enums.QuestionType;
+import com.aistudyhub.module.rag.dto.RelevantChunkResponse;
+import com.aistudyhub.module.rag.service.RagCoreService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
 import jakarta.persistence.criteria.Predicate;
@@ -41,8 +43,7 @@ public class QuizService {
     private final UserService userService;
 
     private final DocumentRepository documentRepository;
-    private final NotebookDocumentRepository notebookDocumentRepository;
-    private final DocumentChunkRepository documentChunkRepository;
+    private final RagCoreService ragCoreService;
     private final QuizQuestionRepository quizQuestionRepository;
 
     /**
@@ -316,17 +317,8 @@ public class QuizService {
             subject = notebook.getSubject();
         }
 
-        // 3. Collect chunks
-        List<DocumentChunk> chunks = new ArrayList<>();
-        if (document != null) {
-            chunks = documentChunkRepository.findByDocumentIdOrderByChunkIndexAsc(document.getId());
-        } else {
-            List<NotebookDocument> notebookDocs = notebookDocumentRepository.findByNotebookId(notebook.getId());
-            List<Long> documentIds = notebookDocs.stream().map(nd -> nd.getDocument().getId()).toList();
-            if (!documentIds.isEmpty()) {
-                chunks = documentChunkRepository.findByDocumentIdInOrderByDocumentIdAscChunkIndexAsc(documentIds);
-            }
-        }
+        List<RelevantChunkResponse> chunks = collectChunksForGeneration(document, notebook, currentUser.getId(),
+                request.getNumberOfQuestions());
 
         // 4. Generate title and description for Quiz
         String sourceTitle = (document != null) ? document.getTitle() : notebook.getTitle();
@@ -362,9 +354,9 @@ public class QuizService {
             String textContent = null;
             String docTitle = sourceTitle;
             if (!chunks.isEmpty()) {
-                DocumentChunk chunk = chunks.get(i % chunks.size());
+                RelevantChunkResponse chunk = chunks.get(i % chunks.size());
                 textContent = chunk.getTextContent();
-                docTitle = chunk.getDocument().getTitle();
+                docTitle = chunk.getDocumentTitle();
             }
 
             // Build question text
@@ -455,5 +447,22 @@ public class QuizService {
                 .createdAt(quiz.getCreatedAt())
                 .updatedAt(quiz.getUpdatedAt())
                 .build();
+    }
+
+    private List<RelevantChunkResponse> collectChunksForGeneration(
+            Document document,
+            Notebook notebook,
+            Long currentUserId,
+            int requestedQuestionCount) {
+        int topK = Math.max(1, Math.max(requestedQuestionCount, 5));
+
+        if (document != null) {
+            return ragCoreService.getDocumentChunks(document.getId(), currentUserId);
+        }
+
+        String querySeed = notebook.getTitle() == null || notebook.getTitle().isBlank()
+                ? notebook.getSubject().getName()
+                : notebook.getTitle();
+        return ragCoreService.findRelevantChunks(notebook.getId(), querySeed, topK, currentUserId);
     }
 }

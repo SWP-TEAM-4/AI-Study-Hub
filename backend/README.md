@@ -16,8 +16,8 @@
 
 | Backend | Module chính                                                     |
 | ------- | ---------------------------------------------------------------- |
-| **BE1** | Foundation, Auth, User, Security, Notification, SystemConfig,... |
-| **BE2** | Academic, Notebook, Document, Tag, Chunk, Chat/RAG               |
+| **BE1** | Foundation, Auth, User, Security, Notification, SystemConfig, RAG Core Contract |
+| **BE2** | Academic, Notebook, Document metadata/upload, Tag                |
 | **BE3** | Quiz, Test, Flashcard, Marketplace, Governance, Community        |
 
 ## Quy tắc bất biến (KHÔNG được vi phạm)
@@ -90,11 +90,13 @@ GET http://localhost:8080/api/health
 
 Migration files nằm ở `src/main/resources/db/migration/`:
 
-| File                    | Owner | Nội dung                        |
-| ----------------------- | ----- | ------------------------------- |
-| `V1__init_schema.sql`   | BE1   | Toàn bộ schema ban đầu          |
-| `V2__seed_data.sql`     | BE1   | Dữ liệu mẫu admin + master data |
-| `V3__academic_data.sql` | BE2   | Semester, Subject, Combo seed   |
+| File                                       | Owner | Nội dung                                      |
+| ------------------------------------------ | ----- | --------------------------------------------- |
+| `V1__init_schema.sql`                      | BE1   | Toàn bộ schema ban đầu                        |
+| `V2__seed_data.sql`                        | BE1   | Dữ liệu mẫu admin + master data               |
+| `V3__extend_document_chunks_for_rag.sql`   | BE1   | Bổ sung `token_estimate`, `source_page`, `source_section` |
+| `V4__add_embedding_columns_to_document_chunks.sql` | BE1 | Bổ sung embedding fields cho RAG retrieval    |
+| `V5__enhance_system_feedbacks.sql`         | BE1   | Bổ sung admin note cho system feedback        |
 
 > **Quy tắc migration:** Không sửa file Vx** đã chạy. Luôn tạo file mới Vx+1**.
 
@@ -109,6 +111,29 @@ Migration files nằm ở `src/main/resources/db/migration/`:
   "data": {}
 }
 ```
+
+## RAG Core Contract
+
+RAG flow demo hiện được chuẩn hóa qua `module.rag.service.RagCoreService`.
+
+- `processDocument(documentId, currentUserId, request)`: extract text, chunk, embedding, update `processingStatus`
+- `findRelevantChunks(notebookId, question, topK, currentUserId)`: shared retrieval contract cho chat/quiz/flashcard
+- `getDocumentChunks(documentId, currentUserId)`: helper cho module cần đọc chunk của một document cụ thể
+- `buildMockAnswer(question, relevantChunks)`: local fallback answer khi LLM unavailable
+- `buildCitedSources(relevantChunks)`: shared citation format cho FE
+
+Shared DTO:
+
+- `RelevantChunkResponse`: `documentId`, `documentTitle`, `chunkIndex`, `textContent`, `tokenEstimate`, `sourcePage`, `sourceSection`, `vectorId`
+- `CitedSourceResponse`: `documentId`, `documentTitle`, `chunkIndex`, `sourcePage`, `sourceSection`, `excerpt`
+
+RAG demo flow:
+
+1. Upload document
+2. `POST /api/documents/{documentId}/process`
+3. Attach document vào notebook
+4. Tạo chat session hoặc generate quiz từ notebook/document
+5. Chat/quiz gọi `RagCoreService` thay vì query chunk repo trực tiếp
 
 **Error:**
 

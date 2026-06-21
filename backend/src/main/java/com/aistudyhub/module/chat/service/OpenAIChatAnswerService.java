@@ -3,7 +3,7 @@ package com.aistudyhub.module.chat.service;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.config.OpenAIConfig;
-import com.aistudyhub.module.document.dto.DocumentChunkResponse;
+import com.aistudyhub.module.rag.dto.RelevantChunkResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +33,7 @@ public class OpenAIChatAnswerService {
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
 
-    public String generateAnswer(String question, List<DocumentChunkResponse> relevantChunks) {
+    public String generateAnswer(String question, List<RelevantChunkResponse> relevantChunks) {
         if (question == null || question.isBlank()) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Question content must not be blank.");
         }
@@ -94,7 +94,7 @@ public class OpenAIChatAnswerService {
                 .build();
     }
 
-    private Map<String, Object> buildRequestPayload(String question, List<DocumentChunkResponse> relevantChunks) {
+    private Map<String, Object> buildRequestPayload(String question, List<RelevantChunkResponse> relevantChunks) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", openAIConfig.getModel());
         payload.put("instructions", """
@@ -108,7 +108,7 @@ public class OpenAIChatAnswerService {
         return payload;
     }
 
-    private String buildUserPrompt(String question, List<DocumentChunkResponse> relevantChunks) {
+    private String buildUserPrompt(String question, List<RelevantChunkResponse> relevantChunks) {
         StringBuilder builder = new StringBuilder();
         builder.append("User question:\n")
                 .append(question.trim())
@@ -122,7 +122,7 @@ public class OpenAIChatAnswerService {
         return builder.toString();
     }
 
-    private String formatChunk(DocumentChunkResponse chunk) {
+    private String formatChunk(RelevantChunkResponse chunk) {
         StringBuilder builder = new StringBuilder();
         builder.append("---\n")
                 .append("Document: ").append(defaultText(chunk.getDocumentTitle(), "Untitled document")).append('\n')
