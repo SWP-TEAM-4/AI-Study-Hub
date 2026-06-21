@@ -221,4 +221,20 @@ public class FlashcardDeckController {
         FlashcardDeckProgressResponse response = progressService.getDeckProgress(deckId);
         return ResponseEntity.ok(ApiResponse.success("Success", response));
     }
+
+    /**
+     * API tự động sinh (mock) một bộ Flashcard Deck cùng danh sách thẻ con từ
+     * notebook hoặc document.
+     * 
+     * @param request thông tin cấu hình sinh Flashcard Deck
+     * @return ResponseEntity chứa thông tin bộ bài được sinh và mã HTTP 201 Created
+     */
+    @Operation(summary = "Sinh bộ flashcard mock từ notebook hoặc tài liệu")
+    @PostMapping("/generate")
+    public ResponseEntity<ApiResponse<FlashcardDeckResponse>> generateDeck(
+            @Valid @RequestBody GenerateFlashcardDeckRequest request) {
+        FlashcardDeckResponse response = flashcardService.generateDeck(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Success", response));
+    }
 }
