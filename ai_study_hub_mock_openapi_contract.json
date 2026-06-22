@@ -448,8 +448,8 @@
         "tags": [
           "Chat/RAG"
         ],
-        "summary": "Get/List: Implement Chat Message and Mock RAG Answer API",
-        "description": "Owner: BE1 | Issues: BE-018",
+        "summary": "Lay danh sach messages cua chat session, bao gom practice draft metadata",
+        "description": "Owner: BE1 | Issues: BE-018, BE-055",
         "security": [
           {
             "bearerAuth": []
@@ -475,15 +475,96 @@
                 "example": {
                   "success": true,
                   "message": "Success",
-                  "data": {
-                    "id": 701,
-                    "sessionId": 301,
-                    "messageSequence": 1,
-                    "senderRole": "USER",
-                    "content": "SRS là gì?",
-                    "citedSources": [],
-                    "createdAt": "2026-06-12T21:56:00"
-                  }
+                  "data": [
+                    {
+                      "id": 701,
+                      "sessionId": 301,
+                      "messageSequence": 1,
+                      "senderRole": "USER",
+                      "messageType": "TEXT",
+                      "practiceType": null,
+                      "practiceStatus": "NONE",
+                      "content": "[QUIZ] Tao cho toi quiz chuong 1, 2, 3 gom 15 cau trac nghiem, co dap an va giai thich",
+                      "citedSources": [],
+                      "generatedPayload": null,
+                      "validationErrors": null,
+                      "importedTargetType": null,
+                      "importedTargetId": null,
+                      "importedAt": null,
+                      "createdAt": "2026-06-18T21:00:00"
+                    },
+                    {
+                      "id": 702,
+                      "sessionId": 301,
+                      "messageSequence": 2,
+                      "senderRole": "AI",
+                      "messageType": "QUIZ_DRAFT",
+                      "practiceType": "QUIZ",
+                      "practiceStatus": "READY",
+                      "content": "Minh da tao quiz draft gom 15 cau tu tai lieu cua ban.",
+                      "citedSources": [
+                        {
+                          "documentId": 501,
+                          "documentTitle": "Chapter 10 Requirement Specification",
+                          "chunkIndex": 3,
+                          "sourcePage": 12,
+                          "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+                        }
+                      ],
+                      "generatedPayload": {
+                        "type": "QUIZ",
+                        "title": "Quiz on tap chuong 1, 2, 3",
+                        "description": "Bo cau hoi duoc sinh boi AI tu tai lieu trong notebook.",
+                        "metadata": {
+                          "language": "vi",
+                          "difficulty": "MEDIUM",
+                          "requestedQuestionCount": 15,
+                          "generatedQuestionCount": 15,
+                          "requestedCardCount": null,
+                          "generatedCardCount": null,
+                          "warnings": []
+                        },
+                        "questions": [
+                          {
+                            "questionText": "SRS la viet tat cua thuat ngu nao?",
+                            "questionType": "SINGLE_CHOICE",
+                            "explanation": "SRS la Software Requirements Specification.",
+                            "options": [
+                              {
+                                "optionText": "Software Requirements Specification",
+                                "isCorrect": true
+                              },
+                              {
+                                "optionText": "System Runtime Service",
+                                "isCorrect": false
+                              },
+                              {
+                                "optionText": "Software Review Standard",
+                                "isCorrect": false
+                              },
+                              {
+                                "optionText": "System Requirement Security",
+                                "isCorrect": false
+                              }
+                            ],
+                            "sourceRefs": [
+                              {
+                                "documentId": 501,
+                                "chunkIndex": 3,
+                                "sourcePage": 12,
+                                "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "validationErrors": null,
+                      "importedTargetType": null,
+                      "importedTargetId": null,
+                      "importedAt": null,
+                      "createdAt": "2026-06-18T21:00:03"
+                    }
+                  ]
                 }
               }
             }
@@ -506,8 +587,8 @@
         "tags": [
           "Chat/RAG"
         ],
-        "summary": "Gửi câu hỏi và nhận câu trả lời mock RAG kèm citation",
-        "description": "Owner: BE1 | Issues: BE-018",
+        "summary": "Gui cau hoi chat hoac tao AI practice draft",
+        "description": "Owner: BE1 | Issues: BE-018, BE-055",
         "security": [
           {
             "bearerAuth": []
@@ -528,8 +609,19 @@
           "content": {
             "application/json": {
               "example": {
-                "content": "SRS là gì?",
-                "topK": 3
+                "content": "[QUIZ] Tao cho toi quiz chuong 1, 2, 3 gom 15 cau trac nghiem, co dap an va giai thich",
+                "documentIds": [
+                  501,
+                  502,
+                  503
+                ],
+                "topK": 8,
+                "language": "vi",
+                "options": {
+                  "numberOfQuestions": 15,
+                  "questionType": "SINGLE_CHOICE",
+                  "difficulty": "MEDIUM"
+                }
               }
             }
           }
@@ -548,26 +640,88 @@
                       "sessionId": 301,
                       "messageSequence": 1,
                       "senderRole": "USER",
-                      "content": "SRS là gì?",
+                      "messageType": "TEXT",
+                      "practiceType": null,
+                      "practiceStatus": "NONE",
+                      "content": "[QUIZ] Tao cho toi quiz chuong 1, 2, 3 gom 15 cau trac nghiem, co dap an va giai thich",
                       "citedSources": [],
-                      "createdAt": "2026-06-12T21:56:00"
+                      "generatedPayload": null,
+                      "validationErrors": null,
+                      "importedTargetType": null,
+                      "importedTargetId": null,
+                      "importedAt": null,
+                      "createdAt": "2026-06-18T21:00:00"
                     },
                     "aiMessage": {
                       "id": 702,
                       "sessionId": 301,
                       "messageSequence": 2,
                       "senderRole": "AI",
-                      "content": "SRS là tài liệu đặc tả yêu cầu phần mềm, mô tả chức năng, phi chức năng, ràng buộc và tiêu chí chấp nhận.",
+                      "messageType": "QUIZ_DRAFT",
+                      "practiceType": "QUIZ",
+                      "practiceStatus": "READY",
+                      "content": "Minh da tao quiz draft gom 15 cau tu tai lieu cua ban.",
                       "citedSources": [
                         {
                           "documentId": 501,
                           "documentTitle": "Chapter 10 Requirement Specification",
-                          "chunkIndex": 0,
+                          "chunkIndex": 3,
                           "sourcePage": 12,
-                          "excerpt": "Requirement specification should be clear..."
+                          "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
                         }
                       ],
-                      "createdAt": "2026-06-12T21:56:04"
+                      "generatedPayload": {
+                        "type": "QUIZ",
+                        "title": "Quiz on tap chuong 1, 2, 3",
+                        "description": "Bo cau hoi duoc sinh boi AI tu tai lieu trong notebook.",
+                        "metadata": {
+                          "language": "vi",
+                          "difficulty": "MEDIUM",
+                          "requestedQuestionCount": 15,
+                          "generatedQuestionCount": 15,
+                          "requestedCardCount": null,
+                          "generatedCardCount": null,
+                          "warnings": []
+                        },
+                        "questions": [
+                          {
+                            "questionText": "SRS la viet tat cua thuat ngu nao?",
+                            "questionType": "SINGLE_CHOICE",
+                            "explanation": "SRS la Software Requirements Specification.",
+                            "options": [
+                              {
+                                "optionText": "Software Requirements Specification",
+                                "isCorrect": true
+                              },
+                              {
+                                "optionText": "System Runtime Service",
+                                "isCorrect": false
+                              },
+                              {
+                                "optionText": "Software Review Standard",
+                                "isCorrect": false
+                              },
+                              {
+                                "optionText": "System Requirement Security",
+                                "isCorrect": false
+                              }
+                            ],
+                            "sourceRefs": [
+                              {
+                                "documentId": 501,
+                                "chunkIndex": 3,
+                                "sourcePage": 12,
+                                "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "validationErrors": null,
+                      "importedTargetType": null,
+                      "importedTargetId": null,
+                      "importedAt": null,
+                      "createdAt": "2026-06-18T21:00:04"
                     }
                   }
                 }
@@ -6121,7 +6275,7 @@
                     "deckId": 1001,
                     "reviewedCards": 12,
                     "totalCards": 20,
-                    "rememberedRate": 75.0
+                    "rememberedRate": 75
                   }
                 }
               }
@@ -11067,6 +11221,237 @@
                   "success": false,
                   "message": "Invalid request data",
                   "errorCode": "VALIDATION_ERROR"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat-messages/{messageId}/practice-draft": {
+      "get": {
+        "tags": [
+          "Chat/RAG"
+        ],
+        "summary": "Xem JSON practice draft cua chat message",
+        "description": "Owner: BE1 | Issues: BE-055",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "example": 702
+          }
+        ],
+        "requestBody": null,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Success",
+                  "data": {
+                    "type": "QUIZ",
+                    "title": "Quiz on tap chuong 1, 2, 3",
+                    "description": "Bo cau hoi duoc sinh boi AI tu tai lieu trong notebook.",
+                    "metadata": {
+                      "language": "vi",
+                      "difficulty": "MEDIUM",
+                      "requestedQuestionCount": 15,
+                      "generatedQuestionCount": 15,
+                      "requestedCardCount": null,
+                      "generatedCardCount": null,
+                      "warnings": []
+                    },
+                    "questions": [
+                      {
+                        "questionText": "SRS la viet tat cua thuat ngu nao?",
+                        "questionType": "SINGLE_CHOICE",
+                        "explanation": "SRS la Software Requirements Specification.",
+                        "options": [
+                          {
+                            "optionText": "Software Requirements Specification",
+                            "isCorrect": true
+                          },
+                          {
+                            "optionText": "System Runtime Service",
+                            "isCorrect": false
+                          },
+                          {
+                            "optionText": "Software Review Standard",
+                            "isCorrect": false
+                          },
+                          {
+                            "optionText": "System Requirement Security",
+                            "isCorrect": false
+                          }
+                        ],
+                        "sourceRefs": [
+                          {
+                            "documentId": 501,
+                            "chunkIndex": 3,
+                            "sourcePage": 12,
+                            "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Practice draft not ready",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": false,
+                  "message": "Practice draft is not ready for this action",
+                  "errorCode": "PRACTICE_DRAFT_NOT_READY"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat message not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": false,
+                  "message": "Chat message not found",
+                  "errorCode": "CHAT_MESSAGE_NOT_FOUND"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat-messages/{messageId}/practice-import": {
+      "post": {
+        "tags": [
+          "Chat/RAG"
+        ],
+        "summary": "Import practice draft vao quiz bank hoac flashcard deck",
+        "description": "Owner: BE1 | Issues: BE-055",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "example": 702
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "targetMode": "CREATE_NEW",
+                "target": {
+                  "title": "Quiz chuong 1, 2, 3",
+                  "description": "Quiz tao tu Chat AI",
+                  "notebookId": 101,
+                  "subjectId": 12,
+                  "visibility": "PRIVATE"
+                },
+                "importOptions": {
+                  "skipDuplicateQuestions": true,
+                  "shuffleQuestions": false
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Practice draft imported successfully",
+                  "data": {
+                    "messageId": 702,
+                    "practiceType": "QUIZ",
+                    "targetMode": "CREATE_NEW",
+                    "targetType": "QUIZ",
+                    "targetId": 801,
+                    "createdQuizId": 801,
+                    "createdDeckId": null,
+                    "createdQuestions": 15,
+                    "createdOptions": 60,
+                    "createdCards": 0,
+                    "skippedDuplicates": 0,
+                    "practiceStatus": "IMPORTED",
+                    "importedAt": "2026-06-18T21:10:00"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": false,
+                  "message": "Practice import target is invalid",
+                  "errorCode": "PRACTICE_IMPORT_TARGET_INVALID"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": false,
+                  "message": "You do not have permission to import into this target",
+                  "errorCode": "PRACTICE_IMPORT_PERMISSION_DENIED"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat message not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": false,
+                  "message": "Chat message not found",
+                  "errorCode": "CHAT_MESSAGE_NOT_FOUND"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": false,
+                  "message": "Practice import contains duplicate items",
+                  "errorCode": "PRACTICE_IMPORT_DUPLICATE_ITEM"
                 }
               }
             }

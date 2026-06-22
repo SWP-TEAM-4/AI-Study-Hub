@@ -153,7 +153,7 @@ public class DocumentChunkService {
      */
     @Transactional(readOnly = true)
     public List<DocumentChunkResponse> findRelevantChunks(Long notebookId, String question, int topK) {
-        return findRelevantChunks(notebookId, null, question, topK);
+        return findRelevantChunks(notebookId, null, null, question, topK);
     }
 
     /**
@@ -161,6 +161,12 @@ public class DocumentChunkService {
      */
     @Transactional(readOnly = true)
     public List<DocumentChunkResponse> findRelevantChunks(Long notebookId, Long userId, String question, int topK) {
+        return findRelevantChunks(notebookId, userId, null, question, topK);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentChunkResponse> findRelevantChunks(Long notebookId, Long userId, List<Long> requestedDocumentIds,
+                                                          String question, int topK) {
         if (userId != null) {
             Notebook notebook = notebookRepository.findByIdAndUserId(notebookId, userId)
                     .orElseThrow(() -> {
@@ -182,9 +188,21 @@ public class DocumentChunkService {
             return List.of();
         }
 
-        List<Long> documentIds = notebookDocs.stream()
+        List<Long> notebookDocumentIds = notebookDocs.stream()
                 .map(nd -> nd.getDocument().getId())
                 .toList();
+
+        List<Long> documentIds = notebookDocumentIds;
+        if (requestedDocumentIds != null && !requestedDocumentIds.isEmpty()) {
+            Set<Long> allowedDocumentIds = new HashSet<>(notebookDocumentIds);
+            boolean invalidDocumentId = requestedDocumentIds.stream()
+                    .anyMatch(documentId -> documentId == null || !allowedDocumentIds.contains(documentId));
+            if (invalidDocumentId) {
+                throw new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED,
+                        "One or more documentIds do not belong to the current notebook");
+            }
+            documentIds = requestedDocumentIds.stream().distinct().toList();
+        }
 
         // 2. Lấy tất cả chunks thuộc các documents
         List<DocumentChunk> allChunks = documentChunkRepository
