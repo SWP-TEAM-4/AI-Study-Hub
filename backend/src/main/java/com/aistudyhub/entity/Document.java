@@ -93,6 +93,10 @@ public class Document {
     @Builder.Default
     private ProcessingStatus processingStatus = ProcessingStatus.PENDING;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cloned_from_id")
+    private Document clonedFrom;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

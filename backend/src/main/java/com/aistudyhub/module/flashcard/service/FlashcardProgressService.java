@@ -18,6 +18,7 @@ import com.aistudyhub.module.flashcard.dto.FlashcardDeckProgressResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardReviewRequest;
 import com.aistudyhub.module.flashcard.dto.FlashcardReviewResponse;
+import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponseMapper;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.FlashcardDeckRepository;
 import com.aistudyhub.repository.FlashcardRepository;
@@ -213,20 +214,7 @@ public class FlashcardProgressService {
 
         // 6. Chuyển đổi danh sách Entity sang DTO và trả về
         return dueCards.stream()
-                .map(this::toCardResponse)
+                .map(FlashcardDeckResponseMapper::toCardResponse)
                 .toList();
     }
-
-    /**
-     * Hàm phụ trợ chuyển đổi Flashcard Entity sang FlashcardResponse DTO.
-     */
-    private FlashcardResponse toCardResponse(Flashcard card) {
-        return FlashcardResponse.builder()
-                .id(card.getId())
-                .deckId(card.getDeck().getId())
-                .frontText(card.getFrontText())
-                .backText(card.getBackText())
-                .build();
-    }
-
 }
