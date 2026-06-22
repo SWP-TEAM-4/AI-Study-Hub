@@ -3917,6 +3917,59 @@ FLASHCARD_IMPORT_FAILED
 
 ---
 
+
+
+### Issue BE-056: Implement Document Share Link APIs
+
+* **Owner:** BE1
+* **Labels:** `type:feature`, `priority:critical`, `area:document`, `area:sharing`, `owner:BE2`
+* **Estimate:** 6h
+* **Depends on:** BE-005, BE-012, BE-013
+* **Branch:** `feature/document-share-link`
+
+#### Endpoints
+
+```http
+POST /api/documents/{documentId}/share-link
+GET /api/documents/{documentId}/share-link
+PATCH /api/documents/{documentId}/share-link
+DELETE /api/documents/{documentId}/share-link
+GET /api/share/documents/{shareToken}
+GET /api/share/documents/{shareToken}/download
+```
+
+#### Mục tiêu
+
+Cho phép user tạo link chia sẻ public cho tài liệu của mình. Người nhận link có thể xem metadata/preview hoặc download tài liệu bằng `shareToken` nếu được phép.
+
+#### Entity cần update thêm vào database
+
+```text
+DocumentShareLink
+- id
+- documentId
+- ownerUserId
+- shareToken
+- isEnabled
+- allowPreview
+- allowDownload
+- expiresAt
+- accessCount
+- lastAccessedAt
+- createdAt
+- updatedAt
+```
+
+#### Business rules chính
+
+* Chỉ owner document hoặc ADMIN mới được tạo/cập nhật/thu hồi share link.
+* Public endpoint không cần JWT, chỉ dùng `shareToken`.
+* Token bị revoke/hết hạn phải bị chặn.
+* Nếu `allowDownload = false`, endpoint download trả lỗi `DOWNLOAD_NOT_ALLOWED`.
+* Khi bật share link, document có thể chuyển `visibility = PUBLIC_LINK`.
+* Khi thu hồi link, nếu document không publish Marketplace thì đưa về `PRIVATE`.
+* Không expose `cloudFilePath` hoặc internal storage path ra public response.
+
 # V2.4. Điều chỉnh phân công để không nghẽn BE3
 
 Bản trước dồn quá nhiều Community/Governance vào BE3. Sau khi bổ sung v2, nên chia lại:
