@@ -30,12 +30,13 @@ public final class FlashcardDeckResponseMapper {
                 .downloadCount(deck.getDownloadCount())
                 .reviewCount(deck.getReviewCount())
                 .acceptPercentage(deck.getAcceptPercentage())
+                .clonedFromId(deck.getClonedFrom() != null ? deck.getClonedFrom().getId() : null)
                 .createdAt(deck.getCreatedAt())
                 .cards(cardResponses)
                 .build();
     }
 
-    private static FlashcardResponse toCardResponse(Flashcard card) {
+    public static FlashcardResponse toCardResponse(Flashcard card) {
         return FlashcardResponse.builder()
                 .id(card.getId())
                 .deckId(card.getDeck().getId())
@@ -43,4 +44,4 @@ public final class FlashcardDeckResponseMapper {
                 .backText(card.getBackText())
                 .build();
     }
-}
+}

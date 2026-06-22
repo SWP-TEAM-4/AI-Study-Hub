@@ -79,6 +79,10 @@ public class Quiz {
     @Column(name = "submit_note", columnDefinition = "TEXT")
     private String submitNote;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cloned_from_id")
+    private Quiz clonedFrom;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

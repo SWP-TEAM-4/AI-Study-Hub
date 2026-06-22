@@ -16,7 +16,9 @@ import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
 import com.aistudyhub.module.marketplace.dto.MarketplaceItemResponse;
 import com.aistudyhub.module.marketplace.dto.MarketplaceQueryRequest;
 import com.aistudyhub.module.marketplace.dto.MarketplaceSubmitRequest;
+import com.aistudyhub.module.marketplace.dto.MarketplaceCloneRequest;
 import com.aistudyhub.module.marketplace.service.MarketPlaceService;
+import com.aistudyhub.module.marketplace.service.MarketplaceCloneService;
 import com.aistudyhub.module.quiz.dto.QuizResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MarketPlaceController {
 
     private final MarketPlaceService marketPlaceService;
+    private final MarketplaceCloneService marketplaceCloneService;
 
     /**
      * API đăng tải tài liệu (Document) lên Marketplace.
@@ -181,6 +184,68 @@ public class MarketPlaceController {
 
         PaginationResponse<MarketplaceItemResponse> response = marketPlaceService.searchMarketplace(request);
         return ResponseEntity.ok(ApiResponse.success("Search marketplace successfully.", response));
+    }
+
+    /**
+     * API nhân bản tài liệu (Document) từ Marketplace về không gian cá nhân của học
+     * viên.
+     *
+     * @param id      ID của tài liệu cần nhân bản
+     * @param request Yêu cầu chứa ID của Notebook đích (tùy chọn)
+     * @return ResponseEntity chứa ApiResponse bọc DocumentResponse của tài liệu đã
+     *         nhân bản
+     */
+    @Operation(summary = "Nhân bản Document từ Chợ về cá nhân")
+    @PostMapping("/documents/{id}/clone")
+    public ResponseEntity<ApiResponse<DocumentResponse>> cloneDocument(
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) MarketplaceCloneRequest request) {
+        log.info("Received request to clone Document id={} to workspace. Notebook target: {}",
+                id, request != null ? request.getTargetNotebookId() : "none");
+
+        DocumentResponse response = marketplaceCloneService.cloneDocumentInMarket(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Document cloned successfully from marketplace.", response));
+    }
+
+    /**
+     * API nhân bản đề thi (Quiz) từ Marketplace về không gian cá nhân của học viên.
+     *
+     * @param id      ID của đề thi cần nhân bản
+     * @param request Yêu cầu chứa ID của Notebook đích (tùy chọn)
+     * @return ResponseEntity chứa ApiResponse bọc QuizResponse của đề thi đã nhân
+     *         bản
+     */
+    @Operation(summary = "Nhân bản Quiz từ Chợ về cá nhân")
+    @PostMapping("/quizzes/{id}/clone")
+    public ResponseEntity<ApiResponse<QuizResponse>> cloneQuiz(
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) MarketplaceCloneRequest request) {
+        log.info("Received request to clone Quiz id={} to workspace. Notebook target: {}",
+                id, request != null ? request.getTargetNotebookId() : "none");
+
+        QuizResponse response = marketplaceCloneService.cloneQuizInMarket(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Quiz cloned successfully from marketplace.", response));
+    }
+
+    /**
+     * API nhân bản bộ thẻ ghi nhớ (FlashcardDeck) từ Marketplace về không gian cá
+     * nhân của học viên.
+     *
+     * @param id      ID của bộ thẻ ghi nhớ cần nhân bản
+     * @param request Yêu cầu chứa ID của Notebook đích (tùy chọn)
+     * @return ResponseEntity chứa ApiResponse bọc FlashcardDeckResponse của bộ thẻ
+     *         đã nhân bản
+     */
+    @Operation(summary = "Nhân bản FlashcardDeck từ Chợ về cá nhân")
+    @PostMapping("/flashcard-decks/{id}/clone")
+    public ResponseEntity<ApiResponse<FlashcardDeckResponse>> cloneFlashcardDeck(
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) MarketplaceCloneRequest request) {
+        log.info("Received request to clone FlashcardDeck id={} to workspace. Notebook target: {}",
+                id, request != null ? request.getTargetNotebookId() : "none");
+
+        FlashcardDeckResponse response = marketplaceCloneService.cloneFlashcardDeckInMarket(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Flashcard deck cloned successfully from marketplace.", response));
     }
 
 }

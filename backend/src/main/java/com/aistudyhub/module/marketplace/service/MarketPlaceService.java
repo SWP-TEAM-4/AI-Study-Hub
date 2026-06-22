@@ -76,6 +76,11 @@ public class MarketPlaceService {
         if (!document.getUser().getId().equals(currentUserId)) {
             throw new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED);
         }
+        // Bước 3b: Kiểm tra nếu là tài liệu nhân bản thì không được đăng tải lại
+        if (document.getClonedFrom() != null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Cannot publish a cloned document back to the marketplace.");
+        }
         // Bước 4: Kiểm tra metadata cơ bản
         if (document.getSubject() == null) {
             throw new AppException(ErrorCode.VALIDATION_ERROR,
@@ -125,6 +130,10 @@ public class MarketPlaceService {
         if (!quiz.getCreator().getId().equals(currentUserId)) {
             throw new AppException(ErrorCode.QUIZ_ACCESS_DENIED);
         }
+        // Bước 3b: Kiểm tra nếu là đề thi nhân bản thì không được đăng tải lại
+        if (quiz.getClonedFrom() != null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Cannot publish a cloned quiz back to the marketplace.");
+        }
         // Bước 4: Kiểm tra metadata cơ bản
         if (quiz.getSubject() == null) {
             throw new AppException(ErrorCode.VALIDATION_ERROR,
@@ -173,6 +182,12 @@ public class MarketPlaceService {
         // Bước 3: Xác thực quyền sở hữu. Sử dụng mã lỗi FLASHCARD_DECK_ACCESS_DENIED
         if (!deck.getUser().getId().equals(currentUserId)) {
             throw new AppException(ErrorCode.FLASHCARD_DECK_ACCESS_DENIED);
+        }
+
+        // Bước 3b: Kiểm tra nếu là bộ thẻ ghi nhớ nhân bản thì không được đăng tải lại
+        if (deck.getClonedFrom() != null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Cannot publish a cloned flashcard deck back to the marketplace.");
         }
         // Bước 4: Kiểm tra metadata
         if (deck.getSubject() == null) {

@@ -33,6 +33,7 @@ import com.aistudyhub.module.flashcard.dto.FlashcardDeckRequest;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckSearchRequest;
 import com.aistudyhub.module.flashcard.dto.FlashcardRequest;
+import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponseMapper;
 import com.aistudyhub.module.flashcard.dto.FlashcardResponse;
 import com.aistudyhub.module.flashcard.dto.GenerateFlashcardDeckRequest;
 import com.aistudyhub.module.user.service.UserService;
@@ -125,7 +126,7 @@ public class FlashcardService {
         deck = deckRepository.save(deck);
         log.info("Flashcard deck id={} created by userId={}", deck.getId(), currentUser.getId());
 
-        return toDeckResponse(deck);
+        return FlashcardDeckResponseMapper.toResponse(deck);
     }
 
     /**
@@ -157,7 +158,7 @@ public class FlashcardService {
             throw new AppException(ErrorCode.FLASHCARD_DECK_ACCESS_DENIED);
         }
 
-        return toDeckResponse(deck);
+        return FlashcardDeckResponseMapper.toResponse(deck);
     }
 
     /**
@@ -220,7 +221,7 @@ public class FlashcardService {
 
         deck = deckRepository.save(deck);
         log.info("Flashcard deck id={} updated by userId={}", deck.getId(), currentUserId);
-        return toDeckResponse(deck);
+        return FlashcardDeckResponseMapper.toResponse(deck);
     }
 
     /**
@@ -294,7 +295,7 @@ public class FlashcardService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return deckRepository.findAll(spec, pageable).map(this::toDeckResponse);
+        return deckRepository.findAll(spec, pageable).map(FlashcardDeckResponseMapper::toResponse);
     }
 
     // =========================================================================
@@ -337,7 +338,7 @@ public class FlashcardService {
         deck = deckRepository.save(deck);
         log.info("Added new card id={} to deck id={}", card.getId(), deckId);
 
-        return toDeckResponse(deck);
+        return FlashcardDeckResponseMapper.toResponse(deck);
     }
 
     /**
@@ -371,7 +372,7 @@ public class FlashcardService {
         card = cardRepository.save(card);
         log.info("Card id={} updated by userId={}", cardId, currentUserId);
 
-        return toCardResponse(card);
+        return FlashcardDeckResponseMapper.toCardResponse(card);
     }
 
     /**
@@ -400,48 +401,6 @@ public class FlashcardService {
 
         cardRepository.delete(card);
         log.info("Card id={} deleted by userId={}", cardId, currentUserId);
-    }
-
-    // =========================================================================
-    // PRIVATE MAPPING METHODS
-    // =========================================================================
-
-    /**
-     * Hàm helper chuyển đổi thực thể FlashcardDeck sang DTO FlashcardDeckResponse
-     * phẳng và an toàn.
-     */
-    private FlashcardDeckResponse toDeckResponse(FlashcardDeck deck) {
-        List<FlashcardResponse> cardResponses = deck.getCards() == null ? new ArrayList<>()
-                : deck.getCards().stream()
-                        .map(this::toCardResponse)
-                        .collect(Collectors.toList());
-        return FlashcardDeckResponse.builder()
-                .id(deck.getId())
-                .userId(deck.getUser().getId())
-                .notebookId(deck.getNotebook() != null ? deck.getNotebook().getId() : null)
-                .subjectId(deck.getSubject() != null ? deck.getSubject().getId() : null)
-                .title(deck.getTitle())
-                .visibility(deck.getVisibility())
-                .marketStatus(deck.getMarketStatus())
-                .downloadCount(deck.getDownloadCount())
-                .reviewCount(deck.getReviewCount())
-                .acceptPercentage(deck.getAcceptPercentage())
-                .createdAt(deck.getCreatedAt())
-                .cards(cardResponses)
-                .build();
-    }
-
-    /**
-     * Hàm helper chuyển đổi thực thể Flashcard sang DTO FlashcardResponse phẳng và
-     * an toàn.
-     */
-    private FlashcardResponse toCardResponse(Flashcard card) {
-        return FlashcardResponse.builder()
-                .id(card.getId())
-                .deckId(card.getDeck().getId())
-                .frontText(card.getFrontText())
-                .backText(card.getBackText())
-                .build();
     }
 
     /**
@@ -557,7 +516,7 @@ public class FlashcardService {
         log.info("Successfully generated mock FlashcardDeck id={} with {} cards for userId={}",
                 deck.getId(), totalCardsToGenerate, currentUser.getId());
         // 7. Map sang DTO trả về cho Client
-        return toDeckResponse(deck);
+        return FlashcardDeckResponseMapper.toResponse(deck);
 
     }
 

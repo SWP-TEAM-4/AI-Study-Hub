@@ -72,6 +72,10 @@ public class FlashcardDeck {
     @Column(name = "submit_note", columnDefinition = "TEXT")
     private String submitNote;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cloned_from_id")
+    private FlashcardDeck clonedFrom;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

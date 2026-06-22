@@ -28,6 +28,7 @@ public final class DocumentResponseMapper {
                 .acceptPercentage(doc.getAcceptPercentage())
                 .aiVerdictNote(doc.getAiVerdictNote())
                 .processingStatus(doc.getProcessingStatus())
+                .clonedFromId(doc.getClonedFrom() != null ? doc.getClonedFrom().getId() : null)
                 .createdAt(doc.getCreatedAt())
                 .updatedAt(doc.getUpdatedAt())
                 .build();

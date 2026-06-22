@@ -33,6 +33,7 @@ public class DocumentResponse {
     private Integer reviewCount;
     private BigDecimal acceptPercentage;
     private String aiVerdictNote;
+    private Long clonedFromId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

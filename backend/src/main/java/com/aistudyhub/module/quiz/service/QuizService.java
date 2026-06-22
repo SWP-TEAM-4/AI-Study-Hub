@@ -7,6 +7,7 @@ import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.*;
 import com.aistudyhub.module.quiz.dto.QuizRequest;
 import com.aistudyhub.module.quiz.dto.QuizResponse;
+import com.aistudyhub.module.quiz.dto.QuizResponseMapper;
 import com.aistudyhub.module.quiz.dto.QuizSearchRequest;
 import com.aistudyhub.module.quiz.dto.GenerateQuizRequest;
 import com.aistudyhub.common.enums.QuestionType;
@@ -104,7 +105,7 @@ public class QuizService {
 
         quiz = quizRepository.save(quiz);
         log.info("Quiz created successfully with id={} by userId={}", quiz.getId(), currentUser.getId());
-        return toQuizResponse(quiz);
+        return QuizResponseMapper.toResponse(quiz);
     }
 
     /**
@@ -133,7 +134,7 @@ public class QuizService {
             throw new AppException(ErrorCode.QUIZ_ACCESS_DENIED);
         }
 
-        return toQuizResponse(quiz);
+        return QuizResponseMapper.toResponse(quiz);
     }
 
     /**
@@ -195,7 +196,7 @@ public class QuizService {
 
         quiz = quizRepository.save(quiz);
         log.info("Quiz id={} updated by userId={}", quiz.getId(), currentUserId);
-        return toQuizResponse(quiz);
+        return QuizResponseMapper.toResponse(quiz);
     }
 
     /**
@@ -284,7 +285,7 @@ public class QuizService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return quizRepository.findAll(spec, pageable).map(this::toQuizResponse);
+        return quizRepository.findAll(spec, pageable).map(QuizResponseMapper::toResponse);
     }
 
     @Transactional
@@ -428,32 +429,6 @@ public class QuizService {
         log.info("Quiz generated successfully with id={} ({} questions) by userId={}", quiz.getId(), totalQuestions,
                 currentUser.getId());
 
-        return toQuizResponse(quiz);
-    }
-
-    // ── Mapping Helper ───────────────────────────────────────────────────────
-    private QuizResponse toQuizResponse(Quiz quiz) {
-        return QuizResponse.builder()
-                .id(quiz.getId())
-                .notebookId(quiz.getNotebook() != null ? quiz.getNotebook().getId() : null)
-                .notebookTitle(quiz.getNotebook() != null ? quiz.getNotebook().getTitle() : null)
-                .subjectId(quiz.getSubject() != null ? quiz.getSubject().getId() : null)
-                .subjectName(quiz.getSubject() != null ? quiz.getSubject().getName() : null)
-                .creatorId(quiz.getCreator().getId())
-                .creatorFullName(quiz.getCreator().getFullName())
-                .title(quiz.getTitle())
-                .description(quiz.getDescription())
-                .academicTermId(quiz.getAcademicTerm() != null ? quiz.getAcademicTerm().getId() : null)
-                .academicTermName(quiz.getAcademicTerm() != null ? quiz.getAcademicTerm().getName() : null)
-                .examType(quiz.getExamType())
-                .visibility(quiz.getVisibility())
-                .marketStatus(quiz.getMarketStatus())
-                .downloadCount(quiz.getDownloadCount())
-                .reviewCount(quiz.getReviewCount())
-                .acceptPercentage(quiz.getAcceptPercentage())
-                .aiVerdictNote(quiz.getAiVerdictNote())
-                .createdAt(quiz.getCreatedAt())
-                .updatedAt(quiz.getUpdatedAt())
-                .build();
+        return QuizResponseMapper.toResponse(quiz);
     }
 }

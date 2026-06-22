@@ -24,6 +24,7 @@ public class FlashcardDeckResponse {
     private Integer downloadCount;
     private Integer reviewCount;
     private BigDecimal acceptPercentage;
+    private Long clonedFromId;
     private LocalDateTime createdAt;
     private List<FlashcardResponse> cards;
 }
