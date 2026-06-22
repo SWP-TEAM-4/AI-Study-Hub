@@ -1,11 +1,14 @@
 package com.aistudyhub.module.document.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.utils.FileUtil;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.Subject;
 import com.aistudyhub.entity.User;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.document.dto.DocumentResponse;
 import com.aistudyhub.module.document.dto.DocumentResponseMapper;
 import com.aistudyhub.repository.DocumentRepository;
@@ -17,6 +20,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.LinkedHashMap;
 
 /**
  * Owner: BE2 (skeleton hoàn chỉnh bởi BE1 để unblock demo upload flow)
@@ -38,6 +43,7 @@ public class DocumentUploadService {
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
+    private final ActivityLogService activityLogService;
 
     @Value("${spring.servlet.multipart.max-file-size:50MB}")
     private String maxFileSizeConfig;
@@ -109,6 +115,21 @@ public class DocumentUploadService {
 
         log.info("Document created: id={}, user={}, file={}, storage={}",
                 document.getId(), userId, file.getOriginalFilename(), storageResult.cloudFilePath());
+
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("title", document.getTitle());
+        metadata.put("fileType", document.getFileType());
+        metadata.put("subjectId", subject != null ? subject.getId() : null);
+        metadata.put("fileSize", document.getFileSize());
+        activityLogService.log(
+                userId,
+                ActivityActionType.UPLOAD_DOCUMENT,
+                ActivityTargetType.DOCUMENT,
+                document.getId(),
+                metadata,
+                document.getTitle(),
+                document.getFileType(),
+                subject != null ? subject.getCode() : null);
 
         return DocumentResponseMapper.toResponse(document);
     }

@@ -1,5 +1,7 @@
 package com.aistudyhub.module.community.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.enums.CommunityRoleStatus;
 import com.aistudyhub.common.enums.CommunityRoleType;
 import com.aistudyhub.common.enums.CommunityScopeType;
@@ -8,6 +10,7 @@ import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.entity.CommunityRole;
 import com.aistudyhub.entity.User;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.community.dto.CommunityRoleResponse;
 import com.aistudyhub.module.community.dto.CreateCommunityRoleRequest;
 import com.aistudyhub.module.notification.service.NotificationService;
@@ -27,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 @Slf4j
@@ -41,6 +45,7 @@ public class CommunityRoleService {
     private final QuizRepository quizRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
     private final NotificationService notificationService;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public CommunityRoleResponse grantRole(CreateCommunityRoleRequest request, Long grantedByUserId) {
@@ -83,6 +88,7 @@ public class CommunityRoleService {
                 buildGrantNotificationContent(saved));
         log.info("Granted community role {} for userId={} by adminId={} scopeType={} scopeId={}",
                 roleType, targetUser.getId(), grantedByUserId, scopeType, request.getScopeId());
+        logRoleChange(grantedByUserId, ActivityActionType.GRANT_COMMUNITY_ROLE, saved, targetUser.getEmail(), false);
 
         return toResponse(saved);
     }
@@ -140,6 +146,8 @@ public class CommunityRoleService {
         } else {
             log.info("Revoked community role id={} by adminId={}", id, revokedByUserId);
         }
+        logRoleChange(revokedByUserId, ActivityActionType.REVOKE_COMMUNITY_ROLE, saved,
+                communityRole.getUser().getEmail(), StringUtils.hasText(reason));
 
         return toResponse(saved);
     }
@@ -313,5 +321,28 @@ public class CommunityRoleService {
         if (communityRole.getEndAt() != null) {
             content.append(" until ").append(communityRole.getEndAt());
         }
+    }
+
+    private void logRoleChange(Long actorUserId,
+                               ActivityActionType action,
+                               CommunityRole communityRole,
+                               String targetEmail,
+                               boolean reasonPresent) {
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("targetUserId", communityRole.getUser().getId());
+        metadata.put("roleType", communityRole.getRoleType().name());
+        metadata.put("scopeType", communityRole.getScopeType() != null ? communityRole.getScopeType().name() : null);
+        metadata.put("scopeId", communityRole.getScopeId());
+        metadata.put("status", communityRole.getStatus().name());
+        metadata.put("reasonProvided", reasonPresent);
+        activityLogService.log(
+                actorUserId,
+                action,
+                ActivityTargetType.COMMUNITY_ROLE,
+                communityRole.getId(),
+                metadata,
+                targetEmail,
+                communityRole.getRoleType().name(),
+                communityRole.getScopeType() != null ? communityRole.getScopeType().name() : null);
     }
 }

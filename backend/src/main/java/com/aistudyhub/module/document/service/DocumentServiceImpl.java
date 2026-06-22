@@ -1,8 +1,11 @@
 package com.aistudyhub.module.document.service;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 
 import org.springframework.stereotype.Service;
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
@@ -10,6 +13,7 @@ import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.Subject;
 import com.aistudyhub.entity.User;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.document.dto.CreateDocumentRequest;
 import com.aistudyhub.module.document.dto.DocumentResponse;
 import com.aistudyhub.module.document.dto.DocumentResponseMapper;
@@ -27,6 +31,7 @@ public class DocumentServiceImpl implements DocumentService {
         private final DocumentRepository documentRepository;
         private final UserRepository userRepository;
         private final SubjectRepository subjectRepository;
+        private final ActivityLogService activityLogService;
 
         @Override
         public DocumentResponse createDocument(Long userId, CreateDocumentRequest request) {
@@ -93,7 +98,20 @@ public class DocumentServiceImpl implements DocumentService {
         public void deleteDocument(Long id, Long userId) {
                 Document document = documentRepository.findByIdAndUserId(id, userId)
                                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED));
+                LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+                metadata.put("title", document.getTitle());
+                metadata.put("subjectId", document.getSubject() != null ? document.getSubject().getId() : null);
+                metadata.put("fileType", document.getFileType());
                 documentRepository.delete(document);
+                activityLogService.log(
+                                userId,
+                                ActivityActionType.DELETE_DOCUMENT,
+                                ActivityTargetType.DOCUMENT,
+                                document.getId(),
+                                metadata,
+                                document.getTitle(),
+                                document.getFileType(),
+                                document.getSubject() != null ? document.getSubject().getCode() : null);
         }
 
         private Specification<Document> hasUserId(Long userId) {

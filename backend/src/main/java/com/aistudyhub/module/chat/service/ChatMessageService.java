@@ -1,9 +1,12 @@
 package com.aistudyhub.module.chat.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.ChatMessage;
 import com.aistudyhub.entity.ChatSession;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.chat.dto.ChatMessageResponse;
 import com.aistudyhub.module.chat.dto.CreateChatMessageRequest;
 import com.aistudyhub.module.chat.dto.SendChatMessageResponse;
@@ -15,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 
 @Slf4j
@@ -32,6 +36,7 @@ public class ChatMessageService {
     private final OpenAIChatAnswerService openAIChatAnswerService;
     private final PracticePromptParser practicePromptParser;
     private final ChatPracticeDraftService chatPracticeDraftService;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public SendChatMessageResponse sendMessage(Long sessionId, Long userId, CreateChatMessageRequest request) {
@@ -84,6 +89,22 @@ public class ChatMessageService {
         log.info("Saved chat turn for session {} with user sequence {} and ai sequence {}",
                 sessionId, userMessage.getMessageSequence(), aiMessage.getMessageSequence());
 
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("sessionId", sessionId);
+        metadata.put("userMessageId", userMessage.getId());
+        metadata.put("aiMessageId", aiMessage.getId());
+        metadata.put("topK", topK);
+        metadata.put("citationCount", citations.size());
+        metadata.put("questionPreview", summarizeForLog(normalizedQuestion));
+        activityLogService.log(
+                userId,
+                ActivityActionType.CHAT_AI,
+                ActivityTargetType.CHAT_SESSION,
+                sessionId,
+                metadata,
+                session.getTitle(),
+                summarizeForLog(normalizedQuestion));
+
         return SendChatMessageResponse.builder()
                 .userMessage(chatMessageMapper.toResponse(userMessage))
                 .aiMessage(chatMessageMapper.toResponse(aiMessage))
@@ -132,5 +153,16 @@ public class ChatMessageService {
                 .append(".");
 
         return builder.toString();
+    }
+
+    private String summarizeForLog(String rawText) {
+        if (rawText == null) {
+            return null;
+        }
+        String normalized = rawText.trim().replaceAll("\\s+", " ");
+        if (normalized.length() <= 120) {
+            return normalized;
+        }
+        return normalized.substring(0, 120) + "...";
     }
 }
