@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
   ArrowUpFromLine,
   Bot,
   BookOpenText,
@@ -10,9 +11,11 @@ import {
   Plus,
   RefreshCw,
   Send,
+  Sparkles,
   Trash2,
-  UserRound,
   Unlink2,
+  UserRound,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Notify } from "notiflix/build/notiflix-notify-aio";
@@ -34,10 +37,22 @@ import {
   getChatMessages,
   getChatSession,
   getChatSessions,
+  getPracticeDraft,
+  importPracticeDraft,
   sendChatMessage,
+  type AiPracticeDifficulty,
+  type AiPracticeType,
   type ChatMessageItem,
   type ChatSessionItem,
+  type PracticeGeneratedPayload,
+  type PracticeImportRequest,
+  type PracticeImportResponse,
+  type PracticeStatus,
+  type QuizGeneratedPayload,
+  type QuizQuestionType,
 } from "../../../services/chatSessionService";
+import { searchMyQuizzes, type QuizItem } from "../../../services/quizService";
+import { searchMyDecks, type FlashcardDeck } from "../../../services/flashcardService";
 
 const messageVariants: Variants = {
   hidden: { opacity: 0, y: 20, scale: 0.96 },
@@ -49,6 +64,16 @@ const messageVariants: Variants = {
   },
   exit: { opacity: 0, y: -8, transition: { duration: 0.18 } },
 };
+
+type ComposerMode = "CHAT" | AiPracticeType;
+type TargetVisibility = "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
+
+interface PracticePreviewState {
+  message: ChatMessageItem | null;
+  payload: PracticeGeneratedPayload | null;
+  loading: boolean;
+  error: string;
+}
 
 function formatSessionTime(value?: string | null): string {
   if (!value) return "Vừa tạo";
@@ -88,8 +113,564 @@ function sortMessages(messages: ChatMessageItem[]): ChatMessageItem[] {
   return [...messages].sort((left, right) => left.messageSequence - right.messageSequence);
 }
 
+function detectManualPracticeType(value: string): AiPracticeType | null {
+  const normalized = value.trim().toUpperCase();
+  if (normalized.startsWith("[QUIZ]")) return "QUIZ";
+  if (normalized.startsWith("[FLASHCARD]")) return "FLASHCARD";
+  return null;
+}
+
+function buildOutgoingContent(mode: ComposerMode, value: string): string {
+  const trimmed = value.trim();
+  if (mode === "QUIZ" && !detectManualPracticeType(trimmed)) {
+    return `[QUIZ] ${trimmed}`;
+  }
+  if (mode === "FLASHCARD" && !detectManualPracticeType(trimmed)) {
+    return `[FLASHCARD] ${trimmed}`;
+  }
+  return trimmed;
+}
+
+function getPracticeTypeLabel(type?: AiPracticeType | null): string {
+  if (type === "QUIZ") return "Quiz Draft";
+  if (type === "FLASHCARD") return "Flashcard Draft";
+  return "Chat thường";
+}
+
+function getPracticeStatusMeta(status?: PracticeStatus | null): { label: string; className: string } {
+  switch (status) {
+    case "READY":
+      return { label: "Sẵn sàng", className: "ready" };
+    case "IMPORTED":
+      return { label: "Đã import", className: "imported" };
+    case "FAILED":
+      return { label: "Thất bại", className: "failed" };
+    default:
+      return { label: "Thường", className: "default" };
+  }
+}
+
+function getPayloadItemCount(payload?: PracticeGeneratedPayload | null): number {
+  if (!payload) return 0;
+  return payload.type === "QUIZ" ? payload.questions.length : payload.cards.length;
+}
+
+function getPayloadItemLabel(payload?: PracticeGeneratedPayload | null): string {
+  if (!payload) return "mục";
+  return payload.type === "QUIZ" ? "câu hỏi" : "flashcards";
+}
+
+function summarizeValidationErrors(validationErrors: unknown): string[] {
+  if (!validationErrors) return [];
+  if (Array.isArray(validationErrors)) {
+    return validationErrors.map((item) =>
+      typeof item === "string" ? item : JSON.stringify(item)
+    );
+  }
+  if (typeof validationErrors === "object") {
+    return Object.entries(validationErrors as Record<string, unknown>).map(([key, value]) =>
+      typeof value === "string" ? `${key}: ${value}` : `${key}: ${JSON.stringify(value)}`
+    );
+  }
+  return [String(validationErrors)];
+}
+
+function canPreviewPractice(message: ChatMessageItem): boolean {
+  return Boolean(message.practiceType && (message.generatedPayload || message.practiceStatus !== "FAILED"));
+}
+
+function canImportPractice(message: ChatMessageItem): boolean {
+  return message.senderRole === "AI" && message.practiceStatus === "READY" && Boolean(message.practiceType);
+}
+
+function describeImportedTarget(message: ChatMessageItem): string | null {
+  if (!message.importedTargetType || !message.importedTargetId) return null;
+  const targetLabel = message.importedTargetType === "QUIZ" ? "Quiz" : "Deck";
+  return `${targetLabel} #${message.importedTargetId}`;
+}
+
+function getPracticePlaceholder(mode: ComposerMode, hasNotebook: boolean): string {
+  if (!hasNotebook) {
+    return "Chọn notebook để bắt đầu hỏi";
+  }
+  if (mode === "QUIZ") {
+    return "Ví dụ: Tạo 10 câu trắc nghiệm ôn tập chương 1, có đáp án và giải thích";
+  }
+  if (mode === "FLASHCARD") {
+    return "Ví dụ: Tạo 20 flashcard thuật ngữ quan trọng từ tài liệu hiện tại";
+  }
+  return "Ví dụ: SRS là gì và tài liệu hiện tại định nghĩa ra sao?";
+}
+
+function getPracticePromptHint(mode: ComposerMode): string {
+  if (mode === "QUIZ") {
+    return "Frontend sẽ tự thêm prefix [QUIZ] và gửi BE-055 sinh JSON quiz draft.";
+  }
+  if (mode === "FLASHCARD") {
+    return "Frontend sẽ tự thêm prefix [FLASHCARD] và gửi BE-055 sinh JSON flashcard draft.";
+  }
+  return "Chat thường dùng flow BE-018, AI trả lời dựa trên tài liệu notebook hiện tại.";
+}
+
+interface PracticePreviewModalProps {
+  state: PracticePreviewState;
+  onClose: () => void;
+  onImport: (message: ChatMessageItem) => void;
+}
+
+function PracticePreviewModal({ state, onClose, onImport }: PracticePreviewModalProps) {
+  const message = state.message;
+  const payload = state.payload;
+
+  if (!message) return null;
+
+  const itemCount = getPayloadItemCount(payload);
+  const itemLabel = getPayloadItemLabel(payload);
+  const metadata = payload?.metadata;
+
+  return (
+    <motion.div
+      className="practice-modal-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="practice-modal"
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.97 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="practice-modal-header">
+          <div>
+            <div className="practice-modal-kicker">{getPracticeTypeLabel(message.practiceType)}</div>
+            <h3>{payload?.title ?? "Practice Draft Preview"}</h3>
+            <p>
+              {payload
+                ? `${itemCount} ${itemLabel} • ${metadata?.language ?? "auto"} • ${metadata?.difficulty ?? "MIXED"}`
+                : "Backend đang trả practice payload cho message này."}
+            </p>
+          </div>
+
+          <button type="button" className="practice-modal-close" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {state.loading && (
+          <div className="practice-modal-loading">
+            <LoaderCircle size={18} className="spin" />
+            <span>Đang tải preview từ `GET /api/chat-messages/{'{messageId}'}/practice-draft`...</span>
+          </div>
+        )}
+
+        {state.error && (
+          <div className="practice-inline-error">
+            <AlertCircle size={15} />
+            <span>{state.error}</span>
+          </div>
+        )}
+
+        {payload?.description && <div className="practice-modal-description">{payload.description}</div>}
+
+        {payload && (
+          <>
+            <div className="practice-preview-metadata">
+              {metadata?.generatedQuestionCount != null && (
+                <span>{metadata.generatedQuestionCount} câu đã sinh</span>
+              )}
+              {metadata?.generatedCardCount != null && (
+                <span>{metadata.generatedCardCount} thẻ đã sinh</span>
+              )}
+              {metadata?.warnings && metadata.warnings.length > 0 && (
+                <span>{metadata.warnings.length} cảnh báo</span>
+              )}
+            </div>
+
+            <div className="practice-preview-list">
+              {payload.type === "QUIZ"
+                ? payload.questions.map((question, index) => (
+                    <div key={`${question.questionText}-${index}`} className="practice-preview-item">
+                      <div className="practice-preview-head">
+                        <strong>
+                          Câu {index + 1}. {question.questionText}
+                        </strong>
+                        <span>{question.questionType}</span>
+                      </div>
+
+                      <ul className="practice-option-list">
+                        {question.options.map((option, optionIndex) => (
+                          <li key={`${question.questionText}-${optionIndex}`}>
+                            <span>{option.optionText}</span>
+                            {option.isCorrect && <em>Đáp án đúng</em>}
+                          </li>
+                        ))}
+                      </ul>
+
+                      {question.explanation && (
+                        <div className="practice-explanation">Giải thích: {question.explanation}</div>
+                      )}
+
+                      {question.sourceRefs && question.sourceRefs.length > 0 && (
+                        <div className="practice-source-list">
+                          {question.sourceRefs.map((ref, refIndex) => (
+                            <div key={`${question.questionText}-ref-${refIndex}`} className="practice-source-chip">
+                              {ref.documentId ? `Doc #${ref.documentId}` : "Doc ?"}
+                              {ref.sourcePage ? ` • Trang ${ref.sourcePage}` : ""}
+                              {ref.chunkIndex != null ? ` • Chunk ${ref.chunkIndex}` : ""}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                : payload.cards.map((card, index) => (
+                    <div key={`${card.frontText}-${index}`} className="practice-preview-item">
+                      <div className="practice-preview-head">
+                        <strong>Thẻ {index + 1}</strong>
+                        <span>FLASHCARD</span>
+                      </div>
+                      <div className="practice-flashcard-side">
+                        <label>Front</label>
+                        <p>{card.frontText}</p>
+                      </div>
+                      <div className="practice-flashcard-side">
+                        <label>Back</label>
+                        <p>{card.backText}</p>
+                      </div>
+
+                      {card.sourceRefs && card.sourceRefs.length > 0 && (
+                        <div className="practice-source-list">
+                          {card.sourceRefs.map((ref, refIndex) => (
+                            <div key={`${card.frontText}-ref-${refIndex}`} className="practice-source-chip">
+                              {ref.documentId ? `Doc #${ref.documentId}` : "Doc ?"}
+                              {ref.sourcePage ? ` • Trang ${ref.sourcePage}` : ""}
+                              {ref.chunkIndex != null ? ` • Chunk ${ref.chunkIndex}` : ""}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+            </div>
+          </>
+        )}
+
+        <div className="practice-modal-footer">
+          <button type="button" className="practice-btn-secondary" onClick={onClose}>
+            Đóng
+          </button>
+          <button
+            type="button"
+            className="practice-btn-primary"
+            onClick={() => onImport(message)}
+            disabled={!payload || !canImportPractice(message)}
+          >
+            Import draft
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+interface PracticeImportModalProps {
+  message: ChatMessageItem;
+  notebook: NotebookItem | null;
+  accessToken: string | null;
+  onClose: () => void;
+  onImported: (result: PracticeImportResponse) => Promise<void> | void;
+}
+
+function PracticeImportModal({
+  message,
+  notebook,
+  accessToken,
+  onClose,
+  onImported,
+}: PracticeImportModalProps) {
+  const practiceType = message.practiceType!;
+  const [targetMode, setTargetMode] = useState<"CREATE_NEW" | "APPEND_EXISTING">("CREATE_NEW");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [visibility, setVisibility] = useState<TargetVisibility>("PRIVATE");
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+  const [quizTargets, setQuizTargets] = useState<QuizItem[]>([]);
+  const [deckTargets, setDeckTargets] = useState<FlashcardDeck[]>([]);
+  const [isLoadingTargets, setIsLoadingTargets] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTargets() {
+      if (targetMode !== "APPEND_EXISTING") {
+        return;
+      }
+
+      setIsLoadingTargets(true);
+      setError("");
+
+      try {
+        if (practiceType === "QUIZ") {
+          if (!accessToken) {
+            throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+          }
+          const data = await searchMyQuizzes(accessToken, {
+            page: 0,
+            size: 20,
+            sort: "createdAt,desc",
+          });
+          if (!cancelled) {
+            setQuizTargets(data.items);
+            setSelectedTargetId((current) => current ?? data.items[0]?.id ?? null);
+          }
+        } else {
+          const data = await searchMyDecks({
+            page: 0,
+            size: 20,
+            sort: "createdAt,desc",
+          });
+          if (!cancelled) {
+            setDeckTargets(data.items);
+            setSelectedTargetId((current) => current ?? data.items[0]?.id ?? null);
+          }
+        }
+      } catch (loadError) {
+        if (cancelled) return;
+        setError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách target import.");
+      } finally {
+        if (!cancelled) {
+          setIsLoadingTargets(false);
+        }
+      }
+    }
+
+    void loadTargets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, practiceType, targetMode]);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (targetMode === "CREATE_NEW" && !title.trim()) {
+      setError("Tên target mới là bắt buộc.");
+      return;
+    }
+
+    if (targetMode === "APPEND_EXISTING" && !selectedTargetId) {
+      setError("Hãy chọn một target để append.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    const request: PracticeImportRequest = {
+      targetMode,
+      target:
+        targetMode === "CREATE_NEW"
+          ? {
+              title: title.trim(),
+              description: description.trim() || undefined,
+              notebookId: notebook?.id,
+              subjectId: notebook?.subjectId ?? undefined,
+              visibility,
+            }
+          : practiceType === "QUIZ"
+            ? { quizId: selectedTargetId! }
+            : { deckId: selectedTargetId! },
+      importOptions:
+        practiceType === "QUIZ"
+          ? {
+              skipDuplicateQuestions: skipDuplicates,
+              shuffleQuestions: false,
+            }
+          : {
+              skipDuplicateCards: skipDuplicates,
+            },
+    };
+
+    try {
+      const result = await importPracticeDraft(message.id, request);
+      await onImported(result);
+      onClose();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Import practice draft thất bại.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const appendTargets = practiceType === "QUIZ" ? quizTargets : deckTargets;
+
+  return (
+    <motion.div
+      className="practice-modal-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="practice-modal practice-modal-sm"
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.97 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="practice-modal-header">
+          <div>
+            <div className="practice-modal-kicker">Practice Import</div>
+            <h3>Import {getPracticeTypeLabel(practiceType)}</h3>
+            <p>Reuse backend import flow để tạo mới hoặc append vào target đã có.</p>
+          </div>
+
+          <button type="button" className="practice-modal-close" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form className="practice-import-form" onSubmit={handleSubmit}>
+          <div className="practice-mode-toggle">
+            <button
+              type="button"
+              className={targetMode === "CREATE_NEW" ? "active" : ""}
+              onClick={() => setTargetMode("CREATE_NEW")}
+            >
+              Tạo mới
+            </button>
+            <button
+              type="button"
+              className={targetMode === "APPEND_EXISTING" ? "active" : ""}
+              onClick={() => setTargetMode("APPEND_EXISTING")}
+            >
+              Append existing
+            </button>
+          </div>
+
+          {targetMode === "CREATE_NEW" ? (
+            <>
+              <label className="practice-field">
+                <span>Tiêu đề target mới</span>
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder={practiceType === "QUIZ" ? "Quiz từ AI Chat" : "Flashcard deck từ AI Chat"}
+                  maxLength={255}
+                />
+              </label>
+
+              <label className="practice-field">
+                <span>Mô tả</span>
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  rows={3}
+                  placeholder="Mô tả ngắn cho target import"
+                />
+              </label>
+
+              <label className="practice-field">
+                <span>Visibility</span>
+                <select
+                  value={visibility}
+                  onChange={(event) => setVisibility(event.target.value as TargetVisibility)}
+                >
+                  <option value="PRIVATE">PRIVATE</option>
+                  <option value="PUBLIC_LINK">PUBLIC_LINK</option>
+                  <option value="MARKETPLACE">MARKETPLACE</option>
+                </select>
+              </label>
+
+              <div className="practice-field-hint">
+                Notebook và subject sẽ default theo notebook hiện tại nếu bạn không đổi gì thêm.
+              </div>
+            </>
+          ) : (
+            <div className="practice-target-picker">
+              {isLoadingTargets ? (
+                <div className="practice-modal-loading">
+                  <LoaderCircle size={16} className="spin" />
+                  <span>Đang tải danh sách target có sẵn...</span>
+                </div>
+              ) : appendTargets.length === 0 ? (
+                <div className="practice-inline-empty">
+                  Chưa có target nào phù hợp để append. Bạn có thể chuyển sang tạo mới.
+                </div>
+              ) : (
+                appendTargets.map((target) => (
+                  <button
+                    key={target.id}
+                    type="button"
+                    className={`practice-target-card ${selectedTargetId === target.id ? "selected" : ""}`}
+                    onClick={() => setSelectedTargetId(target.id)}
+                  >
+                    <strong>{target.title}</strong>
+                    <span>
+                      {practiceType === "QUIZ"
+                        ? (target as QuizItem).subjectName ?? `Quiz #${target.id}`
+                        : `Deck #${target.id}`}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          <label className="practice-checkbox">
+            <input
+              type="checkbox"
+              checked={skipDuplicates}
+              onChange={(event) => setSkipDuplicates(event.target.checked)}
+            />
+            <span>Bỏ qua nội dung trùng khi import</span>
+          </label>
+
+          {error && (
+            <div className="practice-inline-error">
+              <AlertCircle size={15} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="practice-modal-footer">
+            <button type="button" className="practice-btn-secondary" onClick={onClose}>
+              Hủy
+            </button>
+            <button
+              type="submit"
+              className="practice-btn-primary"
+              disabled={
+                isSubmitting ||
+                (targetMode === "APPEND_EXISTING" && appendTargets.length === 0)
+              }
+            >
+              {isSubmitting ? (
+                <>
+                  <LoaderCircle size={15} className="spin" />
+                  Đang import...
+                </>
+              ) : (
+                "Xác nhận import"
+              )}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function AIChat() {
-  const { user } = useAuthStore();
+  const { user, accessToken } = useAuthStore();
   const [notebooks, setNotebooks] = useState<NotebookItem[]>([]);
   const [selectedNotebookId, setSelectedNotebookId] = useState<number | null>(null);
   const [attachedDocuments, setAttachedDocuments] = useState<DocumentItem[]>([]);
@@ -99,6 +680,19 @@ export function AIChat() {
   const [activeSession, setActiveSession] = useState<ChatSessionItem | null>(null);
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [draftMessage, setDraftMessage] = useState("");
+  const [composerMode, setComposerMode] = useState<ComposerMode>("CHAT");
+  const [practiceLanguage, setPracticeLanguage] = useState("vi");
+  const [practiceDifficulty, setPracticeDifficulty] = useState<AiPracticeDifficulty>("MEDIUM");
+  const [quizQuestionCount, setQuizQuestionCount] = useState(10);
+  const [flashcardCount, setFlashcardCount] = useState(20);
+  const [quizQuestionType, setQuizQuestionType] = useState<QuizQuestionType>("SINGLE_CHOICE");
+  const [previewState, setPreviewState] = useState<PracticePreviewState>({
+    message: null,
+    payload: null,
+    loading: false,
+    error: "",
+  });
+  const [importingMessage, setImportingMessage] = useState<ChatMessageItem | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -127,6 +721,11 @@ export function AIChat() {
     const attachedIds = new Set(attachedDocuments.map((item) => item.id));
     return libraryDocuments.filter((item) => !attachedIds.has(item.id));
   }, [attachedDocuments, libraryDocuments]);
+
+  const attachedDocumentIds = useMemo(
+    () => attachedDocuments.map((item) => item.id),
+    [attachedDocuments]
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -183,7 +782,7 @@ export function AIChat() {
       }
     }
 
-    bootstrap();
+    void bootstrap();
 
     return () => {
       cancelled = true;
@@ -392,6 +991,11 @@ export function AIChat() {
     };
   }, [activeSessionId]);
 
+  async function refreshMessagesForSession(sessionId: number) {
+    const history = await getChatMessages(sessionId);
+    setMessages(sortMessages(history));
+  }
+
   async function handleRefresh() {
     if (!user?.userId) return;
 
@@ -458,8 +1062,8 @@ export function AIChat() {
     }
   }
 
-  async function handleDeleteSession(sessionId: number, e: React.MouseEvent) {
-    e.stopPropagation();
+  async function handleDeleteSession(sessionId: number, event: React.MouseEvent) {
+    event.stopPropagation();
 
     const session = sessions.find((item) => item.id === sessionId);
     const confirmed = window.confirm(
@@ -531,7 +1135,10 @@ export function AIChat() {
       });
       await ensureDocumentProcessed(uploaded);
       await attachDocumentToNotebook(selectedNotebookId, uploaded.id);
-      await Promise.all([refreshAttachedDocuments(), isLibraryOpen ? refreshLibraryDocuments() : Promise.resolve()]);
+      await Promise.all([
+        refreshAttachedDocuments(),
+        isLibraryOpen ? refreshLibraryDocuments() : Promise.resolve(),
+      ]);
       Notify.success("Tài liệu đã được upload, xử lý và gắn vào notebook.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload tài liệu thất bại.";
@@ -586,6 +1193,45 @@ export function AIChat() {
     }
   }
 
+  async function handleOpenPracticePreview(message: ChatMessageItem) {
+    setPreviewState({
+      message,
+      payload: message.generatedPayload ?? null,
+      loading: !message.generatedPayload,
+      error: "",
+    });
+
+    try {
+      const payload = await getPracticeDraft(message.id);
+      setPreviewState({
+        message,
+        payload,
+        loading: false,
+        error: "",
+      });
+      setMessages((prev) =>
+        prev.map((item) => (item.id === message.id ? { ...item, generatedPayload: payload } : item))
+      );
+    } catch (error) {
+      setPreviewState((current) => ({
+        ...current,
+        loading: false,
+        error:
+          error instanceof Error ? error.message : "Không thể tải preview practice draft.",
+      }));
+    }
+  }
+
+  async function handlePracticeImported(result: PracticeImportResponse) {
+    if (activeSessionId) {
+      await refreshMessagesForSession(activeSessionId);
+    }
+
+    const importedLabel = result.targetType === "QUIZ" ? "quiz" : "deck";
+    Notify.success(`Đã import thành công vào ${importedLabel} #${result.targetId}.`);
+    setImportingMessage(null);
+  }
+
   async function handleSendMessage(event: React.FormEvent) {
     event.preventDefault();
 
@@ -600,6 +1246,10 @@ export function AIChat() {
       return;
     }
 
+    const detectedManualMode = detectManualPracticeType(content);
+    const effectiveMode: ComposerMode = composerMode !== "CHAT" ? composerMode : detectedManualMode ?? "CHAT";
+    const outgoingContent = buildOutgoingContent(effectiveMode, content);
+
     setIsSendingMessage(true);
     setErrorMessage("");
 
@@ -611,18 +1261,38 @@ export function AIChat() {
       }
 
       const result = await sendChatMessage(targetSession.id, {
-        content,
-        topK: 3,
+        content: outgoingContent,
+        topK: effectiveMode === "CHAT" ? 3 : 8,
+        documentIds: attachedDocumentIds.length > 0 ? attachedDocumentIds : undefined,
+        language: effectiveMode === "CHAT" ? undefined : practiceLanguage,
+        options:
+          effectiveMode === "QUIZ"
+            ? {
+                numberOfQuestions: Math.min(Math.max(quizQuestionCount, 1), 30),
+                questionType: quizQuestionType,
+                difficulty: practiceDifficulty,
+              }
+            : effectiveMode === "FLASHCARD"
+              ? {
+                  numberOfCards: Math.min(Math.max(flashcardCount, 1), 50),
+                  difficulty: practiceDifficulty,
+                }
+              : undefined,
       });
 
       messageRequestRef.current += 1;
-      setMessages((prev) =>
-        sortMessages([...prev, result.userMessage, result.aiMessage])
-      );
+      setMessages((prev) => sortMessages([...prev, result.userMessage, result.aiMessage]));
       setDraftMessage("");
       setActiveSessionId(targetSession.id);
       setActiveSession((current) => current ?? targetSession);
-      Notify.success("AI đã phản hồi.");
+
+      if (result.aiMessage.practiceType && result.aiMessage.practiceStatus === "READY") {
+        Notify.success(`Đã tạo ${getPracticeTypeLabel(result.aiMessage.practiceType).toLowerCase()} thành công.`);
+      } else if (result.aiMessage.practiceType && result.aiMessage.practiceStatus === "FAILED") {
+        Notify.warning("AI đã phản hồi nhưng draft practice chưa hợp lệ. Hãy xem chi tiết lỗi trong chat.");
+      } else {
+        Notify.success("AI đã phản hồi.");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gửi câu hỏi thất bại.";
       setErrorMessage(message);
@@ -689,7 +1359,7 @@ export function AIChat() {
 
           <div className="rag-badge">
             <CheckCircle2 size={12} color="#10b981" />
-            BE-017 + BE-018 đã kết nối
+            BE-017 • BE-018 • BE-055 đã kết nối
           </div>
         </div>
 
@@ -837,7 +1507,10 @@ export function AIChat() {
                   layout
                   onClick={() => setActiveSessionId(session.id)}
                   className={`chat-row ${session.id === activeSessionId ? "active" : ""}`}
-                  whileHover={{ x: 4, backgroundColor: session.id === activeSessionId ? "#e2e8f0" : "#e8eef8" }}
+                  whileHover={{
+                    x: 4,
+                    backgroundColor: session.id === activeSessionId ? "#e2e8f0" : "#e8eef8",
+                  }}
                   exit={{ opacity: 0, x: -20, transition: { duration: 0.18 } }}
                 >
                   <div className="chat-row-left">
@@ -870,9 +1543,7 @@ export function AIChat() {
       <div className="main-chat">
         <div className="chat-header">
           <div>
-            <div className="header-title">
-              {activeSession?.title || "AI Session Workspace"}
-            </div>
+            <div className="header-title">{activeSession?.title || "AI Session Workspace"}</div>
             <div className="header-subtitle">
               {activeSession ? (
                 <span className="active-ctx">
@@ -886,9 +1557,7 @@ export function AIChat() {
         </div>
 
         <div className="message-list">
-          {errorMessage && (
-            <div className="chat-alert error">{errorMessage}</div>
-          )}
+          {errorMessage && <div className="chat-alert error">{errorMessage}</div>}
 
           {isBootstrapping ? (
             <div className="empty-state-card">
@@ -900,7 +1569,10 @@ export function AIChat() {
             <div className="empty-state-card">
               <BookOpenText size={24} />
               <h3>Chưa có notebook để gắn hội thoại</h3>
-              <p>Tạo hoặc chọn notebook trước, sau đó bạn có thể hỏi trực tiếp để BE-018 tự sinh chat turn.</p>
+              <p>
+                Tạo hoặc chọn notebook trước, sau đó bạn có thể hỏi trực tiếp để backend dùng
+                Chat/RAG và practice draft flow mới nhất.
+              </p>
             </div>
           ) : isLoadingDetail && !activeSession ? (
             <div className="empty-state-card">
@@ -912,7 +1584,10 @@ export function AIChat() {
             <div className="empty-state-card">
               <Bot size={24} />
               <h3>Notebook đã sẵn sàng</h3>
-              <p>Nhập câu hỏi ở khung bên dưới để tự tạo session mới, hoặc dùng nút ở sidebar để mở phiên chat trước.</p>
+              <p>
+                Nhập câu hỏi ở khung bên dưới để tự tạo session mới, hoặc dùng nút ở sidebar để mở
+                phiên chat trước.
+              </p>
             </div>
           ) : (
             <>
@@ -924,7 +1599,7 @@ export function AIChat() {
                   </div>
                   <div className="session-status-pill">
                     <CheckCircle2 size={14} />
-                    Chat/RAG sẵn sàng
+                    Chat/RAG + Practice sẵn sàng
                   </div>
                 </div>
 
@@ -942,8 +1617,8 @@ export function AIChat() {
                     <strong>#{activeSession.userId}</strong>
                   </div>
                   <div className="session-meta-box">
-                    <span className="meta-box-label">Messages</span>
-                    <strong>{messages.length}</strong>
+                    <span className="meta-box-label">Nguồn RAG</span>
+                    <strong>{attachedDocuments.length} tài liệu đang gắn</strong>
                   </div>
                 </div>
               </div>
@@ -956,12 +1631,21 @@ export function AIChat() {
               ) : messages.length === 0 ? (
                 <div className="empty-state-card compact">
                   <Bot size={20} />
-                  <p>Phiên chat đã sẵn sàng. Gửi câu hỏi đầu tiên để backend tạo user message, AI message và cited sources.</p>
+                  <p>
+                    Phiên chat đã sẵn sàng. Bạn có thể hỏi trực tiếp, hoặc chuyển sang Quiz Draft /
+                    Flashcard Draft để BE-055 sinh practice payload ngay trong chat.
+                  </p>
                 </div>
               ) : (
                 <AnimatePresence initial={false}>
                   {messages.map((message) => {
                     const isUser = message.senderRole === "USER";
+                    const practiceStatusMeta = getPracticeStatusMeta(message.practiceStatus);
+                    const importedTarget = describeImportedTarget(message);
+                    const validationMessages = summarizeValidationErrors(message.validationErrors);
+                    const generatedCount = getPayloadItemCount(message.generatedPayload);
+                    const generatedLabel = getPayloadItemLabel(message.generatedPayload);
+
                     return (
                       <motion.div
                         key={message.id}
@@ -999,7 +1683,64 @@ export function AIChat() {
 
                             <div className="bubble-copy">{message.content}</div>
 
-                            {!isUser && message.citedSources.length > 0 && (
+                            {!isUser && message.practiceType && (
+                              <div className="practice-message-card">
+                                <div className="practice-message-head">
+                                  <span className="practice-type-chip">
+                                    <Sparkles size={12} />
+                                    {getPracticeTypeLabel(message.practiceType)}
+                                  </span>
+                                  <span className={`practice-status-chip ${practiceStatusMeta.className}`}>
+                                    {practiceStatusMeta.label}
+                                  </span>
+                                </div>
+
+                                {message.generatedPayload && (
+                                  <div className="practice-summary-line">
+                                    <strong>{message.generatedPayload.title}</strong>
+                                    <span>
+                                      {generatedCount} {generatedLabel}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {importedTarget && (
+                                  <div className="practice-imported-line">
+                                    Đã import vào <strong>{importedTarget}</strong>
+                                    {message.importedAt ? ` lúc ${formatSessionTime(message.importedAt)}` : ""}
+                                  </div>
+                                )}
+
+                                {validationMessages.length > 0 && (
+                                  <div className="practice-error-box">
+                                    {validationMessages.slice(0, 4).map((item, index) => (
+                                      <p key={`${message.id}-validation-${index}`}>{item}</p>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="practice-action-row">
+                                  <button
+                                    type="button"
+                                    className="practice-action-btn"
+                                    onClick={() => void handleOpenPracticePreview(message)}
+                                    disabled={!canPreviewPractice(message)}
+                                  >
+                                    Xem draft
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="practice-action-btn primary"
+                                    onClick={() => setImportingMessage(message)}
+                                    disabled={!canImportPractice(message)}
+                                  >
+                                    Import
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {!isUser && message.citedSources?.length > 0 && (
                               <div className="citation-section">
                                 <div className="citation-title">Nguồn tham chiếu</div>
                                 <div className="citation-list">
@@ -1076,16 +1817,111 @@ export function AIChat() {
             </span>
           </div>
 
+          <div className="composer-mode-row">
+            <button
+              type="button"
+              className={`composer-mode-pill ${composerMode === "CHAT" ? "active" : ""}`}
+              onClick={() => setComposerMode("CHAT")}
+            >
+              Chat thường
+            </button>
+            <button
+              type="button"
+              className={`composer-mode-pill ${composerMode === "QUIZ" ? "active" : ""}`}
+              onClick={() => setComposerMode("QUIZ")}
+            >
+              Quiz Draft
+            </button>
+            <button
+              type="button"
+              className={`composer-mode-pill ${composerMode === "FLASHCARD" ? "active" : ""}`}
+              onClick={() => setComposerMode("FLASHCARD")}
+            >
+              Flashcard Draft
+            </button>
+          </div>
+
+          <div className="composer-subhint">{getPracticePromptHint(composerMode)}</div>
+
+          {composerMode !== "CHAT" && (
+            <div className="practice-config-panel">
+              <label>
+                <span>Ngôn ngữ</span>
+                <select
+                  value={practiceLanguage}
+                  onChange={(event) => setPracticeLanguage(event.target.value)}
+                >
+                  <option value="vi">Tiếng Việt</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Độ khó</span>
+                <select
+                  value={practiceDifficulty}
+                  onChange={(event) => setPracticeDifficulty(event.target.value as AiPracticeDifficulty)}
+                >
+                  <option value="EASY">EASY</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="HARD">HARD</option>
+                </select>
+              </label>
+
+              {composerMode === "QUIZ" ? (
+                <>
+                  <label>
+                    <span>Số câu</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={quizQuestionCount}
+                      onChange={(event) => setQuizQuestionCount(Number(event.target.value) || 10)}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Loại câu hỏi</span>
+                    <select
+                      value={quizQuestionType}
+                      onChange={(event) => setQuizQuestionType(event.target.value as QuizQuestionType)}
+                    >
+                      <option value="SINGLE_CHOICE">SINGLE_CHOICE</option>
+                      <option value="MULTIPLE_CHOICE">MULTIPLE_CHOICE</option>
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <label>
+                  <span>Số thẻ</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={flashcardCount}
+                    onChange={(event) => setFlashcardCount(Number(event.target.value) || 20)}
+                  />
+                </label>
+              )}
+            </div>
+          )}
+
+          <div className="composer-context-row">
+            <span className="composer-context-pill">
+              {attachedDocumentIds.length} tài liệu sẽ được gửi theo `documentIds`
+            </span>
+            <span className="composer-context-pill">
+              {composerMode === "CHAT" ? "topK = 3" : "topK = 8"}
+            </span>
+          </div>
+
           <div className="input-container">
             <input
               type="text"
               value={draftMessage}
               onChange={(event) => setDraftMessage(event.target.value)}
-              placeholder={
-                activeNotebook
-                  ? "Ví dụ: SRS là gì và tài liệu hiện tại định nghĩa ra sao?"
-                  : "Chọn notebook để bắt đầu hỏi"
-              }
+              placeholder={getPracticePlaceholder(composerMode, Boolean(activeNotebook))}
               className="chat-input"
               disabled={!selectedNotebookId || isSendingMessage}
             />
@@ -1101,6 +1937,33 @@ export function AIChat() {
           </div>
         </form>
       </div>
+
+      <AnimatePresence>
+        {previewState.message && (
+          <PracticePreviewModal
+            state={previewState}
+            onClose={() =>
+              setPreviewState({ message: null, payload: null, loading: false, error: "" })
+            }
+            onImport={(message) => {
+              setPreviewState({ message: null, payload: null, loading: false, error: "" });
+              setImportingMessage(message);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {importingMessage && (
+          <PracticeImportModal
+            message={importingMessage}
+            notebook={activeNotebook}
+            accessToken={accessToken}
+            onClose={() => setImportingMessage(null)}
+            onImported={handlePracticeImported}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

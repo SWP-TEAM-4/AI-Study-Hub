@@ -3131,6 +3131,792 @@ GET /api/referrals/me
 
 ---
 
+
+
+
+### Issue BE-055: Implement `[QUIZ]`/`[FLASHCARD]` Chat AI JSON Generation and Safe Import by Reusing Quiz/Flashcard Services
+
+- **Owner:** BE1 + BE3
+- **Main owner:** BE1 for Chat/RAG orchestration, AI prompt building, JSON validation and chat history; BE3 for safe Quiz/Flashcard import service reuse
+- **Labels:** `type:feature`, `priority:critical`, `area:rag`, `area:chat`, `area:quiz`, `area:flashcard`, `owner:BE1`, `owner:BE3`
+- **Estimate:** 10h
+- **Start:** 18/06/2026
+- **Deadline:** 20/06/2026
+- **Depends on:** BE-016, BE-017, BE-018, BE-019, BE-020, BE-024, BE-026
+- **Branch:** `feature/chat-ai-practice-json-import`
+
+#### Mục tiêu
+
+Mở rộng Chat AI để user có thể nhập prompt có prefix `[QUIZ]` hoặc `[FLASHCARD]` ngay trong giao diện chat. Backend sẽ dùng RAG/chunking để lấy context từ tài liệu, build prompt nội bộ cho AI, ép AI trả về **JSON đúng schema**, validate JSON, lưu JSON vào lịch sử chat `chat_messages.generated_payload`, sau đó cho frontend hiển thị nút xem trước và import:
+
+```text
+Xem quiz/flashcard AI tạo
+Import vào Quiz Bank hoặc Flashcard Deck
+```
+
+Không cần nút hủy. Nếu user không muốn dùng draft thì chỉ cần không import; nếu muốn tạo lại thì gửi prompt `[QUIZ]` hoặc `[FLASHCARD]` mới để sinh AI message mới.
+
+BE-055 **không tạo bảng mới** `ai_practice_drafts`. BE-055 cũng **không sửa/hủy API cũ** của Quiz/Flashcard. Phần import phải tái sử dụng hoặc clone logic service từ các task đã có:
+
+```text
+BE-019: Quiz bank CRUD / tạo quiz bank
+BE-020: Quiz Question + Option CRUD / validate question-option
+BE-024: Flashcard Deck + Card CRUD / validate deck-card ownership
+```
+
+#### Nguyên tắc không làm hư hoặc xung đột API cũ
+
+```text
+Không đổi path, request, response của API cũ.
+Không bắt frontend cũ phải đổi cách gọi API Quiz/Flashcard hiện tại.
+Không gọi HTTP nội bộ từ BE-055 sang /api/quizzes hoặc /api/flashcard-decks.
+Không copy-paste controller logic sang Chat module.
+Không để BE1 tự ghi trực tiếp QuizQuestion/QuizOption/Flashcard mà bỏ qua validation BE3.
+```
+
+Cách làm đúng:
+
+```text
+ChatPracticeImportService
+→ gọi internal application service của BE3
+→ service BE3 reuse/clone validation từ BE-019/BE-020/BE-024
+→ repository save trong cùng transaction
+```
+
+Nếu code BE-020/BE-024 hiện đang nằm trong Controller hoặc method quá gắn với HTTP request, BE3 cần tách nhẹ thành service nội bộ mới, nhưng vẫn giữ nguyên API cũ:
+
+```text
+module/quiz/service/QuizAiImportService.java
+module/quiz/service/QuizBulkQuestionImportService.java
+module/flashcard/service/FlashcardAiImportService.java
+module/flashcard/service/FlashcardBulkCardImportService.java
+```
+
+Các service mới này được xem là **clone/wrapper nội bộ** để Chat AI sử dụng, không phải endpoint public mới.
+
+#### Endpoint design
+
+```http
+POST /api/chat-sessions/{sessionId}/messages
+GET /api/chat-messages/{messageId}/practice-draft
+POST /api/chat-messages/{messageId}/practice-import
+```
+
+> `POST /api/chat-sessions/{sessionId}/messages` là endpoint đã có trong BE-018. BE-055 chỉ mở rộng behavior: nếu `content` bắt đầu bằng `[QUIZ]` hoặc `[FLASHCARD]` thì chạy flow generate practice JSON; nếu không có prefix thì vẫn chạy chat/RAG answer bình thường.
+
+#### Database change: mở rộng bảng `chat_messages`, không tạo bảng draft mới
+
+```sql
+ALTER TABLE chat_messages
+ADD COLUMN message_type VARCHAR(50) NOT NULL DEFAULT 'TEXT',
+ADD COLUMN practice_type VARCHAR(30) NULL,
+ADD COLUMN generated_payload JSONB NULL,
+ADD COLUMN validation_errors JSONB NULL,
+ADD COLUMN practice_status VARCHAR(30) NOT NULL DEFAULT 'NONE',
+ADD COLUMN imported_target_type VARCHAR(30) NULL,
+ADD COLUMN imported_target_id BIGINT NULL,
+ADD COLUMN imported_at TIMESTAMP NULL;
+```
+
+Ý nghĩa field:
+
+| Field                  | Ý nghĩa                                          |
+| ---------------------- | ------------------------------------------------ |
+| `message_type`         | `TEXT`, `QUIZ_DRAFT`, `FLASHCARD_DRAFT`          |
+| `practice_type`        | `QUIZ` hoặc `FLASHCARD`, null nếu message thường |
+| `generated_payload`    | JSONB chứa quiz/flashcard do AI sinh ra          |
+| `validation_errors`    | JSONB chứa lỗi schema nếu AI trả sai format      |
+| `practice_status`      | `NONE`, `READY`, `IMPORTED`, `FAILED`            |
+| `imported_target_type` | `QUIZ` hoặc `FLASHCARD_DECK` sau khi import      |
+| `imported_target_id`   | ID quiz/deck sau khi import                      |
+| `imported_at`          | Thời điểm import                                 |
+
+#### Request gửi prompt trong chat
+
+Request generate quiz:
+
+```json
+{
+  "content": "[QUIZ] Tạo cho tôi quiz chương 1, 2, 3 gồm 15 câu trắc nghiệm, có đáp án và giải thích",
+  "documentIds": [501, 502, 503],
+  "topK": 8,
+  "language": "vi",
+  "options": {
+    "numberOfQuestions": 15,
+    "questionType": "SINGLE_CHOICE",
+    "difficulty": "MEDIUM"
+  }
+}
+```
+
+Request generate flashcard:
+
+```json
+{
+  "content": "[FLASHCARD] Tạo cho tôi 30 flashcard chương 1, 2, 3, ưu tiên khái niệm quan trọng",
+  "documentIds": [501, 502, 503],
+  "topK": 8,
+  "language": "vi",
+  "options": {
+    "numberOfCards": 30,
+    "difficulty": "MEDIUM"
+  }
+}
+```
+
+#### Response sau khi AI generate quiz draft
+
+> Không trả `practiceAction` trong response. Backend chỉ trả message metadata và JSON quiz chuẩn để FE tự quyết định hiện nút Xem/Import dựa vào `messageType`, `practiceType`, `practiceStatus` và `messageId`.
+
+```json
+{
+  "success": true,
+  "message": "AI quiz draft generated successfully",
+  "data": {
+    "userMessage": {
+      "id": 701,
+      "sessionId": 301,
+      "senderRole": "USER",
+      "messageType": "TEXT",
+      "content": "[QUIZ] Tạo cho tôi quiz chương 1, 2, 3 gồm 15 câu trắc nghiệm, có đáp án và giải thích"
+    },
+    "aiMessage": {
+      "id": 702,
+      "sessionId": 301,
+      "senderRole": "AI",
+      "messageType": "QUIZ_DRAFT",
+      "practiceType": "QUIZ",
+      "practiceStatus": "READY",
+      "content": "Mình đã tạo quiz draft gồm 15 câu từ tài liệu của bạn.",
+      "generatedPayload": {
+        "type": "QUIZ",
+        "title": "Quiz ôn tập chương 1, 2, 3",
+        "description": "Bộ câu hỏi được sinh bởi AI từ tài liệu trong notebook.",
+        "metadata": {
+          "language": "vi",
+          "difficulty": "MEDIUM",
+          "requestedQuestionCount": 15,
+          "generatedQuestionCount": 15,
+          "warnings": []
+        },
+        "questions": [
+          {
+            "questionText": "SRS là viết tắt của thuật ngữ nào?",
+            "questionType": "SINGLE_CHOICE",
+            "explanation": "SRS là Software Requirements Specification.",
+            "options": [
+              { "optionText": "Software Requirements Specification", "isCorrect": true },
+              { "optionText": "System Runtime Service", "isCorrect": false },
+              { "optionText": "Software Review Standard", "isCorrect": false },
+              { "optionText": "System Requirement Security", "isCorrect": false }
+            ],
+            "sourceRefs": [
+              {
+                "documentId": 501,
+                "chunkIndex": 3,
+                "sourcePage": 12,
+                "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+              }
+            ]
+          }
+        ]
+      },
+      "createdAt": "2026-06-18T21:00:00"
+    }
+  }
+}
+```
+
+#### Response sau khi AI generate flashcard draft
+
+> Không trả `practiceAction` trong response. Backend chỉ trả message metadata và JSON flashcard chuẩn. FE hiện nút Xem/Import dựa vào `messageType = FLASHCARD_DRAFT`, `practiceStatus = READY` và `messageId`.
+
+```json
+{
+  "success": true,
+  "message": "AI flashcard draft generated successfully",
+  "data": {
+    "userMessage": {
+      "id": 711,
+      "sessionId": 301,
+      "senderRole": "USER",
+      "messageType": "TEXT",
+      "content": "[FLASHCARD] Tạo cho tôi 30 flashcard chương 1, 2, 3"
+    },
+    "aiMessage": {
+      "id": 712,
+      "sessionId": 301,
+      "senderRole": "AI",
+      "messageType": "FLASHCARD_DRAFT",
+      "practiceType": "FLASHCARD",
+      "practiceStatus": "READY",
+      "content": "Mình đã tạo flashcard draft gồm 30 thẻ từ tài liệu của bạn.",
+      "generatedPayload": {
+        "type": "FLASHCARD",
+        "title": "Flashcard chương 1, 2, 3",
+        "description": "Bộ flashcard được sinh bởi AI từ tài liệu trong notebook.",
+        "metadata": {
+          "language": "vi",
+          "difficulty": "MEDIUM",
+          "requestedCardCount": 30,
+          "generatedCardCount": 30,
+          "warnings": []
+        },
+        "cards": [
+          {
+            "frontText": "SRS",
+            "backText": "Software Requirements Specification – tài liệu đặc tả yêu cầu phần mềm.",
+            "sourceRefs": [
+              {
+                "documentId": 501,
+                "chunkIndex": 3,
+                "sourcePage": 12,
+                "excerpt": "Software Requirements Specification describes requirements."
+              }
+            ]
+          }
+        ]
+      },
+      "createdAt": "2026-06-18T21:05:00"
+    }
+  }
+}
+```
+
+#### JSON schema AI phải trả về cho Quiz
+
+AI phải trả JSON thuần, không markdown:
+
+```json
+{
+  "type": "QUIZ",
+  "title": "Quiz ôn tập chương 1, 2, 3",
+  "description": "Bộ câu hỏi được sinh bởi AI từ tài liệu trong notebook.",
+  "metadata": {
+    "language": "vi",
+    "difficulty": "MEDIUM",
+    "requestedQuestionCount": 15,
+    "generatedQuestionCount": 15,
+    "warnings": []
+  },
+  "questions": [
+    {
+      "questionText": "SRS là viết tắt của thuật ngữ nào?",
+      "questionType": "SINGLE_CHOICE",
+      "explanation": "SRS là Software Requirements Specification.",
+      "options": [
+        { "optionText": "Software Requirements Specification", "isCorrect": true },
+        { "optionText": "System Runtime Service", "isCorrect": false },
+        { "optionText": "Software Review Standard", "isCorrect": false },
+        { "optionText": "System Requirement Security", "isCorrect": false }
+      ],
+      "sourceRefs": [
+        {
+          "documentId": 501,
+          "chunkIndex": 3,
+          "sourcePage": 12,
+          "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### JSON schema AI phải trả về cho Flashcard
+
+```json
+{
+  "type": "FLASHCARD",
+  "title": "Flashcard chương 1, 2, 3",
+  "description": "Bộ flashcard được sinh bởi AI từ tài liệu trong notebook.",
+  "metadata": {
+    "language": "vi",
+    "difficulty": "MEDIUM",
+    "requestedCardCount": 30,
+    "generatedCardCount": 30,
+    "warnings": []
+  },
+  "cards": [
+    {
+      "frontText": "SRS",
+      "backText": "Software Requirements Specification – tài liệu đặc tả yêu cầu phần mềm.",
+      "sourceRefs": [
+        {
+          "documentId": 501,
+          "chunkIndex": 3,
+          "sourcePage": 12,
+          "excerpt": "Software Requirements Specification describes requirements."
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Preview generated quiz/flashcard JSON
+
+```http
+GET /api/chat-messages/{messageId}/practice-draft
+```
+
+Response phải trả về đúng JSON payload để FE render màn hình xem trước. Không bọc thêm `practiceAction` vào payload quiz/flashcard.
+
+Ví dụ preview quiz:
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "type": "QUIZ",
+    "title": "Quiz ôn tập chương 1, 2, 3",
+    "description": "Bộ câu hỏi được sinh bởi AI từ tài liệu trong notebook.",
+    "metadata": {
+      "language": "vi",
+      "difficulty": "MEDIUM",
+      "requestedQuestionCount": 15,
+      "generatedQuestionCount": 15,
+      "warnings": []
+    },
+    "questions": [
+      {
+        "questionText": "SRS là viết tắt của thuật ngữ nào?",
+        "questionType": "SINGLE_CHOICE",
+        "explanation": "SRS là Software Requirements Specification.",
+        "options": [
+          { "optionText": "Software Requirements Specification", "isCorrect": true },
+          { "optionText": "System Runtime Service", "isCorrect": false }
+        ],
+        "sourceRefs": []
+      }
+    ]
+  }
+}
+```
+
+Ví dụ preview flashcard:
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "type": "FLASHCARD",
+    "title": "Flashcard chương 1, 2, 3",
+    "description": "Bộ flashcard được sinh bởi AI từ tài liệu trong notebook.",
+    "metadata": {
+      "language": "vi",
+      "difficulty": "MEDIUM",
+      "requestedCardCount": 30,
+      "generatedCardCount": 30,
+      "warnings": []
+    },
+    "cards": [
+      {
+        "frontText": "SRS",
+        "backText": "Software Requirements Specification – tài liệu đặc tả yêu cầu phần mềm.",
+        "sourceRefs": []
+      }
+    ]
+  }
+}
+```
+
+#### Import generated payload vào Quiz/Flashcard
+
+```http
+POST /api/chat-messages/{messageId}/practice-import
+```
+
+##### Import mode
+
+| Mode              | Ý nghĩa                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| `CREATE_NEW`      | Tạo mới quiz bank hoặc flashcard deck, sau đó import toàn bộ question/card từ JSON AI |
+| `APPEND_EXISTING` | Import hàng loạt question/card vào quiz bank hoặc deck có sẵn của current user        |
+
+##### Request import quiz tạo mới
+
+```json
+{
+  "targetMode": "CREATE_NEW",
+  "target": {
+    "title": "Quiz chương 1, 2, 3",
+    "description": "Quiz tạo từ Chat AI",
+    "notebookId": 101,
+    "subjectId": 12,
+    "visibility": "PRIVATE"
+  },
+  "importOptions": {
+    "skipDuplicateQuestions": true,
+    "shuffleQuestions": false
+  }
+}
+```
+
+##### Request import quiz vào quiz bank có sẵn
+
+```json
+{
+  "targetMode": "APPEND_EXISTING",
+  "target": {
+    "quizId": 801
+  },
+  "importOptions": {
+    "skipDuplicateQuestions": true
+  }
+}
+```
+
+##### Request import flashcard tạo deck mới
+
+```json
+{
+  "targetMode": "CREATE_NEW",
+  "target": {
+    "title": "Flashcard chương 1, 2, 3",
+    "description": "Flashcard tạo từ Chat AI",
+    "notebookId": 101,
+    "subjectId": 12,
+    "visibility": "PRIVATE"
+  },
+  "importOptions": {
+    "skipDuplicateCards": true
+  }
+}
+```
+
+##### Request import flashcard vào deck có sẵn
+
+```json
+{
+  "targetMode": "APPEND_EXISTING",
+  "target": {
+    "deckId": 1001
+  },
+  "importOptions": {
+    "skipDuplicateCards": true
+  }
+}
+```
+
+##### Response import quiz thành công
+
+```json
+{
+  "success": true,
+  "message": "Practice draft imported successfully",
+  "data": {
+    "messageId": 702,
+    "practiceType": "QUIZ",
+    "targetMode": "CREATE_NEW",
+    "targetType": "QUIZ",
+    "targetId": 801,
+    "createdQuizId": 801,
+    "createdDeckId": null,
+    "createdQuestions": 15,
+    "createdOptions": 60,
+    "createdCards": 0,
+    "skippedDuplicates": 0,
+    "practiceStatus": "IMPORTED",
+    "importedAt": "2026-06-18T21:10:00"
+  }
+}
+```
+
+##### Response import flashcard thành công
+
+```json
+{
+  "success": true,
+  "message": "Practice draft imported successfully",
+  "data": {
+    "messageId": 712,
+    "practiceType": "FLASHCARD",
+    "targetMode": "APPEND_EXISTING",
+    "targetType": "FLASHCARD_DECK",
+    "targetId": 1001,
+    "createdQuizId": null,
+    "createdDeckId": 1001,
+    "createdQuestions": 0,
+    "createdOptions": 0,
+    "createdCards": 30,
+    "skippedDuplicates": 2,
+    "practiceStatus": "IMPORTED",
+    "importedAt": "2026-06-18T21:15:00"
+  }
+}
+```
+
+#### Prompt rule cho backend gọi AI
+
+Backend không gửi nguyên prompt user một cách thô. Backend phải build prompt có system instruction, context chunks và output schema rõ ràng.
+
+System instruction chung:
+
+```text
+You are an AI study assistant. Use only the provided context chunks.
+Return only valid JSON. Do not return markdown. Do not add explanation outside JSON.
+The JSON must be importable into the backend schema.
+Every generated item must include sourceRefs based on provided chunks.
+If the context is not enough, generate fewer items and set warnings in metadata.
+```
+
+System instruction khi generate QUIZ:
+
+```text
+Return JSON matching QuizGeneratedPayload schema.
+Each question must include questionText, questionType, options, explanation, sourceRefs.
+For SINGLE_CHOICE, exactly one option must be correct.
+For MULTIPLE_CHOICE, at least one option must be correct.
+For FILL_IN_THE_BLANK, options may contain one correct answer or use acceptedAnswers if supported by current BE-020 implementation.
+Do not generate duplicated questions.
+```
+
+System instruction khi generate FLASHCARD:
+
+```text
+Return JSON matching FlashcardGeneratedPayload schema.
+Each card must include frontText, backText, sourceRefs.
+frontText should be short. backText should be clear and study-friendly.
+Do not generate duplicated cards.
+```
+
+#### Clean architecture service design
+
+```text
+BE1 – Chat/RAG side
+- PracticePromptParser
+  - parse prefix [QUIZ]/[FLASHCARD]
+  - return normal chat mode if no prefix
+
+- RagRetrievalService
+  - reuse BE-016/BE-018 chunk query
+  - lấy chunks theo session/notebook/documentIds
+  - check current user có quyền đọc document/chunk
+
+- AiPracticePromptBuilder
+  - build system prompt
+  - inject context chunks
+  - inject output JSON schema instruction
+
+- AiJsonGenerationClient
+  - gọi AI thật hoặc mock AI
+  - enforce JSON-only output
+
+- AiPracticePayloadValidator
+  - validate QuizGeneratedPayload
+  - validate FlashcardGeneratedPayload
+  - normalize payload trước khi import
+
+- ChatPracticeDraftService
+  - save user message
+  - save AI message summary + generatedPayload
+  - preview draft
+
+- ChatPracticeImportService
+  - load AI message by messageId
+  - check owner/session permission
+  - check practiceStatus = READY
+  - detect practiceType QUIZ/FLASHCARD
+  - call BE3 internal import service
+  - update importedTargetType/importedTargetId/practiceStatus
+```
+
+```text
+BE3 – Quiz/Flashcard import side
+- QuizAiImportService
+  - CREATE_NEW: reuse/clone QuizService create logic from BE-019
+  - APPEND_EXISTING: check quiz owner from current user
+  - call QuizBulkQuestionImportService
+
+- QuizBulkQuestionImportService
+  - reuse/clone validation from BE-020 question/option service
+  - map QuizGeneratedPayload.questions → existing create question/option command
+  - validate questionType
+  - validate options and correct answers
+  - save questions/options in batch inside transaction
+
+- FlashcardAiImportService
+  - CREATE_NEW: reuse/clone FlashcardDeck create logic from BE-024
+  - APPEND_EXISTING: check deck owner from current user
+  - call FlashcardBulkCardImportService
+
+- FlashcardBulkCardImportService
+  - reuse/clone validation from BE-024 card service
+  - map FlashcardGeneratedPayload.cards → existing create card command
+  - validate frontText/backText
+  - save cards in batch inside transaction
+```
+
+#### Không gọi HTTP nội bộ
+
+Không implement theo kiểu:
+
+```text
+ChatPracticeImportService gọi REST POST /api/quizzes/{quizId}/questions
+ChatPracticeImportService gọi REST POST /api/flashcard-decks/{deckId}/cards
+```
+
+Phải implement theo kiểu:
+
+```text
+ChatPracticeImportService
+→ QuizAiImportService.importFromChatDraft(...)
+→ FlashcardAiImportService.importFromChatDraft(...)
+```
+
+Lý do:
+
+```text
+Giữ transaction một mạch.
+Không phát sinh network overhead nội bộ.
+Không phụ thuộc controller HTTP.
+Không làm vỡ API contract cũ.
+Dễ rollback nếu import lỗi giữa chừng.
+```
+
+#### Transaction và rollback rule
+
+- [ ] `practice-import` phải chạy trong transaction.
+- [ ] Nếu tạo quiz bank mới thành công nhưng import question lỗi, rollback cả quiz mới.
+- [ ] Nếu tạo deck mới thành công nhưng import card lỗi, rollback cả deck mới.
+- [ ] Nếu append vào quiz/deck có sẵn và lỗi giữa chừng, rollback toàn bộ batch import của lần đó.
+- [ ] Chỉ update `practiceStatus = IMPORTED` sau khi import service trả success.
+- [ ] Nếu import lỗi, giữ `practiceStatus = READY` hoặc đổi `FAILED` tùy lỗi; không được đánh dấu imported.
+
+#### Duplicate handling
+
+MVP dùng option `skipDuplicateQuestions` và `skipDuplicateCards`.
+
+Gợi ý rule duplicate:
+
+```text
+Quiz question duplicate: normalize(questionText) trùng trong cùng quiz.
+Flashcard duplicate: normalize(frontText) trùng trong cùng deck.
+```
+
+Nếu `skipDuplicateQuestions = true` hoặc `skipDuplicateCards = true`, bỏ qua item trùng và tăng `skippedDuplicates`. Nếu false, trả lỗi `PRACTICE_IMPORT_DUPLICATE_ITEM` và rollback transaction.
+
+#### Business rules
+
+- [ ] Prefix `[QUIZ]` hoặc `[FLASHCARD]` phải nằm ở đầu `content` sau khi trim khoảng trắng.
+- [ ] Nếu message không có prefix thì xử lý như chat/RAG bình thường của BE-018.
+- [ ] Nếu prefix sai như `[QUIZZ]`, `[CARD]`, trả lỗi `AI_PRACTICE_TYPE_INVALID`.
+- [ ] User chỉ được dùng chat session thuộc notebook của chính user hoặc notebook mà user có quyền truy cập.
+- [ ] `documentIds` nếu truyền lên phải thuộc notebook hoặc document mà user có quyền đọc.
+- [ ] Backend phải dùng chunking/RAG từ BE-016/BE-018 để lấy context, không để AI tự bịa ngoài tài liệu.
+- [ ] AI response phải là JSON thuần, không markdown, không text ngoài JSON.
+- [ ] JSON do AI sinh phải validate schema trước khi lưu `practiceStatus = READY`.
+- [ ] `generatedPayload` chỉ chứa JSON quiz/flashcard đúng schema; không chứa `practiceAction`, endpoint URL, button config hoặc field UI-only.
+- [ ] Nếu JSON sai schema, lưu AI message với `practiceStatus = FAILED`, lưu `validation_errors`; user có thể gửi prompt mới để tạo lại.
+- [ ] Quiz payload phải có ít nhất 1 question.
+- [ ] Mỗi quiz question phải có `questionText`, `questionType`, `explanation`, `options` nếu question type yêu cầu options.
+- [ ] `SINGLE_CHOICE` phải có đúng 1 option correct.
+- [ ] `MULTIPLE_CHOICE` phải có ít nhất 1 option correct.
+- [ ] Flashcard payload phải có ít nhất 1 card; `frontText` và `backText` không được rỗng.
+- [ ] Import chỉ được thực hiện khi AI message có `practiceStatus = READY`.
+- [ ] Không cho import lại cùng một AI message nếu `practiceStatus = IMPORTED`.
+- [ ] Import vào quiz/deck có sẵn phải check ownership của current user.
+- [ ] Tạo mới quiz/deck phải set `visibility = PRIVATE` mặc định.
+- [ ] Tạo mới quiz/deck phải set `marketStatus = NONE` mặc định.
+- [ ] Giới hạn số lượng sinh trong MVP: tối đa 30 questions hoặc 50 flashcards/lần để tránh payload quá lớn.
+
+#### Error codes cần thêm
+
+```text
+AI_PRACTICE_TYPE_INVALID
+AI_PRACTICE_GENERATION_FAILED
+AI_PRACTICE_INVALID_JSON
+AI_PRACTICE_SCHEMA_INVALID
+CHAT_MESSAGE_NOT_FOUND
+CHAT_MESSAGE_NOT_PRACTICE_DRAFT
+PRACTICE_DRAFT_ALREADY_IMPORTED
+PRACTICE_DRAFT_NOT_READY
+PRACTICE_IMPORT_TARGET_INVALID
+PRACTICE_IMPORT_PERMISSION_DENIED
+PRACTICE_IMPORT_DUPLICATE_ITEM
+PRACTICE_IMPORT_ROLLBACK
+QUIZ_IMPORT_FAILED
+FLASHCARD_IMPORT_FAILED
+```
+
+#### Tasks
+
+##### BE1 – Chat/RAG generation tasks
+
+- [ ] Mở rộng `ChatMessage` entity thêm `messageType`, `practiceType`, `generatedPayload`, `validationErrors`, `practiceStatus`, `importedTargetType`, `importedTargetId`, `importedAt`.
+- [ ] Tạo enum/type nội bộ `ChatMessageType`: `TEXT`, `QUIZ_DRAFT`, `FLASHCARD_DRAFT`.
+- [ ] Tạo enum/type nội bộ `AiPracticeType`: `QUIZ`, `FLASHCARD`.
+- [ ] Tạo enum/type nội bộ `PracticeStatus`: `NONE`, `READY`, `IMPORTED`, `FAILED`.
+- [ ] Update DTO của `POST /api/chat-sessions/{sessionId}/messages` để nhận `documentIds`, `topK`, `language`, `options` nhưng vẫn backward-compatible với request cũ.
+- [ ] Tạo `PracticePromptParser` để nhận diện prefix `[QUIZ]` và `[FLASHCARD]`.
+- [ ] Tạo `AiPracticePromptBuilder` để backend tự build prompt cho AI bằng chunks và schema.
+- [ ] Tạo JSON schema hoặc validator thủ công cho `QuizGeneratedPayload`.
+- [ ] Tạo JSON schema hoặc validator thủ công cho `FlashcardGeneratedPayload`.
+- [ ] Mở rộng `POST /api/chat-sessions/{sessionId}/messages` để generate draft nếu có prefix practice.
+- [ ] Implement `GET /api/chat-messages/{messageId}/practice-draft`.
+- [ ] Implement `POST /api/chat-messages/{messageId}/practice-import`.
+- [ ] Lưu user prompt gốc vào `ChatMessage`.
+- [ ] Lưu AI summary vào `ChatMessage.content`.
+- [ ] Lưu generated JSON vào `ChatMessage.generatedPayload`.
+- [ ] Lưu validation errors vào `ChatMessage.validationErrors` nếu AI trả JSON sai.
+- [ ] Update response message trả `messageType`, `practiceType`, `practiceStatus`, `messageId` và `generatedPayload`; không trả `practiceAction`. FE tự hiện nút `Xem`, `Import` dựa vào các field này.
+- [ ] Log action `QUIZ_GENERATION` hoặc `FLASHCARD_GENERATION` cho AI usage analytics.
+
+##### BE3 – Safe import reuse/clone tasks
+
+- [ ] Tạo `QuizAiImportService` chỉ dùng nội bộ cho Chat AI import, không tạo public endpoint mới.
+- [ ] Tạo `QuizBulkQuestionImportService` để import nhiều question/options trong một transaction.
+- [ ] `QuizAiImportService.CREATE_NEW` phải reuse/clone logic tạo quiz bank từ BE-019, không làm thay đổi request/response API cũ.
+- [ ] `QuizAiImportService.APPEND_EXISTING` phải check quiz thuộc current user.
+- [ ] `QuizBulkQuestionImportService` phải reuse/clone validation từ BE-020 cho question/option.
+- [ ] Tạo `FlashcardAiImportService` chỉ dùng nội bộ cho Chat AI import, không tạo public endpoint mới.
+- [ ] Tạo `FlashcardBulkCardImportService` để import nhiều card trong một transaction.
+- [ ] `FlashcardAiImportService.CREATE_NEW` phải reuse/clone logic tạo flashcard deck từ BE-024, không làm thay đổi request/response API cũ.
+- [ ] `FlashcardAiImportService.APPEND_EXISTING` phải check deck thuộc current user.
+- [ ] `FlashcardBulkCardImportService` phải reuse/clone validation từ BE-024 cho card.
+- [ ] Không để BE1 trực tiếp gọi repository quiz/flashcard để ghi dữ liệu practice.
+- [ ] Không gọi REST API nội bộ giữa các module.
+- [ ] Có integration test chứng minh API cũ BE-020/BE-024 vẫn chạy như trước.
+
+##### Integration/Test tasks
+
+- [ ] Test prompt `[QUIZ]` → generate JSON → preview → create new quiz → import all questions/options.
+- [ ] Test prompt `[QUIZ]` → generate JSON → preview → append existing quiz → import all questions/options.
+- [ ] Test prompt `[FLASHCARD]` → generate JSON → preview → create new deck → import all cards.
+- [ ] Test prompt `[FLASHCARD]` → generate JSON → preview → append existing deck → import all cards.
+- [ ] Test duplicate handling with `skipDuplicateQuestions` and `skipDuplicateCards`.
+- [ ] Test rollback khi một question/card trong batch lỗi.
+- [ ] Bổ sung Swagger examples cho cả quiz và flashcard chat prompt.
+- [ ] Bổ sung Postman flow demo cho prompt `[QUIZ]`, preview/import và prompt `[FLASHCARD]`, preview/import.
+
+#### Acceptance Criteria
+
+- [ ] User gửi prompt `[QUIZ] ...` trong chat và backend dùng chunks để sinh quiz JSON hợp lệ.
+- [ ] User gửi prompt `[FLASHCARD] ...` trong chat và backend dùng chunks để sinh flashcard JSON hợp lệ.
+- [ ] JSON được lưu vào `chat_messages.generatedPayload`, không tạo bảng draft mới.
+- [ ] FE không cần nhận `practiceAction`; FE tự hiển thị nút xem/import khi `messageType` là `QUIZ_DRAFT` hoặc `FLASHCARD_DRAFT` và `practiceStatus = READY`.
+- [ ] User xem được quiz/flashcard AI tạo qua `GET /api/chat-messages/{messageId}/practice-draft`.
+- [ ] User import quiz draft bằng `CREATE_NEW` thì tạo được quiz bank mới và import hàng loạt questions/options.
+- [ ] User import quiz draft bằng `APPEND_EXISTING` thì thêm hàng loạt questions/options vào quiz bank hiện có của user.
+- [ ] User import flashcard draft bằng `CREATE_NEW` thì tạo được flashcard deck mới và import hàng loạt cards.
+- [ ] User import flashcard draft bằng `APPEND_EXISTING` thì thêm hàng loạt cards vào deck hiện có của user.
+- [ ] BE-055 không làm thay đổi contract API cũ của BE-019/BE-020/BE-024.
+- [ ] API cũ `POST /api/quizzes/{quizId}/questions` vẫn chạy bình thường.
+- [ ] API cũ `POST /api/flashcard-decks/{deckId}/cards` vẫn chạy bình thường.
+- [ ] Import vào quiz/deck có sẵn check ownership đúng.
+- [ ] Import lỗi giữa chừng rollback đúng, không tạo dữ liệu nửa vời.
+- [ ] Sau import thành công, `practiceStatus = IMPORTED`, có `importedTargetType`, `importedTargetId`, `importedAt`.
+- [ ] User không cần hủy draft; nếu không muốn dùng thì bỏ qua, nếu muốn tạo lại thì gửi prompt mới trong chat để sinh AI message mới.
+- [ ] Prompt practice sai prefix trả lỗi rõ ràng.
+- [ ] AI sinh JSON sai schema thì lưu failed status/validation errors, không crash 500.
+- [ ] Chat history vẫn hiển thị được cả user prompt, AI summary và trạng thái practice draft.
+- [ ] Swagger/Postman có đủ endpoint preview/import và ví dụ mở rộng cho chat message.
+
+---
+
 # V2.4. Điều chỉnh phân công để không nghẽn BE3
 
 Bản trước dồn quá nhiều Community/Governance vào BE3. Sau khi bổ sung v2, nên chia lại:

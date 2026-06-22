@@ -11,6 +11,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     List<ChatMessage> findBySessionIdOrderByMessageSequenceAsc(Long sessionId);
 
+    Optional<ChatMessage> findByIdAndSessionUserId(Long id, Long userId);
+
     @Query("""
             select max(m.messageSequence)
             from ChatMessage m

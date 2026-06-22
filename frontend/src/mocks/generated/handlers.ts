@@ -2,9 +2,9 @@
 // ⚠️  FILE NÀY ĐƯỢC TỰ ĐỘNG SINH BỞI scripts/generateMswHandlers.cjs
 // ⚠️  KHÔNG SỬA TAY FILE NÀY — Chạy lại script khi cập nhật API contract
 //
-// Generated: 2026-06-15T16:30:43.583Z
+// Generated: 2026-06-21T17:19:47.190Z
 // Source:    ai_study_hub_mock_openapi_contract.json
-// Total:     154 handlers
+// Total:     156 handlers
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { http, HttpResponse, delay } from "msw";
@@ -133,7 +133,7 @@ const MOCK_DELAY = 300;
  */
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CHAT/RAG (6 endpoints)
+// CHAT/RAG (8 endpoints)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /**
@@ -148,12 +148,12 @@ const MOCK_DELAY = 300;
  */
 /**
  * GET /api/chat-sessions/{sessionId}/messages
- * Get/List: Implement Chat Message and Mock RAG Answer API
+ * Lay danh sach messages cua chat session, bao gom practice draft metadata
  * Tag: Chat/RAG
  */
 /**
  * POST /api/chat-sessions/{sessionId}/messages
- * Gửi câu hỏi và nhận câu trả lời mock RAG kèm citation
+ * Gui cau hoi chat hoac tao AI practice draft
  * Tag: Chat/RAG
  */
 /**
@@ -164,6 +164,16 @@ const MOCK_DELAY = 300;
 /**
  * POST /api/notebooks/{notebookId}/chat-sessions
  * Create/Action: Implement Chat Session APIs
+ * Tag: Chat/RAG
+ */
+/**
+ * GET /api/chat-messages/{messageId}/practice-draft
+ * Xem JSON practice draft cua chat message
+ * Tag: Chat/RAG
+ */
+/**
+ * POST /api/chat-messages/{messageId}/practice-import
+ * Import practice draft vao quiz bank hoac flashcard deck
  * Tag: Chat/RAG
  */
 
@@ -1284,17 +1294,19 @@ export const generatedHandlers = [
       "success": true,
       "message": "Success",
       "data": {
-        "id": 301,
-        "notebookId": 101,
-        "userId": 1,
-        "title": "Ôn tập SRS",
-        "createdAt": "2026-06-12T21:55:00"
+        "id": 701,
+        "sessionId": 301,
+        "messageSequence": 1,
+        "senderRole": "USER",
+        "content": "SRS là gì?",
+        "citedSources": [],
+        "createdAt": "2026-06-12T21:56:00"
       }
     },
     { status: 200 });
   }),
 
-  // GET /api/chat-sessions/{sessionId}/messages — Get/List: Implement Chat Message and Mock RAG Answer API
+  // GET /api/chat-sessions/{sessionId}/messages — Lay danh sach messages cua chat session, bao gom practice draft metadata
   http.get("http://localhost:8080/api/chat-sessions/:sessionId/messages", async () => {
     await delay(MOCK_DELAY);
     return HttpResponse.json(
@@ -1307,33 +1319,95 @@ export const generatedHandlers = [
           "sessionId": 301,
           "messageSequence": 1,
           "senderRole": "USER",
-          "content": "SRS là gì?",
+          "messageType": "TEXT",
+          "practiceType": null,
+          "practiceStatus": "NONE",
+          "content": "[QUIZ] Tao cho toi quiz chuong 1, 2, 3 gom 15 cau trac nghiem, co dap an va giai thich",
           "citedSources": [],
-          "createdAt": "2026-06-12T21:56:00"
+          "generatedPayload": null,
+          "validationErrors": null,
+          "importedTargetType": null,
+          "importedTargetId": null,
+          "importedAt": null,
+          "createdAt": "2026-06-18T21:00:00"
         },
         {
           "id": 702,
           "sessionId": 301,
           "messageSequence": 2,
           "senderRole": "AI",
-          "content": "SRS là tài liệu đặc tả yêu cầu phần mềm, mô tả chức năng, phi chức năng, ràng buộc và tiêu chí chấp nhận.",
+          "messageType": "QUIZ_DRAFT",
+          "practiceType": "QUIZ",
+          "practiceStatus": "READY",
+          "content": "Minh da tao quiz draft gom 15 cau tu tai lieu cua ban.",
           "citedSources": [
             {
               "documentId": 501,
               "documentTitle": "Chapter 10 Requirement Specification",
-              "chunkIndex": 0,
+              "chunkIndex": 3,
               "sourcePage": 12,
-              "excerpt": "Requirement specification should be clear..."
+              "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
             }
           ],
-          "createdAt": "2026-06-12T21:56:04"
+          "generatedPayload": {
+            "type": "QUIZ",
+            "title": "Quiz on tap chuong 1, 2, 3",
+            "description": "Bo cau hoi duoc sinh boi AI tu tai lieu trong notebook.",
+            "metadata": {
+              "language": "vi",
+              "difficulty": "MEDIUM",
+              "requestedQuestionCount": 15,
+              "generatedQuestionCount": 15,
+              "requestedCardCount": null,
+              "generatedCardCount": null,
+              "warnings": []
+            },
+            "questions": [
+              {
+                "questionText": "SRS la viet tat cua thuat ngu nao?",
+                "questionType": "SINGLE_CHOICE",
+                "explanation": "SRS la Software Requirements Specification.",
+                "options": [
+                  {
+                    "optionText": "Software Requirements Specification",
+                    "isCorrect": true
+                  },
+                  {
+                    "optionText": "System Runtime Service",
+                    "isCorrect": false
+                  },
+                  {
+                    "optionText": "Software Review Standard",
+                    "isCorrect": false
+                  },
+                  {
+                    "optionText": "System Requirement Security",
+                    "isCorrect": false
+                  }
+                ],
+                "sourceRefs": [
+                  {
+                    "documentId": 501,
+                    "chunkIndex": 3,
+                    "sourcePage": 12,
+                    "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+                  }
+                ]
+              }
+            ]
+          },
+          "validationErrors": null,
+          "importedTargetType": null,
+          "importedTargetId": null,
+          "importedAt": null,
+          "createdAt": "2026-06-18T21:00:03"
         }
       ]
     },
     { status: 200 });
   }),
 
-  // POST /api/chat-sessions/{sessionId}/messages — Gửi câu hỏi và nhận câu trả lời mock RAG kèm citation
+  // POST /api/chat-sessions/{sessionId}/messages — Gui cau hoi chat hoac tao AI practice draft
   http.post("http://localhost:8080/api/chat-sessions/:sessionId/messages", async () => {
     await delay(MOCK_DELAY);
     return HttpResponse.json(
@@ -1346,26 +1420,88 @@ export const generatedHandlers = [
           "sessionId": 301,
           "messageSequence": 1,
           "senderRole": "USER",
-          "content": "SRS là gì?",
+          "messageType": "TEXT",
+          "practiceType": null,
+          "practiceStatus": "NONE",
+          "content": "[QUIZ] Tao cho toi quiz chuong 1, 2, 3 gom 15 cau trac nghiem, co dap an va giai thich",
           "citedSources": [],
-          "createdAt": "2026-06-12T21:56:00"
+          "generatedPayload": null,
+          "validationErrors": null,
+          "importedTargetType": null,
+          "importedTargetId": null,
+          "importedAt": null,
+          "createdAt": "2026-06-18T21:00:00"
         },
         "aiMessage": {
           "id": 702,
           "sessionId": 301,
           "messageSequence": 2,
           "senderRole": "AI",
-          "content": "SRS là tài liệu đặc tả yêu cầu phần mềm, mô tả chức năng, phi chức năng, ràng buộc và tiêu chí chấp nhận.",
+          "messageType": "QUIZ_DRAFT",
+          "practiceType": "QUIZ",
+          "practiceStatus": "READY",
+          "content": "Minh da tao quiz draft gom 15 cau tu tai lieu cua ban.",
           "citedSources": [
             {
               "documentId": 501,
               "documentTitle": "Chapter 10 Requirement Specification",
-              "chunkIndex": 0,
+              "chunkIndex": 3,
               "sourcePage": 12,
-              "excerpt": "Requirement specification should be clear..."
+              "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
             }
           ],
-          "createdAt": "2026-06-12T21:56:04"
+          "generatedPayload": {
+            "type": "QUIZ",
+            "title": "Quiz on tap chuong 1, 2, 3",
+            "description": "Bo cau hoi duoc sinh boi AI tu tai lieu trong notebook.",
+            "metadata": {
+              "language": "vi",
+              "difficulty": "MEDIUM",
+              "requestedQuestionCount": 15,
+              "generatedQuestionCount": 15,
+              "requestedCardCount": null,
+              "generatedCardCount": null,
+              "warnings": []
+            },
+            "questions": [
+              {
+                "questionText": "SRS la viet tat cua thuat ngu nao?",
+                "questionType": "SINGLE_CHOICE",
+                "explanation": "SRS la Software Requirements Specification.",
+                "options": [
+                  {
+                    "optionText": "Software Requirements Specification",
+                    "isCorrect": true
+                  },
+                  {
+                    "optionText": "System Runtime Service",
+                    "isCorrect": false
+                  },
+                  {
+                    "optionText": "Software Review Standard",
+                    "isCorrect": false
+                  },
+                  {
+                    "optionText": "System Requirement Security",
+                    "isCorrect": false
+                  }
+                ],
+                "sourceRefs": [
+                  {
+                    "documentId": 501,
+                    "chunkIndex": 3,
+                    "sourcePage": 12,
+                    "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+                  }
+                ]
+              }
+            ]
+          },
+          "validationErrors": null,
+          "importedTargetType": null,
+          "importedTargetId": null,
+          "importedAt": null,
+          "createdAt": "2026-06-18T21:00:04"
         }
       }
     },
@@ -1404,7 +1540,7 @@ export const generatedHandlers = [
     return HttpResponse.json(
     {
       "success": true,
-      "message": "Chat session created successfully",
+      "message": "Success",
       "data": {
         "id": 301,
         "notebookId": 101,
@@ -1413,7 +1549,91 @@ export const generatedHandlers = [
         "createdAt": "2026-06-12T21:55:00"
       }
     },
-    { status: 201 });
+    { status: 200 });
+  }),
+
+  // GET /api/chat-messages/{messageId}/practice-draft — Xem JSON practice draft cua chat message
+  http.get("http://localhost:8080/api/chat-messages/:messageId/practice-draft", async () => {
+    await delay(MOCK_DELAY);
+    return HttpResponse.json(
+    {
+      "success": true,
+      "message": "Success",
+      "data": {
+        "type": "QUIZ",
+        "title": "Quiz on tap chuong 1, 2, 3",
+        "description": "Bo cau hoi duoc sinh boi AI tu tai lieu trong notebook.",
+        "metadata": {
+          "language": "vi",
+          "difficulty": "MEDIUM",
+          "requestedQuestionCount": 15,
+          "generatedQuestionCount": 15,
+          "requestedCardCount": null,
+          "generatedCardCount": null,
+          "warnings": []
+        },
+        "questions": [
+          {
+            "questionText": "SRS la viet tat cua thuat ngu nao?",
+            "questionType": "SINGLE_CHOICE",
+            "explanation": "SRS la Software Requirements Specification.",
+            "options": [
+              {
+                "optionText": "Software Requirements Specification",
+                "isCorrect": true
+              },
+              {
+                "optionText": "System Runtime Service",
+                "isCorrect": false
+              },
+              {
+                "optionText": "Software Review Standard",
+                "isCorrect": false
+              },
+              {
+                "optionText": "System Requirement Security",
+                "isCorrect": false
+              }
+            ],
+            "sourceRefs": [
+              {
+                "documentId": 501,
+                "chunkIndex": 3,
+                "sourcePage": 12,
+                "excerpt": "Software Requirements Specification describes functional and non-functional requirements."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    { status: 200 });
+  }),
+
+  // POST /api/chat-messages/{messageId}/practice-import — Import practice draft vao quiz bank hoac flashcard deck
+  http.post("http://localhost:8080/api/chat-messages/:messageId/practice-import", async () => {
+    await delay(MOCK_DELAY);
+    return HttpResponse.json(
+    {
+      "success": true,
+      "message": "Practice draft imported successfully",
+      "data": {
+        "messageId": 702,
+        "practiceType": "QUIZ",
+        "targetMode": "CREATE_NEW",
+        "targetType": "QUIZ",
+        "targetId": 801,
+        "createdQuizId": 801,
+        "createdDeckId": null,
+        "createdQuestions": 15,
+        "createdOptions": 60,
+        "createdCards": 0,
+        "skippedDuplicates": 0,
+        "practiceStatus": "IMPORTED",
+        "importedAt": "2026-06-18T21:10:00"
+      }
+    },
+    { status: 200 });
   }),
 
   // ── Community Growth ──────────────────────────────────────────────

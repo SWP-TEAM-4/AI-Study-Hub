@@ -1,10 +1,17 @@
 package com.aistudyhub.entity;
 
+import com.aistudyhub.common.enums.AiPracticeType;
+import com.aistudyhub.common.enums.ChatMessageType;
+import com.aistudyhub.common.enums.PracticeImportTargetType;
+import com.aistudyhub.common.enums.PracticeStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * Owner: BE1 – Chat/RAG core
@@ -37,12 +44,44 @@ public class ChatMessage {
     @Column(name = "sender_role", nullable = false, length = 50)
     private String senderRole;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 50)
+    @Builder.Default
+    private ChatMessageType messageType = ChatMessageType.TEXT;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "practice_type", length = 30)
+    private AiPracticeType practiceType;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Lob
     @Column(name = "cited_sources", columnDefinition = "TEXT")
     private String citedSources;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "generated_payload")
+    private JsonNode generatedPayload;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "validation_errors")
+    private JsonNode validationErrors;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "practice_status", nullable = false, length = 30)
+    @Builder.Default
+    private PracticeStatus practiceStatus = PracticeStatus.NONE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "imported_target_type", length = 30)
+    private PracticeImportTargetType importedTargetType;
+
+    @Column(name = "imported_target_id")
+    private Long importedTargetId;
+
+    @Column(name = "imported_at")
+    private LocalDateTime importedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
