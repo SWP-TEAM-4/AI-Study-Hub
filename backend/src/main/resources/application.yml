@@ -78,7 +78,7 @@ app:
       fallback-to-stub-on-error: true
 
     openai:
-      api-key: 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
+      api-key: //lộ key:)
       model: gpt-4o-mini
       base-url: https://api.openai.com/v1
       embedding-model: text-embedding-3-small
@@ -88,7 +88,7 @@ app:
       max-retries: 3
     
     gemini:
-      api-key: AQ.Ab8RN6L4RYNFYQq_atW0sfLSgRTlOGozEpbidcqMQLANYZSC1A
+      api-key: //no
       base-url: https://generativelanguage.googleapis.com/v1/models
       model: gemini-3.5-flash
       temperature: 0.1
