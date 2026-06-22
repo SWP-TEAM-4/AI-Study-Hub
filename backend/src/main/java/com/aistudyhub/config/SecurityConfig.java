@@ -38,49 +38,57 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final ObjectMapper objectMapper;
+        private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final ObjectMapper objectMapper;
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configure(http)) // dùng CorsConfig bean
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) -> writeError(response,
-                                HttpServletResponse.SC_UNAUTHORIZED, ErrorCode.UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, accessDeniedException) -> writeError(response,
-                                HttpServletResponse.SC_FORBIDDEN, ErrorCode.ACCESS_DENIED)))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(SecurityConstants.PUBLIC_URLS).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/semesters", "/api/subjects", "/api/combos").permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/community/**")
-                        .permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/reviewer/**").hasAnyRole("ADMIN", "REVIEWER")
-                        .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        @Bean
+        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+                http
+                                .csrf(AbstractHttpConfigurer::disable)
+                                .cors(cors -> cors.configure(http)) // dùng CorsConfig bean
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .exceptionHandling(ex -> ex
+                                                .authenticationEntryPoint((request, response,
+                                                                authException) -> writeError(response,
+                                                                                HttpServletResponse.SC_UNAUTHORIZED,
+                                                                                ErrorCode.UNAUTHORIZED))
+                                                .accessDeniedHandler((request, response,
+                                                                accessDeniedException) -> writeError(response,
+                                                                                HttpServletResponse.SC_FORBIDDEN,
+                                                                                ErrorCode.ACCESS_DENIED)))
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(SecurityConstants.PUBLIC_URLS).permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/semesters", "/api/subjects",
+                                                                "/api/combos")
+                                                .permitAll()
+                                                .requestMatchers("/api/admin/marketplace/**")
+                                                .hasAnyRole("ADMIN", "REVIEWER")
+                                                .requestMatchers(HttpMethod.GET, "/api/community/**")
+                                                .permitAll()
+                                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                                                .requestMatchers("/api/reviewer/**").hasAnyRole("ADMIN", "REVIEWER")
+                                                .anyRequest().authenticated())
+                                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(10);
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder(10);
+        }
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
+        @Bean
+        public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+                return config.getAuthenticationManager();
+        }
 
-    private void writeError(HttpServletResponse response, int status, ErrorCode errorCode) throws IOException {
-        response.setStatus(status);
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getWriter(),
-                ApiResponse.error(errorCode.getMessage(), errorCode.getCode()));
-    }
+        private void writeError(HttpServletResponse response, int status, ErrorCode errorCode) throws IOException {
+                response.setStatus(status);
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                objectMapper.writeValue(response.getWriter(),
+                                ApiResponse.error(errorCode.getMessage(), errorCode.getCode()));
+        }
 }
