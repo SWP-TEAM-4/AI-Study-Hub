@@ -192,9 +192,14 @@ public class QuizQuestionService {
                 throw new AppException(ErrorCode.VALIDATION_ERROR,
                         "SINGLE_CHOICE and MULTIPLE_CHOICE questions require at least 2 options");
             }
-            boolean hasCorrectOption = options.stream()
-                    .anyMatch(o -> Boolean.TRUE.equals(o.getIsCorrect()));
-            if (!hasCorrectOption) {
+            long correctOptions = options.stream()
+                    .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                    .count();
+            if (type == QuestionType.SINGLE_CHOICE && correctOptions != 1) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "SINGLE_CHOICE questions require exactly one correct option");
+            }
+            if (type == QuestionType.MULTIPLE_CHOICE && correctOptions < 1) {
                 throw new AppException(ErrorCode.VALIDATION_ERROR,
                         "At least one option must be marked as correct");
             }

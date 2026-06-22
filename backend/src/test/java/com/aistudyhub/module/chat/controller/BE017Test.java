@@ -242,8 +242,16 @@ class BE017Test {
                     session_id BIGINT NOT NULL,
                     message_sequence INT NOT NULL,
                     sender_role VARCHAR(50) NOT NULL,
+                    message_type VARCHAR(50) DEFAULT 'TEXT' NOT NULL,
+                    practice_type VARCHAR(30),
                     content CLOB NOT NULL,
                     cited_sources CLOB,
+                    generated_payload JSON,
+                    validation_errors JSON,
+                    practice_status VARCHAR(30) DEFAULT 'NONE' NOT NULL,
+                    imported_target_type VARCHAR(30),
+                    imported_target_id BIGINT,
+                    imported_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     CONSTRAINT fk_chat_messages_session
                         FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE

@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 
 
 public interface FlashcardRepository extends JpaRepository<Flashcard, Long> {
+    List<Flashcard> findByDeckIdOrderById(Long deckId);
+
     @Query("SELECT f FROM Flashcard f " +
             "LEFT JOIN UserFlashcardProgress p ON p.flashcard.id = f.id AND p.user.id = :userId " +
             "WHERE (f.deck.user.id = :userId OR f.deck.visibility IN :visibilities) AND " +
