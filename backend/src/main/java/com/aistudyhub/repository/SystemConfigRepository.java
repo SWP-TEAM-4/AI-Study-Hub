@@ -13,6 +13,8 @@ public interface SystemConfigRepository extends JpaRepository<SystemConfig, Long
 
     List<SystemConfig> findAllByOrderByConfigKeyAsc();
 
+    List<SystemConfig> findAllByIsPublicTrueOrderByConfigKeyAsc();
+
     Optional<SystemConfig> findByConfigKey(String configKey);
 
     boolean existsByConfigKey(String configKey);
