@@ -28,4 +28,7 @@ public class SystemConfig {
 
     @Column(length = 500)
     private String description;
+
+    @Column(name = "is_public", nullable = false)
+    private boolean isPublic;
 }

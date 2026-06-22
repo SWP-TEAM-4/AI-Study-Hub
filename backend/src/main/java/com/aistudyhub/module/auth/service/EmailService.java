@@ -49,6 +49,11 @@ public class EmailService {
    */
   @Async
   public void sendPasswordResetEmail(String toEmail, String fullName, String token) {
+    sendPasswordResetEmail(toEmail, fullName, token, tokenExpireMinutes);
+  }
+
+  @Async
+  public void sendPasswordResetEmail(String toEmail, String fullName, String token, int expireMinutes) {
     String displayName = (fullName != null && !fullName.isBlank()) ? fullName : toEmail;
     String resetLink = resetPasswordBaseUrl + "?token=" + token;
 
@@ -59,7 +64,7 @@ public class EmailService {
       helper.setFrom(fromAddress, fromName);
       helper.setTo(toEmail);
       helper.setSubject("Đặt lại mật khẩu – AI Study Hub");
-      helper.setText(buildResetPasswordHtml(displayName, resetLink), true);
+      helper.setText(buildResetPasswordHtml(displayName, resetLink, expireMinutes), true);
 
       mailSender.send(message);
       log.info("[EmailService] Password reset email sent to: {}", toEmail);
@@ -102,7 +107,7 @@ public class EmailService {
 
   // ── HTML Templates ────────────────────────────────────────────────────────
 
-  private String buildResetPasswordHtml(String displayName, String resetLink) {
+  private String buildResetPasswordHtml(String displayName, String resetLink, int expireMinutes) {
     return """
         <!DOCTYPE html>
         <html lang="vi">
@@ -194,7 +199,7 @@ public class EmailService {
           </table>
         </body>
         </html>
-        """.formatted(displayName, resetLink, tokenExpireMinutes, resetLink);
+        """.formatted(displayName, resetLink, expireMinutes, resetLink);
   }
 
   private String buildWelcomeHtml(String fullName) {

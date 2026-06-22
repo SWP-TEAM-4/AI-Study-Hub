@@ -3,6 +3,7 @@ package com.aistudyhub.module.systemconfig.service;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.SystemConfig;
+import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import com.aistudyhub.module.systemconfig.dto.SystemConfigRequest;
 import com.aistudyhub.module.systemconfig.dto.SystemConfigResponse;
 import com.aistudyhub.repository.SystemConfigRepository;
@@ -12,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -29,6 +30,14 @@ public class SystemConfigService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<SystemConfigResponse> listPublic() {
+        return systemConfigRepository.findAllByIsPublicTrueOrderByConfigKeyAsc().stream()
+                .filter(config -> isPublicConfigKey(config.getConfigKey()))
+                .map(this::toResponse)
+                .toList();
+    }
+
     @Transactional
     public SystemConfigResponse create(SystemConfigRequest request) {
         String normalizedKey = normalizeKey(request.getConfigKey());
@@ -38,6 +47,7 @@ public class SystemConfigService {
                 .configKey(normalizedKey)
                 .configValue(normalizeRequiredValue(request.getConfigValue()))
                 .description(normalizeNullable(request.getDescription()))
+                .isPublic(isPublicConfigKey(normalizedKey))
                 .build();
 
         SystemConfig saved = systemConfigRepository.save(config);
@@ -54,6 +64,7 @@ public class SystemConfigService {
         config.setConfigKey(normalizedKey);
         config.setConfigValue(normalizeRequiredValue(request.getConfigValue()));
         config.setDescription(normalizeNullable(request.getDescription()));
+        config.setPublic(isPublicConfigKey(normalizedKey));
 
         SystemConfig saved = systemConfigRepository.save(config);
         log.info("Updated system config id={} key={}", saved.getId(), saved.getConfigKey());
@@ -75,6 +86,20 @@ public class SystemConfigService {
                 .orElseThrow(() -> new AppException(
                         ErrorCode.SYSTEM_CONFIG_NOT_FOUND,
                         "System config not found for key: " + normalizedKey));
+    }
+
+    @Transactional(readOnly = true)
+    public int getIntValueOrDefault(String configKey, int defaultValue) {
+        String normalizedKey = normalizeKey(configKey);
+        return systemConfigRepository.findByConfigKey(normalizedKey)
+                .map(SystemConfig::getConfigValue)
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .map(value -> parseIntOrDefault(normalizedKey, value, defaultValue))
+                .orElseGet(() -> {
+                    log.warn("System config key={} not found. Using default value={}", normalizedKey, defaultValue);
+                    return defaultValue;
+                });
     }
 
     private SystemConfig findByIdOrThrow(Long id) {
@@ -110,6 +135,20 @@ public class SystemConfigService {
 
     private String normalizeNullable(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private boolean isPublicConfigKey(String normalizedKey) {
+        return SystemConfigKeys.PUBLIC_KEYS.contains(normalizedKey);
+    }
+
+    private int parseIntOrDefault(String normalizedKey, String value, int defaultValue) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            log.warn("System config key={} has invalid integer value='{}'. Using default value={}",
+                    normalizedKey, value, defaultValue);
+            return defaultValue;
+        }
     }
 
     private SystemConfigResponse toResponse(SystemConfig config) {

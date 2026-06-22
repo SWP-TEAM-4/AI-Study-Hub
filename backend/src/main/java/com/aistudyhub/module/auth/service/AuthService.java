@@ -7,6 +7,8 @@ import com.aistudyhub.entity.PasswordReset;
 import com.aistudyhub.entity.Semester;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.module.auth.dto.*;
+import com.aistudyhub.module.systemconfig.SystemConfigKeys;
+import com.aistudyhub.module.systemconfig.service.SystemConfigService;
 import com.aistudyhub.repository.ComboRepository;
 import com.aistudyhub.repository.PasswordResetRepository;
 import com.aistudyhub.repository.SemesterRepository;
@@ -29,7 +31,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final int RESET_TOKEN_EXPIRE_MINUTES = 30;
+    private static final int DEFAULT_RESET_TOKEN_EXPIRE_MINUTES = 30;
 
     private final UserRepository userRepository;
     private final PasswordResetRepository passwordResetRepository;
@@ -38,6 +40,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
+    private final SystemConfigService systemConfigService;
 
     // ── Register ──────────────────────────────────────────────────────────────
 
@@ -121,16 +124,20 @@ public class AuthService {
         passwordResetRepository.deleteAllByUserId(user.getId());
 
         // Tạo token mới
+        int expireMinutes = systemConfigService.getIntValueOrDefault(
+                SystemConfigKeys.RESET_TOKEN_EXPIRE_MINUTES,
+                DEFAULT_RESET_TOKEN_EXPIRE_MINUTES
+        );
         String token = UUID.randomUUID().toString();
         PasswordReset reset = PasswordReset.builder()
                 .user(user)
                 .resetToken(token)
-                .expiredAt(LocalDateTime.now().plusMinutes(RESET_TOKEN_EXPIRE_MINUTES))
+                .expiredAt(LocalDateTime.now().plusMinutes(expireMinutes))
                 .build();
         passwordResetRepository.save(reset);
 
         // Gửi email reset password thật qua Gmail SMTP (async – không block)
-        emailService.sendPasswordResetEmail(email, user.getFullName(), token);
+        emailService.sendPasswordResetEmail(email, user.getFullName(), token, expireMinutes);
         log.info("Password reset email dispatched for userId={}", user.getId());
     }
 
