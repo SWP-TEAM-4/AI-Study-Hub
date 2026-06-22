@@ -1,5 +1,7 @@
 package com.aistudyhub.entity;
 
+import java.util.List;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,4 +26,7 @@ public class Tag {
 
     @Column(length = 20)
     private String color;
+
+    @OneToMany(mappedBy = "tag", fetch = FetchType.LAZY)
+    private List<DocumentTag> documentTags;
 }
