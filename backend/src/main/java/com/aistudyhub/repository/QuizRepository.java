@@ -1,8 +1,30 @@
 package com.aistudyhub.repository;
 
+import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.entity.Quiz;
+import com.aistudyhub.repository.projection.UserContributionStatsProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 public interface QuizRepository extends JpaRepository<Quiz, Long>, JpaSpecificationExecutor<Quiz> {
+
+    @Query("""
+            SELECT q.creator.id AS userId,
+                   COUNT(q.id) AS approvedContents,
+                   COALESCE(SUM(q.downloadCount), 0) AS totalDownloads,
+                   COALESCE(SUM(q.reviewCount), 0) AS totalReviewCount,
+                   COALESCE(SUM(q.acceptPercentage), 0) AS totalAcceptPercentage
+            FROM Quiz q
+            WHERE q.visibility = :visibility
+              AND q.marketStatus = :marketStatus
+            GROUP BY q.creator.id
+            """)
+    List<UserContributionStatsProjection> summarizeApprovedContentByUser(
+            @Param("visibility") Visibility visibility,
+            @Param("marketStatus") MarketStatus marketStatus);
 }

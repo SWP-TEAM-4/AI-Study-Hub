@@ -21,6 +21,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByIdAndIsActiveTrue(Long id);
 
+    java.util.List<User> findAllByIsActiveTrueAndRoleNot(Role role);
+
     @Query("""
             SELECT u FROM User u
             WHERE (:keyword IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
