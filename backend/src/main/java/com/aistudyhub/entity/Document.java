@@ -10,9 +10,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * Owner: BE2 – Document module (Skeleton created by BE1 to unblock BE-016 RAG Core)
+ * Owner: BE2 – Document module (Skeleton created by BE1 to unblock BE-016 RAG
+ * Core)
  * <p>
  * Maps to table `documents` defined in V1__init_schema.sql.
  * BE2 sẽ bổ sung thêm service/controller/dto cho BE-012, BE-013.
@@ -97,4 +99,7 @@ public class Document {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "document", fetch = FetchType.LAZY)
+    private List<DocumentTag> documentTags;
 }
