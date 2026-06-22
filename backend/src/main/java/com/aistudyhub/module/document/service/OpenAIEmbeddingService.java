@@ -17,14 +17,14 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Sinh embeddings qua OpenAI embeddings API.
- * Lưu ý: vector embedding không dùng chat GPT endpoint mà dùng endpoint embeddings của OpenAI.
+ * Lưu ý: vector embedding không dùng chat GPT endpoint mà dùng endpoint
+ * embeddings của OpenAI.
  */
 @Slf4j
 @Service
@@ -81,8 +81,7 @@ public class OpenAIEmbeddingService {
                     result.put(globalIndex, new EmbeddingResult(
                             buildVectorId(documentId, globalIndex),
                             objectMapper.writeValueAsString(vector),
-                            openAIConfig.getEmbeddingModel()
-                    ));
+                            openAIConfig.getEmbeddingModel()));
                 }
             }
 
@@ -182,8 +181,7 @@ public class OpenAIEmbeddingService {
                 .accept(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of(
                         "model", openAIConfig.getEmbeddingModel(),
-                        "input", inputs
-                ))
+                        "input", inputs))
                 .exchangeToMono(response -> response.bodyToMono(String.class)
                         .defaultIfEmpty("")
                         .map(body -> new HttpResponsePayload(response.statusCode(), body)))

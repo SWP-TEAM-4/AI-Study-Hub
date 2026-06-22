@@ -48,13 +48,16 @@ public class SecurityConfig {
                 .cors(cors -> cors.configure(http)) // dùng CorsConfig bean
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) ->
-                                writeError(response, HttpServletResponse.SC_UNAUTHORIZED, ErrorCode.UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, accessDeniedException) ->
-                                writeError(response, HttpServletResponse.SC_FORBIDDEN, ErrorCode.ACCESS_DENIED)))
+                        .authenticationEntryPoint((request, response, authException) -> writeError(response,
+                                HttpServletResponse.SC_UNAUTHORIZED, ErrorCode.UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, accessDeniedException) -> writeError(response,
+                                HttpServletResponse.SC_FORBIDDEN, ErrorCode.ACCESS_DENIED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SecurityConstants.PUBLIC_URLS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/semesters", "/api/subjects", "/api/combos").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/community/**")
+                        .permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/reviewer/**").hasAnyRole("ADMIN", "REVIEWER")
                         .anyRequest().authenticated())
