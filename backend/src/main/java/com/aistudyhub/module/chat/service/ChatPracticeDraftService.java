@@ -1,5 +1,7 @@
 package com.aistudyhub.module.chat.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.enums.AiPracticeType;
 import com.aistudyhub.common.enums.ChatMessageType;
 import com.aistudyhub.common.enums.PracticeStatus;
@@ -7,6 +9,7 @@ import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.ChatMessage;
 import com.aistudyhub.entity.ChatSession;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.chat.dto.ChatMessageCitationResponse;
 import com.aistudyhub.module.chat.dto.CreateChatMessageRequest;
 import com.aistudyhub.module.chat.dto.SendChatMessageResponse;
@@ -22,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 
 @Slf4j
@@ -39,6 +43,7 @@ public class ChatPracticeDraftService {
     private final AiJsonGenerationClient aiJsonGenerationClient;
     private final AiPracticePayloadValidator aiPracticePayloadValidator;
     private final ObjectMapper objectMapper;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public SendChatMessageResponse sendPracticeDraft(Long sessionId, Long userId, CreateChatMessageRequest request,
@@ -110,6 +115,8 @@ public class ChatPracticeDraftService {
 
         log.info("Saved AI practice draft for session {} with type {} and status {}",
                 sessionId, parsedPrompt.practiceType(), aiMessage.getPracticeStatus());
+        logPracticeGeneration(userId, session, parsedPrompt.practiceType(), aiMessage, relevantChunks.size(),
+                parsedPrompt.promptWithoutPrefix());
         return buildSendResponse(userMessage, aiMessage);
     }
 
@@ -213,5 +220,48 @@ public class ChatPracticeDraftService {
         node.put("message", message);
         errors.add(node);
         return errors;
+    }
+
+    private void logPracticeGeneration(Long userId,
+                                       ChatSession session,
+                                       AiPracticeType practiceType,
+                                       ChatMessage aiMessage,
+                                       int relevantChunkCount,
+                                       String promptText) {
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("sessionId", session.getId());
+        metadata.put("messageId", aiMessage.getId());
+        metadata.put("practiceType", practiceType.name());
+        metadata.put("practiceStatus", aiMessage.getPracticeStatus().name());
+        metadata.put("relevantChunkCount", relevantChunkCount);
+        metadata.put("generatedPayloadReady", aiMessage.getGeneratedPayload() != null);
+        metadata.put("validationErrorCount",
+                aiMessage.getValidationErrors() != null && aiMessage.getValidationErrors().isArray()
+                        ? aiMessage.getValidationErrors().size()
+                        : 0);
+
+        ActivityActionType action = practiceType == AiPracticeType.QUIZ
+                ? ActivityActionType.GENERATE_QUIZ
+                : ActivityActionType.GENERATE_FLASHCARD;
+
+        activityLogService.log(
+                userId,
+                action,
+                ActivityTargetType.CHAT_SESSION,
+                session.getId(),
+                metadata,
+                session.getTitle(),
+                summarizeForLog(promptText));
+    }
+
+    private String summarizeForLog(String rawText) {
+        if (rawText == null) {
+            return null;
+        }
+        String normalized = rawText.trim().replaceAll("\\s+", " ");
+        if (normalized.length() <= 120) {
+            return normalized;
+        }
+        return normalized.substring(0, 120) + "...";
     }
 }

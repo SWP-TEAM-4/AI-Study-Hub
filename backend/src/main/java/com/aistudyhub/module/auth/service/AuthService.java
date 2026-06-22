@@ -1,11 +1,14 @@
 package com.aistudyhub.module.auth.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.utils.DateUtil;
 import com.aistudyhub.entity.PasswordReset;
 import com.aistudyhub.entity.Semester;
 import com.aistudyhub.entity.User;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.auth.dto.*;
 import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import com.aistudyhub.module.systemconfig.service.SystemConfigService;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 /**
@@ -41,6 +45,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
     private final SystemConfigService systemConfigService;
+    private final ActivityLogService activityLogService;
 
     // ── Register ──────────────────────────────────────────────────────────────
 
@@ -104,6 +109,17 @@ public class AuthService {
 
         log.info("User logged in: id={}, email={}", user.getId(), user.getEmail());
         String token = jwtTokenProvider.generateToken(user.getId());
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("loginMethod", "PASSWORD");
+        metadata.put("role", user.getRole().name());
+        activityLogService.log(
+                user.getId(),
+                ActivityActionType.LOGIN,
+                ActivityTargetType.USER,
+                user.getId(),
+                metadata,
+                user.getEmail(),
+                user.getFullName());
         return toAuthResponse(user, token);
     }
 

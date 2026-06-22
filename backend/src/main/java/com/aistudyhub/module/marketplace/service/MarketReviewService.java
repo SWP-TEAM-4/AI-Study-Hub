@@ -1,5 +1,7 @@
 package com.aistudyhub.module.marketplace.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.enums.CommunityRoleStatus;
 import com.aistudyhub.common.enums.CommunityRoleType;
 import com.aistudyhub.common.enums.CommunityScopeType;
@@ -8,6 +10,7 @@ import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.entity.*;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.module.marketplace.dto.*;
 import com.aistudyhub.module.user.service.UserService;
@@ -23,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -41,6 +45,7 @@ public class MarketReviewService {
     private final UserService userService;
     private final CommunityPermissionService communityPermissionService;
     private final CommunityRoleRepository communityRoleRepository;
+    private final ActivityLogService activityLogService;
 
     /**
      * Get the list of resources pending review.
@@ -284,6 +289,9 @@ public class MarketReviewService {
 
         log.info("Document id={} reviewed successfully by reviewer id={} with result={}",
                 documentId, currentUser.getId(), request.getVoteResult());
+        logReviewAction(currentUser.getId(), ActivityTargetType.DOCUMENT, documentId, document.getTitle(),
+                document.getSubject() != null ? document.getSubject().getCode() : null,
+                request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
 
         return MarketReviewResponse.fromEntity(review, "DOCUMENT", documentId);
     }
@@ -336,6 +344,9 @@ public class MarketReviewService {
 
         log.info("Quiz id={} reviewed successfully by reviewer id={} with result={}",
                 quizId, currentUser.getId(), request.getVoteResult());
+        logReviewAction(currentUser.getId(), ActivityTargetType.QUIZ, quizId, quiz.getTitle(),
+                quiz.getSubject() != null ? quiz.getSubject().getCode() : null,
+                request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
 
         return MarketReviewResponse.fromEntity(review, "QUIZ", quizId);
     }
@@ -388,7 +399,35 @@ public class MarketReviewService {
 
         log.info("Flashcard deck id={} reviewed successfully by reviewer id={} with result={}",
                 deckId, currentUser.getId(), request.getVoteResult());
+        logReviewAction(currentUser.getId(), ActivityTargetType.FLASHCARD_DECK, deckId, deck.getTitle(),
+                deck.getSubject() != null ? deck.getSubject().getCode() : null,
+                request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
 
         return MarketReviewResponse.fromEntity(review, "FLASHCARD_DECK", deckId);
+    }
+
+    private void logReviewAction(Long actorUserId,
+                                 ActivityTargetType targetType,
+                                 Long targetId,
+                                 String title,
+                                 String subjectCode,
+                                 String voteResult,
+                                 Long reviewId,
+                                 long totalReviews,
+                                 BigDecimal acceptPercentage) {
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("voteResult", voteResult != null ? voteResult.toUpperCase() : null);
+        metadata.put("reviewId", reviewId);
+        metadata.put("reviewCount", totalReviews);
+        metadata.put("acceptPercentage", acceptPercentage);
+        activityLogService.log(
+                actorUserId,
+                ActivityActionType.REVIEW_CONTENT,
+                targetType,
+                targetId,
+                metadata,
+                title,
+                subjectCode,
+                voteResult);
     }
 }

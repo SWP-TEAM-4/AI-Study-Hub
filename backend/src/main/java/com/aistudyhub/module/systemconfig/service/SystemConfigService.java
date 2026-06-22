@@ -1,8 +1,11 @@
 package com.aistudyhub.module.systemconfig.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.SystemConfig;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import com.aistudyhub.module.systemconfig.dto.SystemConfigRequest;
 import com.aistudyhub.module.systemconfig.dto.SystemConfigResponse;
@@ -14,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 
 @Slf4j
@@ -22,6 +26,7 @@ import java.util.Locale;
 public class SystemConfigService {
 
     private final SystemConfigRepository systemConfigRepository;
+    private final ActivityLogService activityLogService;
 
     @Transactional(readOnly = true)
     public List<SystemConfigResponse> listAll() {
@@ -39,7 +44,7 @@ public class SystemConfigService {
     }
 
     @Transactional
-    public SystemConfigResponse create(SystemConfigRequest request) {
+    public SystemConfigResponse create(SystemConfigRequest request, Long actorUserId) {
         String normalizedKey = normalizeKey(request.getConfigKey());
         validateCreateDuplicate(normalizedKey);
 
@@ -52,11 +57,12 @@ public class SystemConfigService {
 
         SystemConfig saved = systemConfigRepository.save(config);
         log.info("Created system config id={} key={}", saved.getId(), saved.getConfigKey());
+        logConfigMutation(actorUserId, saved, "CREATE");
         return toResponse(saved);
     }
 
     @Transactional
-    public SystemConfigResponse update(Long id, SystemConfigRequest request) {
+    public SystemConfigResponse update(Long id, SystemConfigRequest request, Long actorUserId) {
         SystemConfig config = findByIdOrThrow(id);
         String normalizedKey = normalizeKey(request.getConfigKey());
         validateUpdateDuplicate(normalizedKey, id);
@@ -68,14 +74,16 @@ public class SystemConfigService {
 
         SystemConfig saved = systemConfigRepository.save(config);
         log.info("Updated system config id={} key={}", saved.getId(), saved.getConfigKey());
+        logConfigMutation(actorUserId, saved, "UPDATE");
         return toResponse(saved);
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, Long actorUserId) {
         SystemConfig config = findByIdOrThrow(id);
         systemConfigRepository.delete(config);
         log.info("Deleted system config id={} key={}", config.getId(), config.getConfigKey());
+        logConfigMutation(actorUserId, config, "DELETE");
     }
 
     @Transactional(readOnly = true)
@@ -158,5 +166,20 @@ public class SystemConfigService {
                 .configValue(config.getConfigValue())
                 .description(config.getDescription())
                 .build();
+    }
+
+    private void logConfigMutation(Long actorUserId, SystemConfig config, String operation) {
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("operation", operation);
+        metadata.put("configKey", config.getConfigKey());
+        metadata.put("isPublic", config.isPublic());
+        activityLogService.log(
+                actorUserId,
+                ActivityActionType.UPDATE_SYSTEM_CONFIG,
+                ActivityTargetType.SYSTEM_CONFIG,
+                config.getId(),
+                metadata,
+                config.getConfigKey(),
+                operation);
     }
 }

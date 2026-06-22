@@ -1,11 +1,14 @@
 package com.aistudyhub.module.marketplace.service;
 
+import com.aistudyhub.common.enums.ActivityActionType;
+import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.repository.QuizRepository;
 
 import jakarta.persistence.criteria.Predicate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +30,7 @@ import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.FlashcardDeck;
 import com.aistudyhub.entity.Quiz;
+import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.document.dto.DocumentResponse;
 import com.aistudyhub.module.document.dto.DocumentResponseMapper;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
@@ -56,6 +60,7 @@ public class MarketPlaceService {
     private final DocumentRepository documentRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
     private final QuizQuestionRepository quizQuestionRepository;
+    private final ActivityLogService activityLogService;
 
     /**
      * Gửi yêu cầu đăng tải một tài liệu học tập (Document) lên Marketplace.
@@ -107,6 +112,19 @@ public class MarketPlaceService {
         // Bước 8: Lưu thực thể đã cập nhật vào DB
         Document savedDoc = documentRepository.save(document);
         log.info("Document id={} has been submitted to the marketplace by userId={}", documentId, currentUserId);
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("marketStatus", savedDoc.getMarketStatus().name());
+        metadata.put("visibility", savedDoc.getVisibility().name());
+        metadata.put("subjectId", savedDoc.getSubject() != null ? savedDoc.getSubject().getId() : null);
+        metadata.put("noteProvided", note != null && !note.trim().isEmpty());
+        activityLogService.log(
+                currentUserId,
+                ActivityActionType.PUBLISH_MARKETPLACE,
+                ActivityTargetType.DOCUMENT,
+                savedDoc.getId(),
+                metadata,
+                savedDoc.getTitle(),
+                savedDoc.getSubject() != null ? savedDoc.getSubject().getCode() : null);
         // Bước 9: Trả về DTO thông qua Mapper
         return DocumentResponseMapper.toResponse(savedDoc);
     }
@@ -161,6 +179,20 @@ public class MarketPlaceService {
         // Bước 8: Lưu thực thể và ghi log
         Quiz savedQuiz = quizRepository.save(quiz);
         log.info("Quiz id={} has been submitted to the marketplace by userId={}", quizId, currentUserId);
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("marketStatus", savedQuiz.getMarketStatus().name());
+        metadata.put("visibility", savedQuiz.getVisibility().name());
+        metadata.put("subjectId", savedQuiz.getSubject() != null ? savedQuiz.getSubject().getId() : null);
+        metadata.put("noteProvided", note != null && !note.trim().isEmpty());
+        metadata.put("questionCount", questions.size());
+        activityLogService.log(
+                currentUserId,
+                ActivityActionType.PUBLISH_MARKETPLACE,
+                ActivityTargetType.QUIZ,
+                savedQuiz.getId(),
+                metadata,
+                savedQuiz.getTitle(),
+                savedQuiz.getSubject() != null ? savedQuiz.getSubject().getCode() : null);
         // Bước 9: Trả về DTO thông qua Mapper
         return QuizResponseMapper.toResponse(savedQuiz);
     }
@@ -208,6 +240,20 @@ public class MarketPlaceService {
         // Bước 7: Lưu thực thể và ghi log
         FlashcardDeck savedDeck = flashcardDeckRepository.save(deck);
         log.info("FlashcardDeck id={} has been submitted to the marketplace by userId={}", deckId, currentUserId);
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("marketStatus", savedDeck.getMarketStatus().name());
+        metadata.put("visibility", savedDeck.getVisibility().name());
+        metadata.put("subjectId", savedDeck.getSubject() != null ? savedDeck.getSubject().getId() : null);
+        metadata.put("noteProvided", note != null && !note.trim().isEmpty());
+        metadata.put("cardCount", savedDeck.getCards() != null ? savedDeck.getCards().size() : 0);
+        activityLogService.log(
+                currentUserId,
+                ActivityActionType.PUBLISH_MARKETPLACE,
+                ActivityTargetType.FLASHCARD_DECK,
+                savedDeck.getId(),
+                metadata,
+                savedDeck.getTitle(),
+                savedDeck.getSubject() != null ? savedDeck.getSubject().getCode() : null);
         // Bước 8: Trả về DTO thông qua Mapper
         return FlashcardDeckResponseMapper.toResponse(savedDeck);
     }
