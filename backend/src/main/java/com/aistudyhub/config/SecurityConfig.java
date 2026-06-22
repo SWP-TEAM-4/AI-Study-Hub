@@ -55,6 +55,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SecurityConstants.PUBLIC_URLS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/semesters", "/api/subjects", "/api/combos").permitAll()
+                        .requestMatchers("/api/admin/marketplace/**").hasAnyRole("ADMIN", "REVIEWER")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/reviewer/**").hasAnyRole("ADMIN", "REVIEWER")
                         .anyRequest().authenticated())

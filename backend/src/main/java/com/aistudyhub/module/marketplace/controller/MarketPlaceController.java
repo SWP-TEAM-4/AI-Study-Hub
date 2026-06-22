@@ -1,8 +1,8 @@
 package com.aistudyhub.module.marketplace.controller;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -120,7 +120,7 @@ public class MarketPlaceController {
     @Operation(summary = "Duyệt danh sách Document trên Chợ tài liệu")
     @GetMapping("/documents")
     public ResponseEntity<ApiResponse<PaginationResponse<MarketplaceItemResponse>>> getDocuments(
-            @ModelAttribute MarketplaceQueryRequest request) {
+            @ParameterObject MarketplaceQueryRequest request) {
         log.info("Browsing Documents in marketplace with query: keyword={}, subjectId={}",
                 request.getKeyword(), request.getSubjectId());
 
@@ -139,7 +139,7 @@ public class MarketPlaceController {
     @Operation(summary = "Duyệt danh sách Quiz trên Chợ tài liệu")
     @GetMapping("/quizzes")
     public ResponseEntity<ApiResponse<PaginationResponse<MarketplaceItemResponse>>> getQuizzes(
-            @ModelAttribute MarketplaceQueryRequest request) {
+            @ParameterObject MarketplaceQueryRequest request) {
         log.info("Browsing Quizzes in marketplace with query: keyword={}, subjectId={}, termId={}, examType={}",
                 request.getKeyword(), request.getSubjectId(), request.getAcademicTermId(), request.getExamType());
 
@@ -158,7 +158,7 @@ public class MarketPlaceController {
     @Operation(summary = "Duyệt danh sách FlashcardDeck trên Chợ tài liệu")
     @GetMapping("/flashcard-decks")
     public ResponseEntity<ApiResponse<PaginationResponse<MarketplaceItemResponse>>> getFlashcardDecks(
-            @ModelAttribute MarketplaceQueryRequest request) {
+            @ParameterObject MarketplaceQueryRequest request) {
         log.info("Browsing FlashcardDecks in marketplace with query: keyword={}, subjectId={}",
                 request.getKeyword(), request.getSubjectId());
 
@@ -178,7 +178,7 @@ public class MarketPlaceController {
     @Operation(summary = "Tìm kiếm tổng hợp các tài nguyên trên Chợ")
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PaginationResponse<MarketplaceItemResponse>>> searchMarketplace(
-            @ModelAttribute MarketplaceQueryRequest request) {
+            @ParameterObject MarketplaceQueryRequest request) {
         log.info("Searching marketplace with query: keyword={}, subjectId={}",
                 request.getKeyword(), request.getSubjectId());
 
