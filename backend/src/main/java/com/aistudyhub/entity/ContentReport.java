@@ -55,6 +55,15 @@ public class ContentReport {
     @Column(name = "report_details", columnDefinition = "TEXT")
     private String reportDetails;
 
+    /** Ghi chú giải quyết của Admin/Moderator */
+    @Column(name = "admin_note", columnDefinition = "TEXT")
+    private String adminNote;
+
+    /** Người thực hiện giải quyết báo cáo */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resolved_by_id")
+    private User resolvedBy;
+
     /** Mức độ nghiêm trọng: LOW, MEDIUM, HIGH */
     @Column(name = "severity_level", length = 50)
     @Builder.Default

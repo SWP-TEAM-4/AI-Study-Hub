@@ -149,6 +149,8 @@ public enum ErrorCode {
         REPORT_NOT_FOUND("REPORT_NOT_FOUND", "Report not found", HttpStatus.NOT_FOUND),
         INVALID_REPORT_TARGET("INVALID_REPORT_TARGET", "Report must target exactly one content item",
                         HttpStatus.BAD_REQUEST),
+        REPORT_ALREADY_PROCESSED("REPORT_ALREADY_PROCESSED", "Report has already been processed",
+                        HttpStatus.BAD_REQUEST),
         REVIEW_NOT_FOUND("REVIEW_NOT_FOUND", "Review not found", HttpStatus.NOT_FOUND),
         DUPLICATE_REVIEW("DUPLICATE_REVIEW", "You have already reviewed this content", HttpStatus.CONFLICT),
 
