@@ -60,4 +60,54 @@ public class AdminContentReportController {
                                 keyword, sort, status, severityLevel);
                 return ResponseEntity.ok(ApiResponse.success(response));
         }
+
+        // ── PATCH /{id}/resolve: Duyệt báo cáo vi phạm ─────────────────────────────
+
+        /**
+         * Đánh dấu báo cáo vi phạm là đã giải quyết (RESOLVED).
+         * Admin/Moderator thực hiện.
+         */
+        @Operation(summary = "Duyệt báo cáo vi phạm", description = "Đánh dấu báo cáo vi phạm là đã được xử lý (RESOLVED) và lưu lại ghi chú.")
+        @ApiResponses({
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Duyệt báo cáo thành công"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Báo cáo đã được xử lý trước đó"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy báo cáo")
+        })
+        @PatchMapping("/{id}/resolve")
+        public ResponseEntity<ApiResponse<PaginationResponse<ContentReportResponse>>> resolveReport(
+                        @Parameter(description = "ID báo cáo cần duyệt") @PathVariable Long id,
+                        @RequestBody com.aistudyhub.module.community.dto.ReportModerationRequest request,
+                        @Parameter(description = "Số trang kết quả trả về") @RequestParam(defaultValue = "0") int page,
+                        @Parameter(description = "Số phần tử mỗi trang") @RequestParam(defaultValue = "10") int size) {
+                PaginationResponse<ContentReportResponse> response = contentReportService.resolveReport(
+                                id, request.getAdminNote(), page, size);
+                return ResponseEntity.ok(ApiResponse.success("Report approved successfully", response));
+        }
+
+        // ── PATCH /{id}/reject: Từ chối báo cáo vi phạm ────────────────────────────
+
+        /**
+         * Từ chối báo cáo vi phạm (REJECTED).
+         * Admin/Moderator thực hiện.
+         */
+        @Operation(summary = "Từ chối báo cáo vi phạm", description = "Bác bỏ báo cáo vi phạm (REJECTED) và lưu lại lý do bác bỏ.")
+        @ApiResponses({
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Từ chối báo cáo thành công"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Báo cáo đã được xử lý trước đó"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy báo cáo")
+        })
+        @PatchMapping("/{id}/reject")
+        public ResponseEntity<ApiResponse<PaginationResponse<ContentReportResponse>>> rejectReport(
+                        @Parameter(description = "ID báo cáo cần từ chối") @PathVariable Long id,
+                        @RequestBody com.aistudyhub.module.community.dto.ReportModerationRequest request,
+                        @Parameter(description = "Số trang kết quả trả về") @RequestParam(defaultValue = "0") int page,
+                        @Parameter(description = "Số phần tử mỗi trang") @RequestParam(defaultValue = "10") int size) {
+                PaginationResponse<ContentReportResponse> response = contentReportService.rejectReport(
+                                id, request.getAdminNote(), page, size);
+                return ResponseEntity.ok(ApiResponse.success("Report rejected successfully", response));
+        }
 }

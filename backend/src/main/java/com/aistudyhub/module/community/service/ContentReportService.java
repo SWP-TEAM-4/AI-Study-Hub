@@ -1,6 +1,8 @@
 package com.aistudyhub.module.community.service;
 
 import com.aistudyhub.common.enums.ReportStatus;
+import com.aistudyhub.common.enums.Visibility;
+import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.response.PaginationResponse;
@@ -54,6 +56,7 @@ public class ContentReportService {
     private final FlashcardDeckRepository flashcardDeckRepository;
     private final UserService userService;
     private final CommunityPermissionService communityPermissionService;
+    private final com.aistudyhub.module.notification.service.NotificationService notificationService;
 
     // ── 1. Tạo báo cáo vi phạm ────────────────────────────────────────────────
 
@@ -271,6 +274,256 @@ public class ContentReportService {
         return PaginationResponse.of(responsePage);
     }
 
+    // ── 4. Duyệt báo cáo (Resolve) ───────────────────────────────────────────
+
+    /**
+     * Admin/Moderator duyệt báo cáo vi phạm (RESOLVED).
+     *
+     * @param reportId  ID báo cáo cần duyệt
+     * @param adminNote ghi chú xử lý của Admin
+     * @param page      trang hiện tại
+     * @param size      kích thước trang
+     * @return PaginationResponse chứa danh sách báo cáo sau cập nhật
+     */
+    @Transactional
+    public PaginationResponse<ContentReportResponse> resolveReport(
+            Long reportId, String adminNote, int page, int size) {
+
+        // Bước 1: Lấy user hiện tại (Admin/Moderator)
+        User currentUser = userService.getCurrentUser();
+
+        // Bước 2: Tìm báo cáo và validate
+        ContentReport report = contentReportRepository.findById(reportId)
+                .orElseThrow(() -> new AppException(ErrorCode.REPORT_NOT_FOUND));
+
+        // Bước 3: Kiểm tra báo cáo chưa được xử lý
+        if (report.getStatus() != ReportStatus.PENDING_ADMIN) {
+            throw new AppException(ErrorCode.REPORT_ALREADY_PROCESSED);
+        }
+
+        // Bước 4: Kiểm tra quyền moderator (nếu không phải admin)
+        ContentTarget target = resolveContentTarget(report);
+        communityPermissionService.assertCanModerateReport(currentUser.getId(), target);
+
+        // Bước 5: Cập nhật trạng thái báo cáo
+        report.setStatus(ReportStatus.RESOLVED);
+        report.setAdminNote(adminNote);
+        report.setResolvedBy(currentUser);
+        contentReportRepository.save(report);
+
+        log.info("Report id={} resolved by userId={}", reportId, currentUser.getId());
+
+        // Bước 6: Gửi thông báo cho người báo cáo
+        sendReportNotification(report, "Report processed",
+                "Your report #" + reportId + " has been reviewed and processed.");
+
+        // Bước 7: Trả về danh sách báo cáo phân trang
+        return getAdminReports(page, size, null, "newest", null, null);
+    }
+
+    // ── 5. Từ chối báo cáo (Reject) ──────────────────────────────────────────
+
+    /**
+     * Admin/Moderator từ chối báo cáo vi phạm (REJECTED).
+     *
+     * @param reportId  ID báo cáo cần từ chối
+     * @param adminNote lý do từ chối
+     * @param page      trang hiện tại
+     * @param size      kích thước trang
+     * @return PaginationResponse chứa danh sách báo cáo sau cập nhật
+     */
+    @Transactional
+    public PaginationResponse<ContentReportResponse> rejectReport(
+            Long reportId, String adminNote, int page, int size) {
+
+        // Bước 1: Lấy user hiện tại (Admin/Moderator)
+        User currentUser = userService.getCurrentUser();
+
+        // Bước 2: Tìm báo cáo và validate
+        ContentReport report = contentReportRepository.findById(reportId)
+                .orElseThrow(() -> new AppException(ErrorCode.REPORT_NOT_FOUND));
+
+        // Bước 3: Kiểm tra báo cáo chưa được xử lý
+        if (report.getStatus() != ReportStatus.PENDING_ADMIN) {
+            throw new AppException(ErrorCode.REPORT_ALREADY_PROCESSED);
+        }
+
+        // Bước 4: Kiểm tra quyền moderator (nếu không phải admin)
+        ContentTarget target = resolveContentTarget(report);
+        communityPermissionService.assertCanModerateReport(currentUser.getId(), target);
+
+        // Bước 5: Cập nhật trạng thái báo cáo
+        report.setStatus(ReportStatus.REJECTED);
+        report.setAdminNote(adminNote);
+        report.setResolvedBy(currentUser);
+        contentReportRepository.save(report);
+
+        log.info("Report id={} rejected by userId={}", reportId, currentUser.getId());
+
+        // Bước 6: Gửi thông báo cho người báo cáo
+        sendReportNotification(report, "Report rejected",
+                "Your report #" + reportId + " has been reviewed and rejected.");
+
+        // Bước 7: Trả về danh sách báo cáo phân trang
+        return getAdminReports(page, size, null, "newest", null, null);
+    }
+
+    // ── 6. Ẩn nội dung vi phạm (Hide) ────────────────────────────────────────
+
+    /**
+     * Admin ẩn tài nguyên (Document/Quiz/FlashcardDeck) khỏi thư viện công cộng.
+     *
+     * @param targetType loại tài nguyên (DOCUMENT, QUIZ, FLASHCARD_DECK)
+     * @param targetId   ID tài nguyên
+     * @param reason     lý do ẩn nội dung
+     * @return UserProfileResponse thông tin chủ sở hữu nội dung
+     */
+    @Transactional
+    public com.aistudyhub.module.user.dto.UserProfileResponse hideContent(String targetType, Long targetId, String reason) {
+
+        // Bước 1: Chuẩn hóa targetType
+        String type = normalizeTargetType(targetType);
+
+        // Bước 2: Tìm tài nguyên, cập nhật visibility và xác định chủ sở hữu
+        User contentOwner;
+        String contentTitle;
+
+        switch (type) {
+            case "DOCUMENT" -> {
+                Document document = documentRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+                // Chuyển visibility → PRIVATE
+                document.setVisibility(Visibility.PRIVATE);
+                // Nếu đang trên Marketplace, chuyển marketStatus → REJECTED
+                if (document.getMarketStatus() == MarketStatus.APPROVED
+                        || document.getMarketStatus() == MarketStatus.PENDING) {
+                    document.setMarketStatus(MarketStatus.REJECTED);
+                }
+                documentRepository.save(document);
+                contentOwner = document.getUser();
+                contentTitle = document.getTitle();
+            }
+            case "QUIZ" -> {
+                Quiz quiz = quizRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
+                // Chuyển visibility → PRIVATE
+                quiz.setVisibility(Visibility.PRIVATE);
+                // Nếu đang trên Marketplace, chuyển marketStatus → REJECTED
+                if (quiz.getMarketStatus() == MarketStatus.APPROVED
+                        || quiz.getMarketStatus() == MarketStatus.PENDING) {
+                    quiz.setMarketStatus(MarketStatus.REJECTED);
+                }
+                quizRepository.save(quiz);
+                contentOwner = quiz.getCreator();
+                contentTitle = quiz.getTitle();
+            }
+            case "FLASHCARD_DECK" -> {
+                FlashcardDeck deck = flashcardDeckRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.FLASHCARD_DECK_NOT_FOUND));
+                // Chuyển visibility → PRIVATE
+                deck.setVisibility(Visibility.PRIVATE);
+                // Nếu đang trên Marketplace, chuyển marketStatus → REJECTED
+                if (deck.getMarketStatus() == MarketStatus.APPROVED
+                        || deck.getMarketStatus() == MarketStatus.PENDING) {
+                    deck.setMarketStatus(MarketStatus.REJECTED);
+                }
+                flashcardDeckRepository.save(deck);
+                contentOwner = deck.getUser();
+                contentTitle = deck.getTitle();
+            }
+            default -> throw new AppException(ErrorCode.INVALID_REPORT_TARGET);
+        }
+
+        log.info("Content hidden: type={}, id={}, owner={}", type, targetId, contentOwner.getId());
+
+        // Bước 3: Gửi thông báo cho chủ sở hữu nội dung
+        String notifyContent = "Your content \"" + contentTitle + "\" has been hidden due to community guidelines violation."
+                + (reason != null ? " Reason: " + reason : "");
+        notificationService.createNotification(contentOwner.getId(),
+                "Content hidden", notifyContent);
+
+        // Bước 4: Trả về thông tin chủ sở hữu
+        return userService.getUserById(contentOwner.getId());
+    }
+
+    // ── 7. Khôi phục nội dung đã ẩn (Restore) ────────────────────────────────
+
+    /**
+     * Admin khôi phục tài nguyên đã bị ẩn trước đó.
+     *
+     * @param targetType loại tài nguyên (DOCUMENT, QUIZ, FLASHCARD_DECK)
+     * @param targetId   ID tài nguyên
+     * @param reason     lý do khôi phục
+     * @return UserProfileResponse thông tin chủ sở hữu nội dung
+     */
+    @Transactional
+    public com.aistudyhub.module.user.dto.UserProfileResponse restoreContent(String targetType, Long targetId, String reason) {
+
+        // Bước 1: Chuẩn hóa targetType
+        String type = normalizeTargetType(targetType);
+
+        // Bước 2: Tìm tài nguyên, khôi phục visibility và xác định chủ sở hữu
+        User contentOwner;
+        String contentTitle;
+
+        switch (type) {
+            case "DOCUMENT" -> {
+                Document document = documentRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+                // Khôi phục visibility → PUBLIC_LINK
+                document.setVisibility(Visibility.PUBLIC_LINK);
+                documentRepository.save(document);
+                contentOwner = document.getUser();
+                contentTitle = document.getTitle();
+            }
+            case "QUIZ" -> {
+                Quiz quiz = quizRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
+                // Khôi phục visibility → PUBLIC_LINK
+                quiz.setVisibility(Visibility.PUBLIC_LINK);
+                quizRepository.save(quiz);
+                contentOwner = quiz.getCreator();
+                contentTitle = quiz.getTitle();
+            }
+            case "FLASHCARD_DECK" -> {
+                FlashcardDeck deck = flashcardDeckRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.FLASHCARD_DECK_NOT_FOUND));
+                // Khôi phục visibility → PUBLIC_LINK
+                deck.setVisibility(Visibility.PUBLIC_LINK);
+                flashcardDeckRepository.save(deck);
+                contentOwner = deck.getUser();
+                contentTitle = deck.getTitle();
+            }
+            default -> throw new AppException(ErrorCode.INVALID_REPORT_TARGET);
+        }
+
+        log.info("Content restored: type={}, id={}, owner={}", type, targetId, contentOwner.getId());
+
+        // Bước 3: Gửi thông báo cho chủ sở hữu nội dung
+        String notifyContent = "Your content \"" + contentTitle + "\" has been successfully restored."
+                + (reason != null ? " Reason: " + reason : "");
+        notificationService.createNotification(contentOwner.getId(),
+                "Content restored", notifyContent);
+
+        // Bước 4: Trả về thông tin chủ sở hữu
+        return userService.getUserById(contentOwner.getId());
+    }
+
+    /**
+     * Gửi thông báo cho người báo cáo (reporter) khi báo cáo được xử lý.
+     */
+    private void sendReportNotification(ContentReport report, String title, String content) {
+        try {
+            User reporter = report.getReporter();
+            if (reporter != null) {
+                notificationService.createNotification(reporter.getId(), title, content);
+            }
+        } catch (Exception e) {
+            // Không để lỗi notification ảnh hưởng đến nghiệp vụ chính
+            log.warn("Failed to send report notification for reportId={}: {}", report.getId(), e.getMessage());
+        }
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // Private helper methods
     // ══════════════════════════════════════════════════════════════════════════
@@ -393,6 +646,9 @@ public class ContentReportService {
                 .status(report.getStatus() != null ? report.getStatus().name() : null)
                 .reporterId(reporter != null ? reporter.getId() : null)
                 .reporterName(reporter != null ? reporter.getFullName() : null)
+                .adminNote(report.getAdminNote())
+                .resolvedById(report.getResolvedBy() != null ? report.getResolvedBy().getId() : null)
+                .resolvedByName(report.getResolvedBy() != null ? report.getResolvedBy().getFullName() : null)
                 .createdAt(report.getCreatedAt())
                 .build();
     }

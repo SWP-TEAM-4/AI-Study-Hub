@@ -44,6 +44,15 @@ public class ContentReportResponse {
     /** Tên người báo cáo */
     private String reporterName;
 
+    /** Ghi chú giải quyết của admin */
+    private String adminNote;
+
+    /** ID người giải quyết */
+    private Long resolvedById;
+
+    /** Tên người giải quyết */
+    private String resolvedByName;
+
     /** Thời điểm tạo báo cáo */
     private LocalDateTime createdAt;
 }
