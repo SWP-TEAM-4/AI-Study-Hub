@@ -245,6 +245,66 @@ class BE036Test {
     }
 
     @Test
+    void createConfig_ValidationError_WhenMinReviewsInvalid() throws Exception {
+        mockMvc.perform(post("/api/admin/system-configs")
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(admin)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configKey": "MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS",
+                                  "configValue": "2",
+                                  "description": "Invalid min reviews (even)"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+
+        mockMvc.perform(post("/api/admin/system-configs")
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(admin)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configKey": "MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS",
+                                  "configValue": "abc",
+                                  "description": "Invalid min reviews (not integer)"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void createConfig_Success_WhenMinReviewsValid() throws Exception {
+        mockMvc.perform(post("/api/admin/system-configs")
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(admin)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configKey": "MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS",
+                                  "configValue": "1",
+                                  "description": "Valid min reviews (1)"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        systemConfigRepository.deleteAll(); // clean up duplicate key for next check
+
+        mockMvc.perform(post("/api/admin/system-configs")
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(admin)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configKey": "MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS",
+                                  "configValue": "3",
+                                  "description": "Valid min reviews (3)"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void getValueByKey_ServiceReturnsValueAndThrowsWhenMissing() {
         saveConfig("BASE_REPUTATION_PER_UPLOAD", "10", "Base reputation");
 

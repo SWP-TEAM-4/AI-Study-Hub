@@ -10,6 +10,7 @@ import com.aistudyhub.entity.*;
 import com.aistudyhub.repository.*;
 import com.aistudyhub.security.CustomUserDetails;
 import com.aistudyhub.module.marketplace.dto.MarketReviewRequest;
+import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,6 +71,9 @@ class BE030Test {
         @Autowired
         private CommunityRoleRepository communityRoleRepository;
 
+        @Autowired
+        private SystemConfigRepository systemConfigRepository;
+
         private User adminUser;
         private User reviewerUser;
         private User studentUser;
@@ -92,6 +96,20 @@ class BE030Test {
                 communityRoleRepository.deleteAll();
                 userRepository.deleteAll();
                 subjectRepository.deleteAll();
+                systemConfigRepository.deleteAll();
+
+                // Setup configs for BE-030 compatibility (minReviews = 1)
+                systemConfigRepository.save(SystemConfig.builder()
+                                .configKey(SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS)
+                                .configValue("1")
+                                .isPublic(false)
+                                .build());
+
+                systemConfigRepository.save(SystemConfig.builder()
+                                .configKey(SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE)
+                                .configValue("70")
+                                .isPublic(false)
+                                .build());
 
                 // Create users
                 adminUser = userRepository.save(User.builder()
@@ -214,7 +232,7 @@ class BE030Test {
         @Test
         void getPendingQueue_Success_Reviewer_NoRoles_ReturnsEmpty() throws Exception {
                 // Reviewer has no roles assigned -> should see 0 pending items
-                mockMvc.perform(get("/api/admin/marketplace/pending")
+                mockMvc.perform(get("/api/reviewer/marketplace/pending")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .param("page", "0")
@@ -230,7 +248,7 @@ class BE030Test {
                 // Reviewer with GLOBAL reviewer role -> should see all 3 pending items
                 assignRole(reviewerUser, CommunityRoleType.REVIEWER, CommunityScopeType.GLOBAL, null);
 
-                mockMvc.perform(get("/api/admin/marketplace/pending")
+                mockMvc.perform(get("/api/reviewer/marketplace/pending")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .param("page", "0")
@@ -246,7 +264,7 @@ class BE030Test {
                 // Reviewer only assigned to SWR302 subject -> should see 2 items (pendingDoc, pendingQuiz)
                 assignRole(reviewerUser, CommunityRoleType.REVIEWER, CommunityScopeType.SUBJECT, subjectSWR.getId());
 
-                mockMvc.perform(get("/api/admin/marketplace/pending")
+                mockMvc.perform(get("/api/reviewer/marketplace/pending")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .param("page", "0")
@@ -259,7 +277,7 @@ class BE030Test {
 
         @Test
         void getPendingQueue_Forbidden_Student() throws Exception {
-                mockMvc.perform(get("/api/admin/marketplace/pending")
+                mockMvc.perform(get("/api/reviewer/marketplace/pending")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(studentUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_STUDENT")))))
                                 .param("page", "0")
@@ -274,7 +292,7 @@ class BE030Test {
                 // Give global reviewer role so they can search all subjects
                 assignRole(reviewerUser, CommunityRoleType.REVIEWER, CommunityScopeType.GLOBAL, null);
 
-                mockMvc.perform(get("/api/admin/marketplace/pending")
+                mockMvc.perform(get("/api/reviewer/marketplace/pending")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .param("subjectId", subjectOther.getId().toString()))
@@ -288,7 +306,7 @@ class BE030Test {
         void getPendingQueue_WithKeywordFilter_ShouldFilterCorrectly() throws Exception {
                 assignRole(reviewerUser, CommunityRoleType.REVIEWER, CommunityScopeType.GLOBAL, null);
 
-                mockMvc.perform(get("/api/admin/marketplace/pending")
+                mockMvc.perform(get("/api/reviewer/marketplace/pending")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .param("keyword", "Quiz"))
@@ -308,7 +326,7 @@ class BE030Test {
                                 .reviewNote("Perfect document content")
                                 .build();
 
-                mockMvc.perform(post("/api/admin/marketplace/documents/" + pendingDoc.getId() + "/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/DOCUMENT/" + pendingDoc.getId() + "/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -336,7 +354,7 @@ class BE030Test {
                                 .reviewNote("Nice cards")
                                 .build();
 
-                mockMvc.perform(post("/api/admin/marketplace/flashcard-decks/" + pendingDeck.getId() + "/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/FLASHCARD_DECK/" + pendingDeck.getId() + "/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -355,7 +373,7 @@ class BE030Test {
                                 .reviewNote("Note")
                                 .build();
 
-                mockMvc.perform(post("/api/admin/marketplace/documents/" + pendingDoc.getId() + "/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/DOCUMENT/" + pendingDoc.getId() + "/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -373,7 +391,7 @@ class BE030Test {
                                 .reviewNote("Duplicate questions found")
                                 .build();
 
-                mockMvc.perform(post("/api/admin/marketplace/quizzes/" + pendingQuiz.getId() + "/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/QUIZ/" + pendingQuiz.getId() + "/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(adminUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_ADMIN")))))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -397,7 +415,7 @@ class BE030Test {
                                 .reviewNote("Flashcards are well-organized")
                                 .build();
 
-                mockMvc.perform(post("/api/admin/marketplace/flashcard-decks/" + pendingDeck.getId() + "/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/FLASHCARD_DECK/" + pendingDeck.getId() + "/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -418,7 +436,7 @@ class BE030Test {
                                 .reviewNote("Note")
                                 .build();
 
-                mockMvc.perform(post("/api/admin/marketplace/quizzes/99999/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/QUIZ/99999/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(adminUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_ADMIN")))))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -438,7 +456,7 @@ class BE030Test {
                                 .build();
 
                 // approvedDoc is already APPROVED (not PENDING)
-                mockMvc.perform(post("/api/admin/marketplace/documents/" + approvedDoc.getId() + "/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/DOCUMENT/" + approvedDoc.getId() + "/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(reviewerUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -455,7 +473,7 @@ class BE030Test {
                                 .reviewNote("Note")
                                 .build();
 
-                mockMvc.perform(post("/api/admin/marketplace/flashcard-decks/" + pendingDeck.getId() + "/review")
+                mockMvc.perform(post("/api/reviewer/marketplace/FLASHCARD_DECK/" + pendingDeck.getId() + "/vote")
                                 .with(SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(studentUser,
                                                  List.of(new SimpleGrantedAuthority("ROLE_STUDENT")))))
                                 .contentType(MediaType.APPLICATION_JSON)

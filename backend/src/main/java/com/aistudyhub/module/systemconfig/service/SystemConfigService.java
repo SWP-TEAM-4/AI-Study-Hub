@@ -47,10 +47,12 @@ public class SystemConfigService {
     public SystemConfigResponse create(SystemConfigRequest request, Long actorUserId) {
         String normalizedKey = normalizeKey(request.getConfigKey());
         validateCreateDuplicate(normalizedKey);
+        String configValue = normalizeRequiredValue(request.getConfigValue());
+        validateConfigValue(normalizedKey, configValue);
 
         SystemConfig config = SystemConfig.builder()
                 .configKey(normalizedKey)
-                .configValue(normalizeRequiredValue(request.getConfigValue()))
+                .configValue(configValue)
                 .description(normalizeNullable(request.getDescription()))
                 .isPublic(isPublicConfigKey(normalizedKey))
                 .build();
@@ -66,9 +68,11 @@ public class SystemConfigService {
         SystemConfig config = findByIdOrThrow(id);
         String normalizedKey = normalizeKey(request.getConfigKey());
         validateUpdateDuplicate(normalizedKey, id);
+        String configValue = normalizeRequiredValue(request.getConfigValue());
+        validateConfigValue(normalizedKey, configValue);
 
         config.setConfigKey(normalizedKey);
-        config.setConfigValue(normalizeRequiredValue(request.getConfigValue()));
+        config.setConfigValue(configValue);
         config.setDescription(normalizeNullable(request.getDescription()));
         config.setPublic(isPublicConfigKey(normalizedKey));
 
@@ -76,6 +80,32 @@ public class SystemConfigService {
         log.info("Updated system config id={} key={}", saved.getId(), saved.getConfigKey());
         logConfigMutation(actorUserId, saved, "UPDATE");
         return toResponse(saved);
+    }
+
+    private void validateConfigValue(String key, String value) {
+        if (SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS.equals(key)) {
+            try {
+                int val = Integer.parseInt(value);
+                if (val != 1 && (val < 3 || val % 2 == 0)) {
+                    throw new AppException(ErrorCode.VALIDATION_ERROR,
+                            "MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS must be 1 or an odd integer >= 3");
+                }
+            } catch (NumberFormatException e) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS must be a valid integer");
+            }
+        } else if (SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE.equals(key)) {
+            try {
+                int val = Integer.parseInt(value);
+                if (val < 0 || val > 100) {
+                    throw new AppException(ErrorCode.VALIDATION_ERROR,
+                            "MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE must be between 0 and 100");
+                }
+            } catch (NumberFormatException e) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE must be a valid integer");
+            }
+        }
     }
 
     @Transactional
