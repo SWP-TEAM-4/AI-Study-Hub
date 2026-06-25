@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "Community_comment")
+@Table(name = "community_comments")
 @Getter
 @Setter
 @NoArgsConstructor
