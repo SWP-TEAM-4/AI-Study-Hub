@@ -23,9 +23,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             SELECT n
             FROM Notification n
             WHERE n.user.id = :userId
-              AND (:keyword IS NULL
-                OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(COALESCE(n.content, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (
+                LOWER(COALESCE(n.title, '')) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
+                OR LOWER(COALESCE(n.content, '')) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
+              )
             """)
     Page<Notification> searchByUserId(@Param("userId") Long userId,
             @Param("keyword") String keyword,

@@ -25,8 +25,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("""
             SELECT u FROM User u
-            WHERE (:keyword IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            WHERE LOWER(CONCAT(COALESCE(u.fullName, ''), ' ', COALESCE(u.email, '')))
+                    LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
               AND (:role IS NULL OR u.role = :role)
               AND (:isActive IS NULL OR u.isActive = :isActive)
             """)

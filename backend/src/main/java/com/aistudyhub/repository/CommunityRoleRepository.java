@@ -24,9 +24,8 @@ public interface CommunityRoleRepository extends JpaRepository<CommunityRole, Lo
             FROM CommunityRole cr
             JOIN cr.user u
             LEFT JOIN cr.grantedBy gb
-            WHERE (:keyword IS NULL
-                OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            WHERE LOWER(CONCAT(COALESCE(u.fullName, ''), ' ', COALESCE(u.email, '')))
+                    LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
               AND (:userId IS NULL OR u.id = :userId)
               AND (:roleType IS NULL OR cr.roleType = :roleType)
               AND (:status IS NULL OR cr.status = :status)
