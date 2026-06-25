@@ -11,18 +11,19 @@ import org.springframework.data.repository.query.Param;
 
 public interface SystemFeedbackRepository extends JpaRepository<SystemFeedback, Long> {
 
-    @EntityGraph(attributePaths = "user")
+ @EntityGraph(attributePaths = "user")
     @Query("""
             SELECT sf
             FROM SystemFeedback sf
             LEFT JOIN sf.user u
             WHERE (:status IS NULL OR sf.status = :status)
-              AND (:keyword IS NULL
-                OR LOWER(sf.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(COALESCE(sf.content, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(COALESCE(sf.screenUrl, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(COALESCE(u.fullName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND LOWER(CONCAT(
+                    COALESCE(sf.title, ''), ' ',
+                    COALESCE(sf.content, ''), ' ',
+                    COALESCE(sf.screenUrl, ''), ' ',
+                    COALESCE(u.fullName, ''), ' ',
+                    COALESCE(u.email, '')
+                  )) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
             """)
     Page<SystemFeedback> searchFeedbacks(@Param("keyword") String keyword,
             @Param("status") SystemFeedbackStatus status,
