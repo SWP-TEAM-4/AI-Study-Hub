@@ -23,7 +23,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": "./src",
+    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
@@ -32,5 +32,19 @@
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "src/routes",
+    "src/lib/api",
+    "src/lib/config.server.ts",
+    "src/components/ui/calendar.tsx",
+    "src/components/ui/carousel.tsx",
+    "src/components/ui/chart.tsx",
+    "src/components/ui/command.tsx",
+    "src/components/ui/drawer.tsx",
+    "src/components/ui/form.tsx",
+    "src/components/ui/input-otp.tsx",
+    "src/components/ui/resizable.tsx",
+    "src/components/ui/sonner.tsx"
   ]
 }

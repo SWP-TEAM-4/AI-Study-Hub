@@ -6,7 +6,7 @@ import {
     useScroll,
     useSpring,
 } from "framer-motion";
-import { cn } from "../../../lib/utils";
+import { cn } from "../../../utils";
 
 export const TracingBeam = ({
     children,

@@ -1,82 +1,115 @@
-import { useState, useEffect } from "react";
+"use client";
+
+import { useEffect, useState, lazy, Suspense } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { useAuthStore } from "./store/useAuthStore";
 import OrbisLanding from "./components/LoginPage/OrbisLanding";
-// 1. MỞ COMMENT DÒNG IMPORT NÀY
 import LoginPanel from "./components/LoginPage/LoginPanel";
 import Loader from "./components/LoginPage/Loader/Loader";
-import Dashboard from "./components/Dashboard/Dashboard";
+import { AppShell } from "./components/DashBoard/AppShell";
+import NotFoundPage from "./pages/NotFoundPage";
+
+// Pages (Lazy Loaded)
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const NotebooksPage = lazy(() => import("./pages/NotebooksPage"));
+const NotebookDetailPage = lazy(() => import("./pages/NotebookDetailPage"));
+const DocumentsPage = lazy(() => import("./pages/DocumentsPage"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const QuizPage = lazy(() => import("./pages/QuizPage"));
+const FlashcardsPage = lazy(() => import("./pages/FlashcardsPage"));
+const CommunityPage = lazy(() => import("./pages/CommunityPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    const savedState = localStorage.getItem("isLoggedIn");
-    return savedState === "true";
-  });
+  const { isLoggedIn, login, logout } = useAuthStore();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  
-  // 2. THÊM STATE NÀY ĐỂ QUẢN LÝ ẨN/HIỆN LOGIN PANEL
-  const [showLoginPanel, setShowLoginPanel] = useState<boolean>(false);
+  // Handle fake login loading
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      localStorage.setItem("isLoggedIn", "true");
-    } else {
-      localStorage.removeItem("isLoggedIn");
-    }
-  }, [isLoggedIn]);
-
-  const handleLoginSuccess = () => {
-    setIsLoading(true);
+  const handleLoginSuccess = (emailFromForm?: string) => {
+    setIsLoginLoading(true);
+    const finalEmail = emailFromForm || "anhkhoa@fpt.edu.vn";
     setTimeout(() => {
-      setIsLoggedIn(true);
-      setIsLoading(false);
-      setShowLoginPanel(false); // Đăng nhập xong thì ẩn panel đi luôn
+      login(finalEmail);
+      setIsLoginLoading(false);
+      navigate("/dashboard", { replace: true });
     }, 2500);
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    logout();
+    navigate("/", { replace: true });
   };
 
-  if (isLoading) {
-    return <Loader />;
-  }
+  if (isLoginLoading) return <Loader />;
 
-  if (isLoggedIn) {
-    return <Dashboard onLogout={handleLogout} />;
-  }
+  const landingElement = isLoggedIn ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    <div className="flex w-screen h-screen overflow-hidden bg-space relative">
+      <div className="w-full h-full overflow-y-auto hide-scrollbar relative">
+        <style>{`
+          .hide-scrollbar::-webkit-scrollbar { display: none; }
+        `}</style>
+        <OrbisLanding onLoginClick={() => navigate("/login")} />
+      </div>
+    </div>
+  );
 
   return (
-    <div className="flex w-screen h-screen overflow-hidden bg-space relative">
-      
-      {/* 3. DIỆN TÍCH HIỂN THỊ ORBIS LANDING */}
-      {/* Nếu không showLoginPanel thì full màn hình, nếu show thì có thể ẩn đi hoặc thu nhỏ tùy layout bạn muốn */}
-      {!showLoginPanel ? (
-        <div
-          id="orbis-scroll-wrapper"
-          className="w-full h-full overflow-y-auto hide-scrollbar relative"
-        >
-          <style>{`
-            .hide-scrollbar::-webkit-scrollbar { display: none; }
-          `}</style>
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={landingElement} />
+      <Route path="/privacy-policy" element={landingElement} />
+      <Route path="/cookie-settings" element={landingElement} />
 
-          {/* KHI ẤN NÚT THÌ SET STATE THÀNH TRUE */}
-          <OrbisLanding onLoginClick={() => setShowLoginPanel(true)} />
-        </div>
-      ) : (
-        // 4. HIỂN THỊ LOGIN PANEL KHI STATE LÀ TRUE
-        // Thêm nút Back nếu bạn muốn người dùng quay lại Landing Page từ LoginPanel
-        <div className="w-full h-full flex items-center justify-center relative animate-fade-in">
-          <button 
-            onClick={() => setShowLoginPanel(false)} 
-            className="absolute top-6 left-6 text-xs uppercase tracking-widest text-neon border border-neon/30 px-4 py-2 hover:bg-neon hover:text-space transition-all duration-300"
-          >
-            ← Back to journey
-          </button>
-          
-          <LoginPanel onLoginSuccess={handleLoginSuccess} />
-        </div>
-      )}
+      <Route
+        path="/login"
+        element={
+          isLoggedIn ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <div className="flex w-screen h-screen overflow-hidden bg-space relative">
+              <div className="w-full h-full flex items-center justify-center relative animate-fade-in">
+                <LoginPanel
+                  onLoginSuccess={(_, user) => handleLoginSuccess(user.email)}
+                  onClose={() => navigate("/")}
+                />
+              </div>
+            </div>
+          )
+        }
+      />
 
-    </div>
+      <Route path="/share/documents/:token" element={
+        <Suspense fallback={<Loader />}>
+          <SharedDocumentPage shareToken="token-from-url" />
+        </Suspense>
+      } />
+
+      {/* Authenticated Routes wrapped in AppShell */}
+      <Route element={isLoggedIn ? <AppShell /> : <Navigate to="/" replace />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/notebooks" element={<NotebooksPage />} />
+        <Route path="/notebooks/:id" element={<NotebookDetailPage />} />
+        <Route path="/documents" element={<DocumentsPage />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/quiz" element={<QuizPage />} />
+        <Route path="/flashcards" element={<FlashcardsPage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
+        <Route path="/admin/:tab" element={<AdminPage />} />
+      </Route>
+
+      {/* Catch-all for unknown routes */}
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 }

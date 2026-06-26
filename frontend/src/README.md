@@ -19,3 +19,5 @@ git push origin feature/front-end
 
 Bash
 git push -u origin feature/front-end
+
+npm run dev -- --host 

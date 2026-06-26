@@ -18,6 +18,19 @@ module.exports = {
       },
     },
   },
+  theme: {
+    extend: {
+      animation: {
+        marquee: 'marquee 25s linear infinite',
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' }, // Dịch chuyển chuẩn 50% để lặp vòng vô tận mượt mà
+        },
+      },
+    },
+  },
   plugins: [],
 }
 /** @type {import('tailwindcss').Config} */

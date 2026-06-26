@@ -1,7 +1,7 @@
 import { Mail, Twitter, Github } from "lucide-react";
 import Header from "./Header";
 import SocialBtn from "./SocialBtn";
-import { HERO_VIDEO } from "../../constants";
+import { HERO_VIDEO } from "../../../constants";
 
 export default function HeroSection() {
   return (
