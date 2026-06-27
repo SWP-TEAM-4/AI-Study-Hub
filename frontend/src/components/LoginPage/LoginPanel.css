@@ -1,0 +1,166 @@
+/* LoginPanel.css - Redesigned by 15-year Frontend Expert */
+
+.login-panel {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  background: #020503; /* Deep dark green-black */
+  color: #e0f8e9;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* Background Cyber Grid */
+.login-panel::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background-image: 
+    linear-gradient(rgba(0, 255, 102, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 102, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  transform: perspective(600px) rotateX(60deg) translateY(-100px) translateZ(-200px);
+  animation: gridMove 15s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes gridMove {
+  0% { transform: perspective(600px) rotateX(60deg) translateY(0) translateZ(-200px); }
+  100% { transform: perspective(600px) rotateX(60deg) translateY(60px) translateZ(-200px); }
+}
+
+/* Dynamic Ambient Glowing Orbs */
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.4;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.ambient-orb-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(0, 255, 102, 0.2), transparent 70%);
+  top: -100px;
+  left: -100px;
+}
+
+.ambient-orb-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.15), transparent 70%);
+  bottom: -100px;
+  right: -100px;
+}
+
+/* Glassmorphism Card with Neon Cyberpunk touches */
+.cyber-glass-card {
+  position: relative;
+  background: rgba(3, 7, 5, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 255, 102, 0.15);
+  box-shadow: 
+    0 30px 60px -15px rgba(0, 0, 0, 0.8),
+    inset 0 0 30px rgba(0, 255, 102, 0.03);
+  border-radius: 28px;
+  overflow: hidden;
+  z-index: 10;
+  will-change: transform;
+}
+
+/* Glowing Top Edge */
+.cyber-glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 102, 0.8), transparent);
+  z-index: 1;
+}
+
+/* Custom Input Fields */
+.cyber-input-wrapper {
+  position: relative;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 102, 0.15);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.cyber-input-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  width: 0; height: 1px;
+  background: #00ff66;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(-50%);
+}
+
+.cyber-input-wrapper:focus-within {
+  background: rgba(0, 255, 102, 0.05);
+  border-color: rgba(0, 255, 102, 0.4);
+  box-shadow: 0 0 20px rgba(0, 255, 102, 0.1);
+}
+
+.cyber-input-wrapper:focus-within::after {
+  width: 100%;
+}
+
+/* Animated Neon Button */
+.btn-neon-cyber {
+  position: relative;
+  background: #00ff66;
+  color: #030705;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.btn-neon-cyber::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: -1;
+}
+
+.btn-neon-cyber:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px -5px rgba(0, 255, 102, 0.5);
+}
+
+.btn-neon-cyber:hover::before {
+  left: 100%;
+}
+
+.btn-neon-cyber:active {
+  transform: translateY(1px);
+}
+
+/* Social Buttons */
+.social-btn-cyber {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.social-btn-cyber:hover {
+  background: rgba(0, 255, 102, 0.05);
+  border-color: rgba(0, 255, 102, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.15);
+  color: #00ff66;
+}
+
+

@@ -1,0 +1,52 @@
+{
+  "hero": {
+    "streak": "Chuỗi học 7 ngày liên tiếp",
+    "greeting": "Chào Khoa, hôm nay học gì nhỉ?",
+    "desc1": "Bạn còn ",
+    "desc2": " chưa hoàn thành và ",
+    "desc3": " cần ôn lại trong tuần này.",
+    "askAI": "Hỏi AI ngay",
+    "openNotebook": "Mở Notebook"
+  },
+  "stats": {
+    "notebook": "Notebook",
+    "document": "Tài liệu",
+    "aiQuery": "Lượt hỏi AI",
+    "storage": "Dung lượng"
+  },
+  "chart": {
+    "title": "Hoạt động học tuần này",
+    "subtitle": "Số lượt tương tác AI mỗi ngày"
+  },
+  "leaderboard": {
+    "title": "Top contributors",
+    "details": "Chi tiết →",
+    "pts": "pts",
+    "weekly": "Tuần này",
+    "monthly": "Tháng này",
+    "allTime": "Tất cả"
+  },
+  "notebooks": {
+    "recent": "Notebook gần đây",
+    "viewAll": "Xem tất cả →",
+    "docs": "tài liệu",
+    "cards": "thẻ"
+  },
+  "notifications": {
+    "new": "Thông báo mới",
+    "viewAll": "Tất cả →"
+  },
+  "quiz": {
+    "todo": "Quiz cần làm",
+    "viewAll": "Tất cả →",
+    "quizzes": "quiz",
+    "level": "cấp độ",
+    "doTest": "Làm bài"
+  },
+  "flashcards": {
+    "new": "Flashcard mới",
+    "viewAll": "Tất cả →",
+    "mastered": "đã thuộc",
+    "study": "Học"
+  }
+}

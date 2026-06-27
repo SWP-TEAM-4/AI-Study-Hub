@@ -1,0 +1,51 @@
+{
+  "title": "Admin Dashboard",
+  "stats": {
+    "users": "Users",
+    "documents": "Documents",
+    "aiQuery": "AI Queries",
+    "reports": "New Reports"
+  },
+  "overview": {
+    "aiUsageWeek": "AI Usage This Week",
+    "aiUsageDetails": "User AI Usage Details",
+    "loading": "Loading data...",
+    "noData": "No data available."
+  },
+  "users": {
+    "search": "Search members...",
+    "member": "FPT Member",
+    "role": "Role",
+    "status": "Status",
+    "actions": "Actions",
+    "active": "Active",
+    "locked": "Locked"
+  },
+  "feedbacks": {
+    "title": "System Feedback Queue",
+    "subtitle": "List of UI bug reports and RAG experience feedback from FPT students",
+    "content": "Report Content",
+    "screen": "Error Screen",
+    "status": "Processing Status",
+    "progress": "Configure Progress",
+    "loading": "Loading Feedback database...",
+    "noData": "System stable — No bug reports from students yet.",
+    "ticket": "Ticket ID:"
+  },
+  "logs": {
+    "search": "Search activity logs...",
+    "newest": "Newest",
+    "oldest": "Oldest",
+    "title": "Activity Logs",
+    "subtitle": "List of actions and events on the system",
+    "action": "Action",
+    "target": "Target",
+    "metadata": "Metadata",
+    "time": "Time",
+    "loading": "Loading data...",
+    "noData": "No activities yet.",
+    "page": "Page",
+    "prev": "Previous",
+    "next": "Next"
+  }
+}

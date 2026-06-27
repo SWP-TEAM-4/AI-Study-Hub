@@ -1,0 +1,51 @@
+{
+  "title": "Admin Dashboard",
+  "stats": {
+    "users": "Người dùng",
+    "documents": "Tài liệu",
+    "aiQuery": "Lượt hỏi AI",
+    "reports": "Báo cáo mới"
+  },
+  "overview": {
+    "aiUsageWeek": "Lượt sử dụng AI tuần này",
+    "aiUsageDetails": "Chi tiết sử dụng AI của người dùng",
+    "loading": "Đang nạp dữ liệu...",
+    "noData": "Chưa có dữ liệu."
+  },
+  "users": {
+    "search": "Tìm kiếm thành viên...",
+    "member": "Thành viên FPT",
+    "role": "Vai trò",
+    "status": "Trạng thái",
+    "actions": "Thao tác",
+    "active": "Hoạt động",
+    "locked": "Bị khóa"
+  },
+  "feedbacks": {
+    "title": "Hàng chờ xử lý góp ý hệ thống",
+    "subtitle": "Danh sách các báo cáo lỗi giao diện, trải nghiệm RAG từ sinh viên FPT",
+    "content": "Nội dung báo cáo lỗi",
+    "screen": "Màn hình bị lỗi",
+    "status": "Trạng thái xử lý",
+    "progress": "Cấu hình tiến độ",
+    "loading": "Đang nạp cơ sở dữ liệu Feedback...",
+    "noData": "Hệ thống ổn định — Chưa có phản hồi lỗi nào từ sinh viên.",
+    "ticket": "Mã Ticket:"
+  },
+  "logs": {
+    "search": "Tìm kiếm nhật ký...",
+    "newest": "Mới nhất",
+    "oldest": "Cũ nhất",
+    "title": "Nhật ký hoạt động (Activity Logs)",
+    "subtitle": "Danh sách các thao tác và sự kiện trên hệ thống",
+    "action": "Hành động",
+    "target": "Mục tiêu",
+    "metadata": "Metadata",
+    "time": "Thời gian",
+    "loading": "Đang nạp dữ liệu...",
+    "noData": "Chưa có hoạt động nào.",
+    "page": "Trang",
+    "prev": "Trước",
+    "next": "Sau"
+  }
+}

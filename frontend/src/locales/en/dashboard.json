@@ -1,0 +1,52 @@
+{
+  "hero": {
+    "streak": "7-day learning streak",
+    "greeting": "Hi Khoa, what to learn today?",
+    "desc1": "You have ",
+    "desc2": " uncompleted quizzes and ",
+    "desc3": " flashcards to review this week.",
+    "askAI": "Ask AI now",
+    "openNotebook": "Open Notebook"
+  },
+  "stats": {
+    "notebook": "Notebooks",
+    "document": "Documents",
+    "aiQuery": "AI Queries",
+    "storage": "Storage"
+  },
+  "chart": {
+    "title": "Learning Activity This Week",
+    "subtitle": "Daily AI interactions"
+  },
+  "leaderboard": {
+    "title": "Top contributors",
+    "details": "Details →",
+    "pts": "pts",
+    "weekly": "This Week",
+    "monthly": "This Month",
+    "allTime": "All Time"
+  },
+  "notebooks": {
+    "recent": "Recent Notebooks",
+    "viewAll": "View all →",
+    "docs": "docs",
+    "cards": "cards"
+  },
+  "notifications": {
+    "new": "New Notifications",
+    "viewAll": "View all →"
+  },
+  "quiz": {
+    "todo": "Quizzes to do",
+    "viewAll": "View all →",
+    "quizzes": "quizzes",
+    "level": "level",
+    "doTest": "Take test"
+  },
+  "flashcards": {
+    "new": "New Flashcards",
+    "viewAll": "View all →",
+    "mastered": "mastered",
+    "study": "Study"
+  }
+}
