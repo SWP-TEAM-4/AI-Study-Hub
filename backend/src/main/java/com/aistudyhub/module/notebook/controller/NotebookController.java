@@ -6,6 +6,7 @@ import com.aistudyhub.module.notebook.dto.NotebookResponse;
 import com.aistudyhub.module.notebook.dto.UpdateNotebookRequest;
 import com.aistudyhub.module.notebook.service.NotebookService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 @RestController
 @RequestMapping("/api/notebooks")
 @RequiredArgsConstructor
+@Tag(name = "Notebook", description = "quản lý notebook của user")
 public class NotebookController {
     private final NotebookService notebookService;
 

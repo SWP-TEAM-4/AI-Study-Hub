@@ -4,6 +4,8 @@ import com.aistudyhub.common.response.ApiResponse;
 import com.aistudyhub.module.tag.dto.CreateTagRequest;
 import com.aistudyhub.module.tag.dto.TagResponse;
 import com.aistudyhub.module.tag.service.TagService;
+
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Tag(name = "Tag", description = "quản lý Tag của user")
 public class TagController {
 
     private final TagService tagService;

@@ -8,6 +8,7 @@ import com.aistudyhub.module.subject.dto.SubjectResponse;
 import com.aistudyhub.module.subject.dto.UpdateSubjectRequest;
 import com.aistudyhub.module.subject.service.SubjectService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "Subject", description = "lấy môn học có trong danh sách")
 public class SubjectController {
     private final SubjectService subjectService;
 

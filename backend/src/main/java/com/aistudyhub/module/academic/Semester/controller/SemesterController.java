@@ -16,12 +16,14 @@ import com.aistudyhub.module.academic.Semester.dto.CreateSemesterRequest;
 import com.aistudyhub.module.academic.Semester.dto.SemesterResponse;
 import com.aistudyhub.module.academic.Semester.dto.UpdateSemesterRequest;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Tag(name = "Semester", description = "Danh sách các kỳ học")
 public class SemesterController {
     private final SemesterService semesterService;
 

@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/aistudyhub
     username: postgres
-    password: 12345
+    password: 12345678
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -93,7 +93,6 @@ app:
       temperature: 0.1
       timeout: 180
       max-retries: 3
-
 
   chunk:
     size: 500 # characters per chunk
