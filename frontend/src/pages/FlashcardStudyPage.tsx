@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, RotateCw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ArrowLeft, RotateCw, ThumbsUp, ThumbsDown, Trophy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { flashcardService, FlashcardDTO } from "../services/flashcardService";
 import { Notify } from "notiflix";
@@ -57,9 +57,28 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
 
   if (idx >= cards.length) {
     return (
-      <div className="max-w-xl mx-auto py-12 text-center">
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="surface-card p-10 gradient-hero">
-          <h1 className="text-3xl font-bold">Hoàn thành deck! </h1>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="max-w-xl mx-auto py-8"
+      >
+        {/* ── RESULT CARD ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="surface-card p-10 text-center gradient-hero"
+        >
+          <motion.div
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
+            className="size-20 mx-auto mb-5 rounded-3xl bg-primary text-primary-foreground grid place-items-center shadow-lg shadow-primary/30"
+          >
+            <Trophy size={36} />
+          </motion.div>
+          <h1 className="text-3xl font-bold">Hoàn thành deck! 🎉</h1>
           <p className="text-muted-foreground mt-2">Hôm nay bạn đã ôn xong {cards.length} thẻ.</p>
           <div className="mt-6 grid grid-cols-2 gap-3">
             <div className="bg-card border border-border rounded-xl p-4">
@@ -75,7 +94,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
             Về danh sách
           </button>
         </motion.div>
-      </div>
+      </motion.div>
     );
   }
 

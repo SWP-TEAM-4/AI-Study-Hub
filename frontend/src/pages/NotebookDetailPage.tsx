@@ -34,8 +34,7 @@ export default function NotebookDetailPage() {
   const [editSubjectId, setEditSubjectId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Document & Drawer State
-  const [isDocsDrawerOpen, setIsDocsDrawerOpen] = useState(false);
+  // Document State
   const [activeDocument, setActiveDocument] = useState<typeof documents[0] | null>(null);
 
   // Initialize edit states when notebook is loaded
@@ -81,7 +80,6 @@ export default function NotebookDetailPage() {
 
   const handleDocumentClick = (doc: typeof documents[0]) => {
     setActiveDocument(doc);
-    setIsDocsDrawerOpen(false);
     Notify.info("Đã mở tài liệu ở chế độ Split-Pane.");
   };
 
@@ -128,24 +126,6 @@ export default function NotebookDetailPage() {
 
   return (
     <div ref={containerRef} className="flex h-[calc(100vh-7rem)] overflow-hidden relative border border-border/50 rounded-2xl">
-      {/* Cửa sổ Tài liệu (Split-pane) */}
-      <AnimatePresence>
-        {activeDocument && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: "50%", opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="h-full overflow-hidden shrink-0 border-r border-border/50 hidden md:block relative"
-          >
-            <DocumentViewerPane 
-              documentTitle={activeDocument.title} 
-              onClose={() => setActiveDocument(null)} 
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Toolbar Nổi */}
       <FloatingAIToolbar containerRef={containerRef} onAction={handleFloatingAction} />
 
@@ -158,95 +138,14 @@ export default function NotebookDetailPage() {
           onBack={() => navigate("/notebooks")}
           onRenameClick={() => setIsEditModalOpen(true)}
           onShareClick={handleShareClick}
-          onViewDocumentsClick={() => setIsDocsDrawerOpen(true)}
+          onDocumentClick={handleDocumentClick}
+          documents={documents}
+          quizzes={quizzes}
+          decks={decks}
         />
       </div>
 
-      {/* Docs Drawer */}
-      <AnimatePresence>
-        {isDocsDrawerOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            onClick={() => setIsDocsDrawerOpen(false)}
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm z-40" 
-          />
-        )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {isDocsDrawerOpen && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="absolute top-0 right-0 bottom-0 w-full sm:w-[360px] bg-card border-l border-border/50 shadow-2xl z-50 flex flex-col dark:premium-sidebar"
-          >
-            <div className="flex items-center justify-between p-4 border-b border-border/50 bg-muted/20">
-              <h3 className="font-display font-semibold flex items-center gap-2 text-sm text-foreground">
-                <FileText size={16} className="text-primary" /> Thông tin Notebook
-              </h3>
-              <button onClick={() => setIsDocsDrawerOpen(false)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 no-scrollbar">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-bold">{notebook.title}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
-                    {notebook.subjectCode || "N/A"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Cập nhật {new Date(notebook.createdAt).toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">Tài liệu đính kèm</h3>
-                  <button onClick={() => navigate("/documents")} className="text-xs text-primary hover:underline">Tất cả →</button>
-                </div>
-                <ul className="divide-y divide-border/50 border border-border/50 rounded-xl overflow-hidden bg-muted/10">
-                  {nbDocs.map((d) => (
-                    <li key={d.id} onClick={() => handleDocumentClick(d)} className="p-3 flex items-center gap-3 hover:bg-muted/50 cursor-pointer transition-colors">
-                      <div className="size-8 shrink-0 rounded-lg bg-background border border-border/50 grid place-items-center text-[10px] font-bold uppercase text-muted-foreground shadow-sm">
-                        {d.type}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-medium text-foreground truncate">{d.title}</div>
-                        <div className="text-[11px] text-muted-foreground">{d.size} · {d.uploaded}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-sm mb-3">Quiz & Flashcards</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {quizzes.slice(0, 1).map((q) => (
-                    <button key={q.id} onClick={() => navigate("/quiz")} className="text-left p-3 rounded-xl bg-muted/30 hover:bg-muted border border-border/50 transition-all">
-                      <GraduationCap size={16} className="text-primary mb-1.5" />
-                      <div className="text-[13px] font-medium truncate">{q.title}</div>
-                      <div className="text-[11px] text-muted-foreground">{q.questions} câu</div>
-                    </button>
-                  ))}
-                  {decks.slice(0, 1).map((d) => (
-                    <button key={d.id} onClick={() => navigate("/flashcards")} className="text-left p-3 rounded-xl bg-muted/30 hover:bg-muted border border-border/50 transition-all">
-                      <BookOpen size={16} className="text-coral mb-1.5" />
-                      <div className="text-[13px] font-medium truncate">{d.title}</div>
-                      <div className="text-[11px] text-muted-foreground">{d.cards} thẻ</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Modal Sửa Notebook */}
       {isEditModalOpen && (

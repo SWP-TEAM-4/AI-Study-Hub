@@ -25,6 +25,7 @@ import {
   Cell,
 } from "recharts";
 import { notebooks, notifications, leaderboard, decks } from "@/lib/mock-data";
+import { RobotCelebration } from "@/components/ui/RobotCelebration";
 
 type Notebook = {
   id: string;
@@ -52,7 +53,7 @@ export const Route = createFileRoute("/")({
 const stats = [
   { label: "Notebook", value: 5, icon: BookMarked, tint: "165" },
   { label: "Tài liệu", value: 42, icon: FileText, tint: "200" },
-  { label: "Lượt hỏi AI", value: 128, icon: Bot, tint: "35" },
+  { label: "Bài Quiz", value: 12, icon: GraduationCap, tint: "35" },
   { label: "Dung lượng", value: "1.2 GB", icon: HardDrive, tint: "75" },
 ];
 
@@ -117,12 +118,6 @@ function Dashboard() {
             <strong className="text-foreground font-semibold">12 flashcard</strong> cần ôn lại trong tuần này.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link
-              to="/chat"
-              className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all shadow-sm shadow-primary/10"
-            >
-              <Bot size={16} /> Hỏi AI ngay
-            </Link>
             <Link
               to="/notebooks"
               className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-card border border-border text-sm font-medium hover:bg-muted transition-colors"
@@ -363,6 +358,11 @@ function Dashboard() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ── ROBOT CELEBRATION SHOWCASE ── */}
+      <section>
+        <RobotCelebration />
       </section>
     </div>
   );

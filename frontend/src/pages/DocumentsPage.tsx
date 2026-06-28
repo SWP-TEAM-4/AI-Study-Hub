@@ -1,10 +1,11 @@
 "use client";
 
+import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, Search, Download, MoreVertical, Tag, Share2, Copy, X, CheckCircle2, Link, RefreshCw, Trash2 } from "lucide-react";
-import { useMemo, useRef, useState, useEffect } from "react";
 import { documentService, DocumentDTO, ShareLinkDTO } from "../services/documentService";
 import { Notify } from "notiflix";
+import CustomSelect from "../components/ui/CustomSelect";
 
 // 🎯 BẢNG MÀU CHUẨN THƯƠNG HIỆU CHO TỪNG LOẠI FILE (HỖ TRỢ CẢ DARK MODE)
 const typeStyles: Record<string, { activeBtn: string; badge: string }> = {
@@ -31,14 +32,25 @@ const typeStyles: Record<string, { activeBtn: string; badge: string }> = {
 };
 
 export default function DocumentsPage() {
-  const [query, setQuery] = useState("");
+  const [q, setQ] = useState("");
   const [type, setType] = useState<string>("all");
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [docsList, setDocsList] = useState<DocumentDTO[]>([]);
+  const [filterSubject, setFilterSubject] = useState("all");
+  const [filterVisibility, setFilterVisibility] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
+  const [list, setList] = useState<DocumentDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Mock functions for missing features
+  const handleEdit = (id: number) => Notify.info("Tính năng Sửa đang được phát triển!");
+  const handlePublish = (id: number) => {
+    Notify.success("Đã gửi lên cộng đồng! Trạng thái: Chờ duyệt.");
+  };
+  const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
   // Share Modal State
   const [shareModalDoc, setShareModalDoc] = useState<DocumentDTO | null>(null);
@@ -54,7 +66,7 @@ export default function DocumentsPage() {
     setIsLoading(true);
     try {
       const res = await documentService.getWorkspaceDocuments(0, 50);
-      if (res.success) setDocsList(res.data.items);
+      if (res.success) setList(res.data.items);
     } catch (err: any) {
       Notify.failure("Lỗi tải tài liệu: " + (err.message || "Unknown error"));
     } finally {
@@ -73,7 +85,7 @@ export default function DocumentsPage() {
         const res = await documentService.uploadDocument(file);
         if (res.success) {
           Notify.success(`Tải lên ${file.name} thành công`);
-          setDocsList(prev => [res.data, ...prev]);
+          setList(prev => [res.data, ...prev]);
         }
       }
     } catch (err: any) {
@@ -113,13 +125,25 @@ export default function DocumentsPage() {
   };
 
   const filtered = useMemo(
-    () =>
-      docsList.filter(
-        (d) =>
-          (type === "all" || d.fileType === type) &&
-          (d.title.toLowerCase().includes(query.toLowerCase())),
-      ),
-    [docsList, query, type],
+    () => {
+      let result = list.filter((x) => {
+        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subjectId || "").toString().includes(q.toLowerCase());
+        const matchSubject = filterSubject === "all" || x.subjectId === Number(filterSubject);
+        const matchVis = filterVisibility === "all" || x.visibility === filterVisibility;
+        const matchStatus = filterStatus === "all" || true;
+        return matchSearch && matchSubject && matchVis && matchStatus;
+      });
+
+      if (sortBy === "newest") {
+        result.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      } else if (sortBy === "oldest") {
+        result.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      } else if (sortBy === "az") {
+        result.sort((a, b) => a.title.localeCompare(b.title));
+      }
+      return result;
+    },
+    [list, q, filterSubject, filterVisibility, filterStatus, sortBy],
   );
 
   // ── Share Logic ──
@@ -241,17 +265,77 @@ export default function DocumentsPage() {
       </motion.div>
 
       {/* Filter Toolbar */}
-      <div className="surface-card p-4 flex flex-col md:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+      <div className="surface-card p-3 rounded-2xl flex flex-col lg:flex-row gap-3 items-center border border-border relative z-30">
+        <div className="flex-1 relative flex items-center w-full">
+          <Search className="absolute left-4 text-muted-foreground" size={16} />
           <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm theo tên, môn hoặc tag..."
-            className="w-full pl-10 pr-3 h-10 rounded-xl bg-muted/60 border border-transparent focus:bg-card focus:border-primary outline-none text-sm transition-all"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Tìm tên tài liệu..."
+            className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
+        
+        <div className="flex flex-wrap md:flex-nowrap gap-3 w-full lg:w-auto">
+          <CustomSelect
+            value={filterSubject}
+            onChange={setFilterSubject}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả môn học", value: "all" },
+              {
+                label: "Semester 5",
+                options: [
+                  { label: "SWP391", value: "SWP391" },
+                  { label: "SWT301", value: "SWT301" },
+                  { label: "SWR302", value: "SWR302" }
+                ]
+              },
+              {
+                label: "Semester 4",
+                options: [
+                  { label: "PRN221", value: "PRN221" },
+                  { label: "PRJ301", value: "PRJ301" }
+                ]
+              }
+            ]}
+          />
+          <CustomSelect
+            value={filterVisibility}
+            onChange={setFilterVisibility}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả hiển thị", value: "all" },
+              { label: "Riêng tư", value: "PRIVATE" },
+              { label: "Workspace", value: "WORKSPACE" },
+              { label: "Marketplace", value: "MARKETPLACE" }
+            ]}
+          />
+          <CustomSelect
+            value={filterStatus}
+            onChange={setFilterStatus}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả trạng thái", value: "all" },
+              { label: "Chờ duyệt", value: "PENDING" },
+              { label: "Đã duyệt", value: "APPROVED" },
+              { label: "Từ chối", value: "REJECTED" }
+            ]}
+          />
+          <CustomSelect
+            value={sortBy}
+            onChange={setSortBy}
+            className="flex-1 md:flex-none min-w-[130px]"
+            data={[
+              { label: "Mới nhất", value: "newest" },
+              { label: "Cũ nhất", value: "oldest" },
+              { label: "A-Z", value: "az" }
+            ]}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5 mt-4">
           {["all", "pdf", "docx", "pptx", "txt"].map((t) => {
             const isActive = type === t;
             return (
@@ -269,7 +353,6 @@ export default function DocumentsPage() {
             );
           })}
         </div>
-      </div>
 
       {/* Table List */}
       <div className="surface-card overflow-x-auto no-scrollbar border border-border/40 shadow-sm">
@@ -330,9 +413,23 @@ export default function DocumentsPage() {
                     <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
                       <Download size={14} />
                     </button>
-                    <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
-                      <MoreVertical size={14} />
-                    </button>
+                    {/* Action Dropdown (Mocked) */}
+                    <div className="relative group/menu">
+                      <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
+                        <MoreVertical size={14} />
+                      </button>
+                      <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => handleEdit(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                          <FileText size={14} /> Sửa mô tả
+                        </button>
+                        <button onClick={() => handleAddTag(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                          <Tag size={14} /> Gắn thẻ
+                        </button>
+                        <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
+                          <Globe size={14} /> Đăng cộng đồng
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </td>
               </motion.tr>

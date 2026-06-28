@@ -35,6 +35,9 @@ export default function ChatPage() {
   const [openMenuSessionId, setOpenMenuSessionId] = useState<number | null>(null);
 
   const endRef = useRef<HTMLDivElement>(null);
+  const lastSentTime = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const typewriterTimerRef = useRef<any>(null);
   const currentNotebookId = 101;
 
   useEffect(() => {
@@ -142,8 +145,17 @@ export default function ChatPage() {
   };
 
   const send = async (text?: string) => {
+    if (thinking) return;
+    const now = Date.now();
+    if (now - lastSentTime.current < 2000) {
+      Notify.warning("Bạn đang gửi tin nhắn quá nhanh. Vui lòng đợi 2 giây!");
+      return;
+    }
+
     const value = (text ?? input).trim();
     if (!value) return;
+
+    lastSentTime.current = now;
 
     let currentId = activeSessionId;
     if (!currentId) {
@@ -160,7 +172,7 @@ export default function ChatPage() {
     }
 
     const tempUserMsg: MessageDTO = {
-      id: Date.now(),
+      id: Math.floor(Math.random() * 1000000000),
       sessionId: currentId!,
       messageSequence: messages.length + 1,
       senderRole: "USER",
@@ -173,8 +185,11 @@ export default function ChatPage() {
     setInput("");
     setThinking(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await chatService.sendMessage(currentId!, value, 3);
+      const res = await chatService.sendMessage(currentId!, value, 3, controller.signal);
       if (res.success && res.data) {
         const { userMessage, aiMessage } = res.data;
 
@@ -192,7 +207,9 @@ export default function ChatPage() {
 
           if (currentLength >= fullContent.length) {
             clearInterval(typewriterTimer);
+            typewriterTimerRef.current = null;
             setMessages(p => p.map(m => m.id === aiMessage.id ? aiMessage : m));
+            setThinking(false);
           } else {
             setMessages(p => p.map(m =>
               m.id === aiMessage.id
@@ -201,13 +218,33 @@ export default function ChatPage() {
             ));
           }
         }, 15);
+        typewriterTimerRef.current = typewriterTimer;
+      } else {
+        setThinking(false);
       }
-    } catch (error) {
+    } catch (error: any) {
+      setThinking(false);
+      if (error?.name === "AbortError" || error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       Notify.failure("Lỗi khi gửi tin nhắn");
       setMessages(p => p.filter(m => m.id !== tempUserMsg.id));
     } finally {
-      setThinking(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+    setThinking(false);
+    Notify.info("Đã dừng tạo phản hồi.");
   };
 
   const sortedSessions = [...sessions].sort((a, b) => {
@@ -456,7 +493,7 @@ export default function ChatPage() {
             </AnimatePresence>
           )}
 
-          {thinking && (
+          {thinking && (messages.length === 0 || messages[messages.length - 1].senderRole !== "AI") && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
               <div className="size-8 shrink-0 rounded-xl bg-primary/20 text-primary grid place-items-center mt-1">
                 <Bot size={16} />
@@ -519,13 +556,23 @@ export default function ChatPage() {
               placeholder="Nhập nội dung hỏi đáp (Shift + Enter để xuống dòng)..."
               className="flex-1 bg-transparent px-4 py-2.5 text-sm outline-none resize-none max-h-32 min-h-[44px] font-medium placeholder:text-muted-foreground/60"
             />
-            <button
-              type="submit"
-              disabled={!input.trim() || thinking}
-              className="size-[44px] shrink-0 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
-            >
-              <Send size={18} className="mr-0.5" />
-            </button>
+            {thinking ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="size-[44px] shrink-0 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 active:scale-95 transition-all cursor-pointer animate-pulse"
+              >
+                <div className="size-3 bg-white rounded-[2px]" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="size-[44px] shrink-0 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+              >
+                <Send size={18} className="mr-0.5" />
+              </button>
+            )}
           </form>
           <div className="text-center mt-2 text-[11px] text-muted-foreground">
             AI có thể đưa ra thông tin không chính xác. Hãy kiểm tra lại các trích dẫn tài liệu.

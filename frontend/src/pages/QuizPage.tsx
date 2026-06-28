@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { GraduationCap, Plus, Search, Sparkles } from "lucide-react";
+import { GraduationCap, Plus, Search, Sparkles, MoreHorizontal, Edit, Globe, Tag, BookOpen } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import QuizPracticePage from "./QuizPracticePage";
+import QuizBankDetailPage from "./QuizBankDetailPage";
+import CustomSelect from "../components/ui/CustomSelect";
 import { quizService, QuizDTO } from "../services/quizService";
 import { Notify } from "notiflix";
 
@@ -13,7 +15,12 @@ const levelStyles: Record<string, string> = {
 
 export default function QuizPage() {
   const [q, setQ] = useState("");
+  const [filterSubject, setFilterSubject] = useState("all");
+  const [filterLevel, setFilterLevel] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
   const [activeQuizId, setActiveQuizId] = useState<number | null>(null);
+  const [activeDetailId, setActiveDetailId] = useState<number | null>(null);
   const [list, setList] = useState<QuizDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -36,12 +43,46 @@ export default function QuizPage() {
   };
 
   const filtered = useMemo(
-    () => list.filter((x) => x.title.toLowerCase().includes(q.toLowerCase())),
-    [list, q],
+    () => {
+      let result = list.filter((x) => {
+        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subject || "").toLowerCase().includes(q.toLowerCase());
+        const matchSubject = filterSubject === "all" || x.subject === filterSubject;
+        const matchLevel = filterLevel === "all" || x.level === filterLevel;
+        const matchStatus = filterStatus === "all" || true;
+        return matchSearch && matchSubject && matchLevel && matchStatus;
+      });
+
+      if (sortBy === "newest") {
+        result.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      } else if (sortBy === "oldest") {
+        result.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      } else if (sortBy === "az") {
+        result.sort((a, b) => a.title.localeCompare(b.title));
+      }
+      return result;
+    },
+    [list, q, filterSubject, filterLevel, filterStatus, sortBy],
   );
+
+  // Mock functions for missing features
+  const handleEdit = (id: number) => Notify.info("Tính năng Sửa đang được phát triển!");
+  const handlePublish = (id: number) => {
+    Notify.success("Đã gửi lên cộng đồng! Trạng thái: Chờ duyệt.");
+  };
+  const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
   if (activeQuizId) {
     return <QuizPracticePage quizId={activeQuizId} onBack={() => setActiveQuizId(null)} />;
+  }
+
+  if (activeDetailId) {
+    return (
+      <QuizBankDetailPage 
+        quizId={activeDetailId} 
+        onBack={() => setActiveDetailId(null)} 
+        onStartTest={() => { setActiveQuizId(activeDetailId); setActiveDetailId(null); }} 
+      />
+    );
   }
 
   return (
@@ -58,14 +99,74 @@ export default function QuizPage() {
         </button>
       </div>
 
-      <div className="surface-card p-4 relative">
-        <Search className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm quiz theo tiêu đề hoặc môn..."
-          className="w-full pl-10 pr-3 h-10 rounded-xl bg-muted/60 border border-transparent focus:bg-card focus:border-primary outline-none text-sm"
-        />
+      <div className="surface-card p-3 rounded-2xl flex flex-col lg:flex-row gap-3 items-center border border-border relative z-30">
+        <div className="flex-1 relative flex items-center w-full">
+          <Search className="absolute left-4 text-muted-foreground" size={16} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Tìm quiz theo tiêu đề hoặc môn..."
+            className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
+          />
+        </div>
+        
+        <div className="flex flex-wrap md:flex-nowrap gap-3 w-full lg:w-auto">
+          <CustomSelect
+            value={filterSubject}
+            onChange={setFilterSubject}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả môn học", value: "all" },
+              {
+                label: "Semester 5",
+                options: [
+                  { label: "SWP391", value: "SWP391" },
+                  { label: "SWT301", value: "SWT301" },
+                  { label: "SWR302", value: "SWR302" }
+                ]
+              },
+              {
+                label: "Semester 4",
+                options: [
+                  { label: "PRN221", value: "PRN221" },
+                  { label: "PRJ301", value: "PRJ301" }
+                ]
+              }
+            ]}
+          />
+          <CustomSelect
+            value={filterLevel}
+            onChange={setFilterLevel}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả độ khó", value: "all" },
+              { label: "Dễ (Easy)", value: "Easy" },
+              { label: "Trung bình (Medium)", value: "Medium" },
+              { label: "Khó (Hard)", value: "Hard" }
+            ]}
+          />
+          <CustomSelect
+            value={filterStatus}
+            onChange={setFilterStatus}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả trạng thái", value: "all" },
+              { label: "Chờ duyệt", value: "PENDING" },
+              { label: "Đã duyệt", value: "APPROVED" },
+              { label: "Từ chối", value: "REJECTED" }
+            ]}
+          />
+          <CustomSelect
+            value={sortBy}
+            onChange={setSortBy}
+            className="flex-1 md:flex-none min-w-[130px]"
+            data={[
+              { label: "Mới nhất", value: "newest" },
+              { label: "Cũ nhất", value: "oldest" },
+              { label: "A-Z", value: "az" }
+            ]}
+          />
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -85,11 +186,31 @@ export default function QuizPage() {
               whileHover={{ y: -3 }}
               className="surface-card p-5 flex flex-col"
             >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium">{quiz.subject || "No Subject"}</span>
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${levelStyles[quiz.level || "Medium"] || levelStyles.Medium}`}>
-                  {quiz.level || "Medium"}
-                </span>
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium mr-2">{quiz.subject || "No Subject"}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${levelStyles[quiz.level || "Medium"] || levelStyles.Medium}`}>
+                    {quiz.level || "Medium"}
+                  </span>
+                </div>
+                
+                {/* Action Dropdown (Mocked) */}
+                <div className="relative group/menu">
+                  <button className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50">
+                    <MoreHorizontal size={16} />
+                  </button>
+                  <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handleEdit(quiz.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                      <Edit size={14} /> Sửa
+                    </button>
+                    <button onClick={() => handleAddTag(quiz.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                      <Tag size={14} /> Gắn thẻ
+                    </button>
+                    <button onClick={() => handlePublish(quiz.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
+                      <Globe size={14} /> Đăng cộng đồng
+                    </button>
+                  </div>
+                </div>
               </div>
               <h3 className="font-display text-lg font-semibold">{quiz.title}</h3>
               <div className="mt-2 text-sm text-muted-foreground">{quiz.questions} câu hỏi</div>
@@ -105,10 +226,16 @@ export default function QuizPage() {
                 </div>
               </div>
 
-              <div className="mt-auto pt-2">
+              <div className="mt-auto pt-2 flex gap-2">
                 <button
-                  onClick={() => setActiveQuizId(quiz.id)}
-                  className="inline-flex w-full items-center justify-center gap-1.5 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
+                  onClick={() => setActiveDetailId(quiz.id)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-muted text-foreground hover:bg-muted/80 text-sm font-medium transition-colors"
+                >
+                  <BookOpen size={16} /> Học
+                </button>
+                <button
+                  onClick={() => setActiveDetailId(quiz.id)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   <Plus size={16} /> Bắt đầu làm
                 </button>

@@ -29,9 +29,19 @@ import {
   Sun,
   Award,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useRive } from "@rive-app/react-canvas";
+
+function RiveFireIcon() {
+  const { RiveComponent } = useRive({
+    src: '/fire.riv',
+    autoplay: true,
+  });
+  return <RiveComponent style={{ width: 24, height: 24 }} />;
+}
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
 const Spline = lazy(() => import("@splinetool/react-spline"));
@@ -40,7 +50,6 @@ const nav = [
   { path: "/dashboard", labelKey: "appShell.nav.dashboard", icon: Home },
   { path: "/notebooks", labelKey: "appShell.nav.notebooks", icon: BookMarked },
   { path: "/documents", labelKey: "appShell.nav.documents", icon: FileText },
-  { path: "/chat", labelKey: "appShell.nav.askAI", icon: Bot },
   { path: "/quiz", labelKey: "appShell.nav.quiz", icon: GraduationCap },
   { path: "/flashcards", labelKey: "appShell.nav.flashcards", icon: BookOpen },
   { path: "/community", labelKey: "appShell.nav.community", icon: Users },
@@ -270,65 +279,126 @@ export function AppShell() {
               })}
             </>
           ) : (
-            nav.map((item) => {
-              const active = location.pathname === item.path;
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="nav-pill"
-                      className="absolute inset-0 rounded-xl bg-white/10"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <Icon
-                    size={18}
-                    className="relative z-10 transition-colors duration-200 shrink-0"
-                    style={{
-                      color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                    }}
-                  />
-                  <span
-                    className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                      }`}
-                  >
-                    {t(item.labelKey)}
-                  </span>
-                </button>
-              );
-            })
+            <div className="space-y-6">
+              {/* Menu Chính */}
+              <div>
+                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                  Menu chính
+                </div>
+                {nav.slice(0, 6).map((item) => {
+                  const active = location.pathname === item.path;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="nav-pill"
+                          className="absolute inset-0 rounded-xl bg-white/10"
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <Icon
+                        size={18}
+                        className="relative z-10 transition-colors duration-200 shrink-0"
+                        style={{
+                          color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
+                        }}
+                      />
+                      <span
+                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                          }`}
+                      >
+                        {t(item.labelKey)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Cá nhân */}
+              <div>
+                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                  Cá nhân
+                </div>
+                {nav.slice(6, 8).map((item) => {
+                  const active = location.pathname === item.path;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="nav-pill"
+                          className="absolute inset-0 rounded-xl bg-white/10"
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <Icon
+                        size={18}
+                        className="relative z-10 transition-colors duration-200 shrink-0"
+                        style={{
+                          color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
+                        }}
+                      />
+                      <span
+                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                          }`}
+                      >
+                        {t(item.labelKey)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Quản trị */}
+              <div>
+                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                  Quản trị
+                </div>
+                {nav.slice(8).map((item) => {
+                  const active = location.pathname === item.path;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="nav-pill"
+                          className="absolute inset-0 rounded-xl bg-white/10"
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <Icon
+                        size={18}
+                        className="relative z-10 transition-colors duration-200 shrink-0"
+                        style={{
+                          color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
+                        }}
+                      />
+                      <span
+                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                          }`}
+                      >
+                        {t(item.labelKey)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </nav>
-
-        <div className="m-3 p-4 rounded-2xl relative overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 pointer-events-none select-none z-0">
-            {!isSplineReady && (
-              <div className="w-full h-full flex items-center justify-center opacity-30">
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-          </div>
-
-          <div className="relative z-10 pointer-events-auto">
-            <div className="text-[10px] uppercase tracking-wider text-primary font-bold">
-              {t("appShell.aiAssistant")}
-            </div>
-            <div className="mt-1 text-xs font-medium pr-12 leading-relaxed opacity-70 text-[var(--color-cream)]">
-              {t("appShell.readyToHelp")}
-            </div>
-            <button
-              onClick={() => navigate("/chat")}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline outline-none cursor-pointer"
-            >
-              {t("appShell.startChat")}
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* ── 2. KHU VỰC HIỂN THỊ NỘI DUNG CHÍNH BÊN PHẢI ── */}
@@ -401,40 +471,9 @@ export function AppShell() {
                   }}
                   className="flex items-center gap-2 px-3.5 h-9 rounded-full bg-orange-500/10 text-orange-500 text-sm font-bold border border-orange-500/20 hover:bg-orange-500/20 active:scale-95 transition-all outline-none cursor-pointer shadow-sm shadow-orange-500/5"
                 >
-                <motion.div
-                  animate={
-                    !isFlameAnimated
-                      ? {
-                        scaleY: 1,
-                        scaleX: 1,
-                        y: 0,
-                        filter: "drop-shadow(0 0 2px #f97316)"
-                      }
-                      : {
-                        scaleY: [1, 1.18, 0.92, 1.12, 1],
-                        scaleX: [1, 0.92, 1.06, 0.94, 1],
-                        y: [0, -2, 0.5, -1, 0],
-                        filter: [
-                          "drop-shadow(0 0 1px #f97316)",
-                          "drop-shadow(0 0 5px #ea580c)",
-                          "drop-shadow(0 0 1px #f97316)"
-                        ]
-                      }
-                  }
-                  transition={
-                    !isFlameAnimated
-                      ? { duration: 0.2, ease: "easeOut" }
-                      : {
-                        duration: 0.65,
-                        repeat: Infinity,
-                        repeatType: "mirror",
-                        ease: "easeInOut"
-                      }
-                  }
-                  className="inline-flex origin-bottom"
-                >
-                  <Flame size={14} fill="currentColor" />
-                </motion.div>
+                <div className="inline-flex origin-bottom items-center justify-center w-5 h-5">
+                  <RiveFireIcon />
+                </div>
                 <span>{t("appShell.streak")}</span>
                 </button>
               </div>
@@ -495,7 +534,7 @@ export function AppShell() {
                   onClick={() => navigate("/documents")}
                   className="inline-flex items-center justify-center gap-1.5 px-0 sm:px-4 w-9 sm:w-auto h-9 rounded-full bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-md shadow-primary/20 cursor-pointer"
                 >
-                  <Plus size={16} strokeWidth={2.5} /> <span className="hidden sm:inline">{t("appShell.upload")}</span>
+                  <Upload size={16} strokeWidth={2.5} /> <span className="hidden sm:inline">{t("appShell.upload")}</span>
                 </button>
 
                 <button

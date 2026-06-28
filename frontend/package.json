@@ -15,6 +15,7 @@
     "@radix-ui/react-select": "^2.3.0",
     "@radix-ui/react-slot": "^1.2.5",
     "@radix-ui/react-tooltip": "^1.2.9",
+    "@rive-app/react-canvas": "^4.29.3",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.97",
     "@studio-freight/lenis": "^1.0.42",

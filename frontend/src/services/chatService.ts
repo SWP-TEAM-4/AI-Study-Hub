@@ -156,17 +156,19 @@ export const chatService = {
   },
 
   // 4. POST /api/chat-sessions/{sessionId}/messages
-  async sendMessage(sessionId: number, content: string, topK: number = 3): Promise<ApiResponse<ChatResponseData>> {
+  async sendMessage(sessionId: number, content: string, topK: number = 3, signal?: AbortSignal): Promise<ApiResponse<ChatResponseData>> {
     try {
       return await chatRequest(`/chat-sessions/${sessionId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ content, topK })
+        body: JSON.stringify({ content, topK }),
+        signal
       });
     } catch (err) {
       console.warn("Fallback: Send chat message", err);
       return new Promise(resolve => setTimeout(() => {
+        const userMsgId = Math.floor(Math.random() * 1000000000);
         const userMsg: MessageDTO = {
-          id: Date.now(),
+          id: userMsgId,
           sessionId,
           messageSequence: (mockMessages[sessionId]?.length || 0) + 1,
           senderRole: "USER",
@@ -176,7 +178,7 @@ export const chatService = {
         };
 
         const aiMsg: MessageDTO = {
-          id: Date.now() + 1,
+          id: userMsgId + 1,
           sessionId,
           messageSequence: userMsg.messageSequence + 1,
           senderRole: "AI",

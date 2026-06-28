@@ -1,13 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { BookMarked, Plus, Search, Filter, Trash2, X } from "lucide-react";
+import { BookMarked, Plus, Search, Filter, Trash2, X, MoreHorizontal, Edit, Globe, Tag } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import NotebookDetailPage from "./NotebookDetailPage";
 import { notebookService, NotebookDTO } from "../services/notebookService";
 import { Notify } from "notiflix";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { handleApiError } from "../utils/errorHandler";
+import CustomSelect from "../components/ui/CustomSelect";
 
 const subjects = ["Tất cả", "SWP391", "SWT301", "SWR302", "PRN221", "PRJ301"];
 
@@ -15,13 +16,28 @@ import { useNavigate } from "react-router-dom";
 
 export default function NotebooksPage() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const [subject, setSubject] = useState("Tất cả");
+  const [q, setQ] = useState("");
+  const [filterSubject, setFilterSubject] = useState("all");
+  const [filterVisibility, setFilterVisibility] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
 
-  // Modal State
+  // Create Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newSubjectId, setNewSubjectId] = useState("12"); // Default to SWR302
+
+  // Edit Modal State
+  const [editModal, setEditModal] = useState({ isOpen: false, id: 0, title: "", subjectId: "12" });
+
+  // Mock Actions
+  const handleEdit = (nb: NotebookDTO) => {
+    setEditModal({ isOpen: true, id: nb.id, title: nb.title, subjectId: String(nb.subjectId) });
+  };
+  const handlePublish = (id: number) => {
+    Notify.success("Đã gửi lên cộng đồng! Trạng thái: Chờ duyệt.");
+  };
+  const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
   const queryClient = useQueryClient();
 
@@ -34,13 +50,25 @@ export default function NotebooksPage() {
   const notebooksList = notebooksData?.data?.items || [];
 
   const filtered = useMemo(
-    () =>
-      notebooksList.filter(
-        (n) =>
-          (subject === "Tất cả" || n.subjectCode === subject) &&
-          n.title.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [query, subject, notebooksList],
+    () => {
+      let result = notebooksList.filter((x: any) => {
+        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subjectCode || "").toLowerCase().includes(q.toLowerCase());
+        const matchSubject = filterSubject === "all" || x.subjectCode === filterSubject;
+        const matchVis = filterVisibility === "all" || x.visibility === filterVisibility;
+        const matchStatus = filterStatus === "all" || x.status === filterStatus;
+        return matchSearch && matchSubject && matchVis && matchStatus;
+      });
+
+      if (sortBy === "newest") {
+        result.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      } else if (sortBy === "oldest") {
+        result.sort((a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      } else if (sortBy === "az") {
+        result.sort((a: any, b: any) => a.title.localeCompare(b.title));
+      }
+      return result;
+    },
+    [notebooksList, q, filterSubject, filterVisibility, filterStatus, sortBy],
   );
 
   // 2. Create Mutation
@@ -59,6 +87,23 @@ export default function NotebooksPage() {
   const handleCreate = () => {
     if (!newTitle.trim()) return;
     createMutation.mutate({ subjectId: Number(newSubjectId), title: newTitle });
+  };
+
+  // 3. Update Mutation
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: number; subjectId: number; title: string }) => 
+      notebookService.updateNotebook(data.id, data.subjectId, data.title),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notebooks'] });
+      setEditModal({ isOpen: false, id: 0, title: "", subjectId: "12" });
+      Notify.success("Cập nhật Notebook thành công");
+    },
+    onError: (e) => handleApiError(e, "Lỗi cập nhật Notebook")
+  });
+
+  const handleUpdate = () => {
+    if (!editModal.title.trim()) return;
+    updateMutation.mutate({ id: editModal.id, subjectId: Number(editModal.subjectId), title: editModal.title });
   };
 
   // 3. Delete Mutation
@@ -94,29 +139,73 @@ export default function NotebooksPage() {
         </button>
       </div>
 
-      <div className="surface-card p-4 flex flex-col md:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+      <div className="surface-card p-3 rounded-2xl flex flex-col lg:flex-row gap-3 items-center border border-border relative z-30">
+        <div className="flex-1 relative flex items-center w-full">
+          <Search className="absolute left-4 text-muted-foreground" size={16} />
           <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm notebook..."
-            className="w-full pl-10 pr-3 h-10 rounded-xl bg-muted/60 border border-transparent focus:bg-card focus:border-primary outline-none text-sm"
+            className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hidden">
-          <Filter size={14} className="text-muted-foreground shrink-0" />
-          {subjects.map((s) => (
-            <button
-              key={s}
-              onClick={() => setSubject(s)}
-              className={`px-3 h-9 rounded-full text-xs font-medium shrink-0 transition-colors ${
-                subject === s ? "bg-ink text-cream" : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        
+        <div className="flex flex-wrap md:flex-nowrap gap-3 w-full lg:w-auto">
+          <CustomSelect
+            value={filterSubject}
+            onChange={setFilterSubject}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả môn học", value: "all" },
+              {
+                label: "Semester 5",
+                options: [
+                  { label: "SWP391", value: "SWP391" },
+                  { label: "SWT301", value: "SWT301" },
+                  { label: "SWR302", value: "SWR302" }
+                ]
+              },
+              {
+                label: "Semester 4",
+                options: [
+                  { label: "PRN221", value: "PRN221" },
+                  { label: "PRJ301", value: "PRJ301" }
+                ]
+              }
+            ]}
+          />
+          <CustomSelect
+            value={filterVisibility}
+            onChange={setFilterVisibility}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả hiển thị", value: "all" },
+              { label: "Riêng tư", value: "PRIVATE" },
+              { label: "Workspace", value: "WORKSPACE" },
+              { label: "Marketplace", value: "MARKETPLACE" }
+            ]}
+          />
+          <CustomSelect
+            value={filterStatus}
+            onChange={setFilterStatus}
+            className="flex-1 md:flex-none min-w-[140px]"
+            data={[
+              { label: "Tất cả trạng thái duyệt", value: "all" },
+              { label: "Chờ duyệt", value: "PENDING" },
+              { label: "Đã duyệt", value: "APPROVED" },
+              { label: "Từ chối", value: "REJECTED" }
+            ]}
+          />
+          <CustomSelect
+            value={sortBy}
+            onChange={setSortBy}
+            className="flex-1 md:flex-none min-w-[130px]"
+            data={[
+              { label: "Mới nhất", value: "newest" },
+              { label: "Cũ nhất", value: "oldest" },
+              { label: "A-Z", value: "az" }
+            ]}
+          />
         </div>
       </div>
 
@@ -153,13 +242,27 @@ export default function NotebooksPage() {
                       >
                         <BookMarked size={18} />
                       </div>
-                      <button 
-                        onClick={(e) => handleDelete(nb.id, e)}
-                        className="p-1.5 rounded-lg bg-destructive/10 text-destructive opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 hover:bg-destructive hover:text-destructive-foreground pointer-events-none group-hover:pointer-events-auto"
-                        title="Xóa Notebook"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      
+                      {/* Action Dropdown (Mocked) */}
+                      <div className="relative group/menu">
+                        <button className="text-muted-foreground hover:text-foreground p-1.5 rounded hover:bg-muted/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <MoreHorizontal size={16} />
+                        </button>
+                        <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
+                          <button onClick={(e) => { e.stopPropagation(); handleEdit(nb); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                            <Edit size={14} /> Sửa
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleAddTag(nb.id); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                            <Tag size={14} /> Gắn thẻ
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handlePublish(nb.id); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
+                            <Globe size={14} /> Đăng cộng đồng
+                          </button>
+                          <button onClick={(e) => handleDelete(nb.id, e)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
+                            <Trash2 size={14} /> Xóa
+                          </button>
+                        </div>
+                      </div>
                     </div>
                     
                     {/* Hàng 2: Cụm Tags Phân Loại Song Song */}
@@ -246,6 +349,58 @@ export default function NotebooksPage() {
                 >
                   {createMutation.isPending ? "Đang tạo..." : "Tạo Notebook"}
                 </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Modal Cập nhật Notebook */}
+      {editModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="surface-card w-full max-w-md rounded-2xl shadow-2xl p-6"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display text-xl font-bold">Cập nhật Notebook</h3>
+              <button onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X size={18} /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Tên Notebook</label>
+                <input 
+                  autoFocus 
+                  value={editModal.title} 
+                  onChange={e => setEditModal(prev => ({ ...prev, title: e.target.value }))} 
+                  placeholder="Nhập tên notebook..." 
+                  className="w-full h-11 px-3 rounded-xl bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Môn học</label>
+                <select 
+                  value={editModal.subjectId} 
+                  onChange={e => setEditModal(prev => ({ ...prev, subjectId: e.target.value }))}
+                  className="w-full h-11 px-3 rounded-xl bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all cursor-pointer"
+                >
+                  <optgroup label="Semester 5">
+                    <option value="1">SWP391</option>
+                    <option value="2">SWT301</option>
+                    <option value="12">SWR302</option>
+                  </optgroup>
+                  <optgroup label="Semester 4">
+                    <option value="5">PRN221</option>
+                    <option value="3">PRJ301</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))} className="px-4 h-10 rounded-xl bg-muted text-sm font-medium hover:bg-muted/80">Hủy</button>
+              <button onClick={handleUpdate} disabled={updateMutation.isPending || !editModal.title.trim()} className="px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50">
+                {updateMutation.isPending ? "Đang lưu..." : "Lưu thay đổi"}
+              </button>
             </div>
           </motion.div>
         </div>

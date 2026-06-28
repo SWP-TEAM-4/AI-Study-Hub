@@ -117,7 +117,7 @@ export default function DashboardPage() {
   const stats = [
     { label: t("dashboard.stats.notebook"), value: 5, icon: BookMarked, tint: "165" },
     { label: t("dashboard.stats.document"), value: 42, icon: FileText, tint: "200" },
-    { label: t("dashboard.stats.aiQuery"), value: 128, icon: Bot, tint: "35" },
+    { label: "Bài Quiz", value: 12, icon: GraduationCap, tint: "35" },
     { label: t("dashboard.stats.storage"), value: "1.2 GB", icon: HardDrive, tint: "75" },
   ];
 
@@ -141,12 +141,6 @@ export default function DashboardPage() {
             <strong className="text-foreground font-semibold">12 flashcard</strong>{t("dashboard.hero.desc3")}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              onClick={() => navigate("/chat")}
-              className="inline-flex items-center gap-1.5 px-5 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 shadow-sm transition-all cursor-pointer"
-            >
-              <Bot size={16} /> {t("dashboard.hero.askAI")}
-            </button>
             <button
               onClick={() => navigate("/notebooks")}
               className="inline-flex items-center gap-1.5 px-5 h-10 rounded-full bg-card border border-border text-sm font-medium hover:bg-muted shadow-sm transition-colors cursor-pointer"

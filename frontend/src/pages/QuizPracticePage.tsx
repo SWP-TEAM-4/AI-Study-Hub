@@ -96,17 +96,28 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
     const scoreVal = testResult.totalScore || 0;
 
     return (
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-2xl mx-auto">
-        <div className="surface-card p-8 lg:p-12 text-center gradient-hero">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="max-w-2xl mx-auto"
+      >
+        {/* ── RESULT CARD ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="surface-card p-8 lg:px-12 text-center gradient-hero"
+        >
           <motion.div
             initial={{ scale: 0, rotate: -20 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-            className="size-20 mx-auto rounded-3xl bg-primary text-primary-foreground grid place-items-center"
+            className="size-20 mx-auto mb-5 rounded-3xl bg-primary text-primary-foreground grid place-items-center shadow-lg shadow-primary/30"
           >
             <Trophy size={36} />
           </motion.div>
-          <h1 className="mt-5 text-3xl font-bold">Hoàn thành! 🎉</h1>
+          <h1 className="text-3xl font-bold">Hoàn thành! 🎉</h1>
           <p className="mt-2 text-muted-foreground">
             Bạn trả lời đúng <strong className="text-foreground">{correctC}</strong>/{totalQ} câu
           </p>
@@ -140,13 +151,11 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
                     </div>
                     <div>
                       <div className="font-medium text-sm">{i + 1}. {question.questionText}</div>
-                      
                       {!correct && selectedOpt && (
                         <div className="text-xs text-destructive mt-2">
                           Bạn chọn: <span className="line-through">{selectedOpt.optionText}</span>
                         </div>
                       )}
-                      
                       {item.explanation && (
                         <div className="mt-3 p-3 rounded-lg bg-card text-xs text-muted-foreground italic border border-border">
                           <strong>Giải thích:</strong> {item.explanation}
@@ -173,7 +182,7 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
               Về danh sách
             </button>
           </div>
-        </div>
+        </motion.div>
       </motion.div>
     );
   }
