@@ -1,15 +1,20 @@
 "use client";
 
 import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw } from "lucide-react";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { documentService, DocumentDTO, ShareLinkDTO } from "../services/documentService";
-import { Notify } from "notiflix";
+import { DocumentDTO, ShareLinkDTO, documentService } from "../services/documentService";
+import { Notify, Confirm } from "notiflix";
 import CustomSelect from "../components/ui/CustomSelect";
 import PublishModal from "../components/ui/PublishModal";
 import AiProcessModal from "../components/ui/AiProcessModal";
-import EmptyState from "../components/ui/EmptyState";
+import { 
+  useDocuments, 
+  useUploadDocument, 
+  useDeleteDocument 
+} from "../hooks/useDocuments";
+import { motionFadeUp } from "../lib/motion";
 
 // 🎯 BẢNG MÀU CHUẨN THƯƠNG HIỆU CHO TỪNG LOẠI FILE (HỖ TRỢ CẢ DARK MODE)
 const typeStyles: Record<string, { activeBtn: string; badge: string }> = {
@@ -46,9 +51,14 @@ export default function DocumentsPage() {
   const [filterVisibility, setFilterVisibility] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
-  const [list, setList] = useState<DocumentDTO[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+
+  // Fetch using Custom Hook
+  const { data: list = [], isLoading } = useDocuments();
+  const deleteMutation = useDeleteDocument();
+
+  // Upload using Custom Hook
+  const uploadMutation = useUploadDocument();
+  const isUploading = uploadMutation.isPending;
 
   // Mock functions for missing features
   const handleEdit = (id: number) => Notify.info("Tính năng Sửa đang được phát triển!");
@@ -57,6 +67,10 @@ export default function DocumentsPage() {
     if (doc) setPublishModalDoc(doc);
   };
   const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
+  
+  const handleDeleteDoc = (id: number) => {
+    deleteMutation.mutate(id);
+  };
 
   // Share Modal State
   const [shareModalDoc, setShareModalDoc] = useState<DocumentDTO | null>(null);
@@ -68,22 +82,6 @@ export default function DocumentsPage() {
   // AI Process State
   const [aiProcessFiles, setAiProcessFiles] = useState<FileList | null>(null);
 
-  useEffect(() => {
-    loadDocs();
-  }, []);
-
-  const loadDocs = async () => {
-    setIsLoading(true);
-    try {
-      const res = await documentService.getWorkspaceDocuments(0, 50);
-      if (res.success) setList(res.data.items);
-    } catch (err: any) {
-      Notify.failure("Lỗi tải tài liệu: " + (err.message || "Unknown error"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   {/* 🌟 HÀM DÙNG CHUNG: Xử lý vòng lặp upload danh sách File nhận vào */}
   const processFilesUpload = async (files: FileList) => {
     if (files.length === 0) return;
@@ -94,21 +92,15 @@ export default function DocumentsPage() {
     if (!aiProcessFiles) return;
     const files = aiProcessFiles;
     setAiProcessFiles(null);
-    setIsUploading(true);
     
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const res = await documentService.uploadDocument(file);
-        if (res.success) {
-          Notify.success(`Tải lên ${file.name} thành công`);
-          setList(prev => [res.data, ...prev]);
-        }
+        await uploadMutation.mutateAsync(file);
       }
     } catch (err: any) {
-      Notify.failure("Tải lên thất bại: " + (err.message || "Unknown error"));
+      // Error handled by hook
     } finally {
-      setIsUploading(false);
       if (inputRef.current) inputRef.current.value = "";
     }
   };
@@ -144,7 +136,7 @@ export default function DocumentsPage() {
   const filtered = useMemo(
     () => {
       let result = list.filter((x) => {
-        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subjectId || "").toString().includes(q.toLowerCase());
+        const matchSearch = (x.title || "").toLowerCase().includes((q || "").toLowerCase()) || (x.subjectId || "").toString().includes((q || "").toLowerCase());
         const matchSubject = filterSubject === "all" || x.subjectId === Number(filterSubject);
         const matchVis = filterVisibility === "all" || x.visibility === filterVisibility;
         const matchStatus = filterStatus === "all" || true;
@@ -156,7 +148,7 @@ export default function DocumentsPage() {
       } else if (sortBy === "oldest") {
         result.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
       } else if (sortBy === "az") {
-        result.sort((a, b) => a.title.localeCompare(b.title));
+        result.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
       }
       return result;
     },
@@ -388,12 +380,30 @@ export default function DocumentsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {filtered.map((d, i) => (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`skel-${i}`}>
+                  <td className="px-5 py-3 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
+                    <div className="flex items-center gap-3">
+                      <div className="size-9 rounded-xl bg-muted" />
+                      <div>
+                        <div className="h-4 w-32 bg-muted rounded mb-1" />
+                        <div className="h-3 w-20 bg-muted/50 rounded" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 hidden md:table-cell"><div className="h-4 w-16 bg-muted rounded" /></td>
+                  <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-12 bg-muted rounded" /></td>
+                  <td className="px-5 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-muted rounded" /></td>
+                  <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-6 bg-muted rounded" /></td>
+                  <td className="px-5 py-3 text-right"><div className="h-8 w-8 bg-muted rounded-lg inline-block" /></td>
+                </tr>
+              ))
+            ) : filtered.map((d, i) => (
               <motion.tr
                 key={d.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: i * 0.03 }}
+                {...motionFadeUp(i)}
                 className="hover:bg-muted/30 transition-colors group"
               >
                 <td className="px-5 py-3">
@@ -447,6 +457,9 @@ export default function DocumentsPage() {
                         </button>
                         <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
                           <Globe size={14} /> {t('pages.documents.table.publish')}
+                        </button>
+                        <button onClick={() => handleDeleteDoc(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
+                          <Trash2 size={14} /> Xóa tài liệu
                         </button>
                       </div>
                     </div>

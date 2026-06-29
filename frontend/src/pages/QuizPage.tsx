@@ -89,7 +89,12 @@ export default function QuizPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="space-y-6"
+    >
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -190,11 +195,10 @@ export default function QuizPage() {
             <motion.div
               key={quiz.id}
               layout
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ delay: i * 0.04 }}
-              whileHover={{ y: -3 }}
               className="surface-card p-5 flex flex-col !overflow-visible"
             >
               <div className="flex items-start justify-between mb-3">
@@ -242,10 +246,10 @@ export default function QuizPage() {
                   onClick={() => setActiveDetailId(quiz.id)}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-muted text-foreground hover:bg-muted/80 text-sm font-medium transition-colors"
                 >
-                  <BookOpen size={16} /> Học
+                  <BookOpen size={16} /> Chi tiết
                 </button>
                 <button
-                  onClick={() => setActiveDetailId(quiz.id)}
+                  onClick={() => setActiveQuizId(quiz.id)}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   <Plus size={16} /> {t('pages.quiz.playNow')}
@@ -255,6 +259,6 @@ export default function QuizPage() {
           ))}
         </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }

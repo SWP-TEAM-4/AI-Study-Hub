@@ -60,13 +60,7 @@ export default function NotFoundPage() {
             <Home size={20} className="relative z-10" />
             <span className="relative z-10">Về Trang chủ</span>
           </button>
-          <button
-            onClick={() => window.history.back()}
-            className="group inline-flex items-center justify-center gap-2 px-8 h-14 rounded-2xl bg-white/5 border border-white/10 text-white text-base font-bold transition-all hover:bg-white/10 hover:border-white/20 active:scale-95 w-full sm:w-auto"
-          >
-            <Rocket size={20} className="text-coral" />
-            <span>Quay lại</span>
-          </button>
+         
         </div>
       </motion.div>
     </div>

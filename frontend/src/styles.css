@@ -26,13 +26,24 @@
   --color-cream: #eff4ff;
   --color-neon: #22C55E;
   --color-space: #09090B;
+  
+  --animate-shimmer: shimmer 1.5s infinite linear;
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
 }
 
-html, body, #root { height: 100%; }
+html {
+  overflow-y: scroll !important;
+}
+#main-scroll-container {
+  scrollbar-gutter: stable;
+}
 body {
   margin: 0;
-  background: var(--color-space);
-  color: #FAFAFA;
+  @apply bg-background text-foreground;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -329,6 +340,8 @@ body {
   background: transparent;
 }
 
+
+
 /* ── Premium Dark Mode Component Styles ── */
 .dark .premium-sidebar {
   background: rgba(17, 17, 19, 0.75);
@@ -483,4 +496,50 @@ body {
   color: #FAFAFA;
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer components {
+  /* GLOBAL FOCUS RING */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+  
+  .focus-ring-offset-background {
+    @apply focus-visible:ring-offset-background;
+  }
+
+  /* LAYOUT - PHASE 3 */
+  .page-container {
+    @apply w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* CARD ELEVATIONS - PHASE 3 */
+  .card-hero {
+    @apply border border-primary/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] shadow-primary/20 bg-gradient-to-br from-background to-primary/5;
+  }
+
+  .card-flat {
+    @apply border border-border/40 bg-transparent shadow-none;
+  }
+}
+
+@layer base {
+  h1, h2, h3 {
+    @apply tracking-tight;
+  }
+  
+  .label-static {
+    @apply tracking-widest uppercase text-xs font-semibold;
+  }
+}
+
+/* Hide scrollbars globally on mobile devices (width < 1024px) */
+@media (max-width: 1023px) {
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
 }

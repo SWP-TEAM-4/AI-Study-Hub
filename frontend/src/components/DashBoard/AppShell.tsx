@@ -82,6 +82,9 @@ const adminNav = [
   { id: "system-configs", labelKey: "appShell.adminNav.systemConfigs", icon: Shield },
 ];
 
+import { MobileBottomNav } from "./MobileBottomNav";
+import { MobileHeader } from "./MobileHeader";
+
 export function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,6 +97,19 @@ export function AppShell() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isFlameAnimated, setIsFlameAnimated] = useState(true);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+
+  const authUserStr = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
+  let userRole = "STUDENT";
+  if (authUserStr && authUserStr !== "undefined") {
+    try {
+      const parsed = JSON.parse(authUserStr);
+      if (parsed && parsed.role) {
+        userRole = parsed.role;
+      }
+    } catch (e) {
+      console.error("Failed to parse auth_user:", e);
+    }
+  }
 
   // Mobile Drawer & Sidebar Toggle State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -149,7 +165,7 @@ export function AppShell() {
     setTimeout(() => {
       i18n.changeLanguage(nextLang);
       setIsChangingLanguage(false);
-    }, 700);
+    }, 3000);
   };
 
   const activeAdminTab = location.pathname.startsWith('/admin/') 
@@ -219,6 +235,8 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen flex bg-background text-foreground antialiased selection:bg-primary/20 app-shell-font">
+      <MobileHeader />
+      <MobileBottomNav />
 
       {/* ── 1. SIDEBAR CỐ ĐỊNH PHÍA BÊN TRÁI & MOBILE DRAWER ── */}
       <AnimatePresence>
@@ -384,43 +402,45 @@ export function AppShell() {
               </div>
 
               {/* Quản trị */}
-              <div>
-                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
-                  Quản trị
-                </div>
-                {nav.slice(8).map((item) => {
-                  const active = location.pathname === item.path;
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => navigate(item.path)}
-                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                    >
-                      {active && (
-                        <motion.span
-                          layoutId="nav-pill"
-                          className="absolute inset-0 rounded-xl bg-white/10"
-                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                        />
-                      )}
-                      <Icon
-                        size={18}
-                        className="relative z-10 transition-colors duration-200 shrink-0"
-                        style={{
-                          color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                        }}
-                      />
-                      <span
-                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                          }`}
+              {userRole === "ADMIN" && (
+                <div>
+                  <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                    Quản trị
+                  </div>
+                  {nav.slice(8).map((item) => {
+                    const active = location.pathname === item.path;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.path}
+                        onClick={() => navigate(item.path)}
+                        className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
                       >
-                        {t(item.labelKey)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        {active && (
+                          <motion.span
+                            layoutId="nav-pill"
+                            className="absolute inset-0 rounded-xl bg-white/10"
+                            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                        <Icon
+                          size={18}
+                          className="relative z-10 transition-colors duration-200 shrink-0"
+                          style={{
+                            color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
+                          }}
+                        />
+                        <span
+                          className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                            }`}
+                        >
+                          {t(item.labelKey)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
           
@@ -593,7 +613,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main id="main-scroll-container" className="flex-1 px-6 lg:px-8 py-6 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative">
+        <main id="main-scroll-container" className="flex-1 px-4 md:px-6 lg:px-8 pt-16 md:pt-6 pb-24 md:pb-6 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative">
           <Suspense fallback={
             <div className="flex h-[50vh] items-center justify-center">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>

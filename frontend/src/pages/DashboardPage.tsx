@@ -4,11 +4,15 @@ import { DashboardStudyChart } from "../components/DashBoard/DashboardStudyChart
 import { DashboardLeaderboardWidget } from "../components/DashBoard/DashboardLeaderboardWidget";
 import { DashboardRecentNotebooks } from "../components/DashBoard/DashboardRecentNotebooks";
 import { DashboardQuizFlashcards } from "../components/DashBoard/DashboardQuizFlashcards";
+import { OnboardingTour } from "../components/DashBoard/OnboardingTour";
 
 export default function DashboardPage() {
   return (
     <div className="space-y-8 select-none max-w-7xl mx-auto pb-10">
       
+      {/* ─── ONBOARDING TOUR (first visit only) ─── */}
+      <OnboardingTour />
+
       {/* ─── I. HERO BANNER ─── */}
       <DashboardHero />
 
@@ -33,4 +37,4 @@ export default function DashboardPage() {
 
     </div>
   );
-}
+}

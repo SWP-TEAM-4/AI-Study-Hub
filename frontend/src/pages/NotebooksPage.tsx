@@ -1,16 +1,21 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { BookMarked, Plus, Search, Filter, Trash2, X, MoreHorizontal, Edit, Globe, Tag } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { BookMarked, Plus, Search, Trash2, X, MoreHorizontal, Edit, Globe, Tag } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import NotebookDetailPage from "./NotebookDetailPage";
-import { notebookService, NotebookDTO } from "../services/notebookService";
-import { Notify } from "notiflix";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { handleApiError } from "../utils/errorHandler";
+import { NotebookDTO } from "../services/notebookService";
+import { 
+  useNotebooks, 
+  useCreateNotebook, 
+  useUpdateNotebook, 
+  useDeleteNotebook 
+} from "../hooks/useNotebooks";
 import CustomSelect from "../components/ui/CustomSelect";
+import { Notify, Confirm } from "notiflix";
 import EmptyState from "../components/ui/EmptyState";
+import { SkeletonCard } from "../components/ui/SkeletonCard";
+import { motionFadeUp } from "../lib/motion";
 
 const subjects = ["Tất cả", "SWP391", "SWT301", "SWR302", "PRN221", "PRJ301"];
 
@@ -42,15 +47,8 @@ export default function NotebooksPage() {
   };
   const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
-  const queryClient = useQueryClient();
-
-  // 1. Fetch Notebooks
-  const { data: notebooksData, isLoading } = useQuery({
-    queryKey: ['notebooks'],
-    queryFn: () => notebookService.getNotebooks()
-  });
-
-  const notebooksList = notebooksData?.data?.items || [];
+  // 1. Fetch Notebooks using Custom Hook
+  const { data: notebooksList = [], isLoading } = useNotebooks();
 
   const filtered = useMemo(
     () => {
@@ -74,17 +72,12 @@ export default function NotebooksPage() {
     [notebooksList, q, filterSubject, filterVisibility, filterStatus, sortBy],
   );
 
-  // 2. Create Mutation
-  const createMutation = useMutation({
-    mutationFn: (data: { subjectId: number; title: string }) => 
-      notebookService.createNotebook(data.subjectId, data.title),
+  // 2. Create Mutation using Custom Hook
+  const createMutation = useCreateNotebook({
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notebooks'] });
       setIsModalOpen(false);
       setNewTitle("");
-      Notify.success("Tạo Notebook thành công");
-    },
-    onError: (e) => handleApiError(e, "Lỗi tạo Notebook")
+    }
   });
 
   const handleCreate = () => {
@@ -92,16 +85,11 @@ export default function NotebooksPage() {
     createMutation.mutate({ subjectId: Number(newSubjectId), title: newTitle });
   };
 
-  // 3. Update Mutation
-  const updateMutation = useMutation({
-    mutationFn: (data: { id: number; subjectId: number; title: string }) => 
-      notebookService.updateNotebook(data.id, data.subjectId, data.title),
+  // 3. Update Mutation using Custom Hook
+  const updateMutation = useUpdateNotebook({
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notebooks'] });
       setEditModal({ isOpen: false, id: 0, title: "", subjectId: "12" });
-      Notify.success("Cập nhật Notebook thành công");
-    },
-    onError: (e) => handleApiError(e, "Lỗi cập nhật Notebook")
+    }
   });
 
   const handleUpdate = () => {
@@ -109,19 +97,11 @@ export default function NotebooksPage() {
     updateMutation.mutate({ id: editModal.id, subjectId: Number(editModal.subjectId), title: editModal.title });
   };
 
-  // 3. Delete Mutation
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => notebookService.deleteNotebook(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notebooks'] });
-      Notify.success("Đã xóa Notebook");
-    },
-    onError: (e) => handleApiError(e, "Lỗi xóa Notebook")
-  });
+  // 4. Delete Mutation using Custom Hook
+  const deleteMutation = useDeleteNotebook();
 
   const handleDelete = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Bạn có chắc muốn xóa Notebook này? Toàn bộ tài liệu bên trong sẽ bị mất.")) return;
     deleteMutation.mutate(id);
   };
 
@@ -215,7 +195,7 @@ export default function NotebooksPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <AnimatePresence mode="popLayout">
           {isLoading ? (
-            <div className="col-span-full py-12 text-center text-muted-foreground"><div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />Đang tải dữ liệu...</div>
+            Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
           ) : filtered.length === 0 ? (
             <div className="col-span-full">
               <EmptyState 
@@ -231,10 +211,8 @@ export default function NotebooksPage() {
               <motion.div
                 key={nb.id}
                 layout
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
+                {...motionFadeUp(i)}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: i * 0.04 }}
                 whileHover={{ y: -4 }}
               >
                 <div

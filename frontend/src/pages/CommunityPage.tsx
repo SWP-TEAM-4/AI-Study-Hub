@@ -7,11 +7,15 @@ import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { marketItems } from "../lib/mock-data";
 import { communityService, ContributorDTO } from "../services/communityService";
-import { documentService, DocumentDTO } from "../services/documentService";
-import { flashcardService, MarketplaceFlashcardDeckDTO } from "../services/flashcardService";
 import CommunityItemModal from "./CommunityItemModal";
 import CustomSelect from "../components/ui/CustomSelect";
 import { Notify, Loading } from "notiflix";
+import { 
+  useCommunityItems, 
+  useCloneItem 
+} from "../hooks/useCommunity";
+import { motionFadeUp } from "../lib/motion";
+import { useInView } from "react-intersection-observer";
 
 // 🎨 SEMANTIC ICON + COLOR MAPPING
 const kindStyle: Record<string, {
@@ -59,45 +63,22 @@ export default function CommunityPage() {
   
   const [page, setPage] = useState(1);
   const itemsPerPage = 12;
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Custom Hooks to query Community items
+  const { data: communityDocsResult, isLoading: loadingDocs } = useCommunityItems("documents", { search: filters.search });
+  const { data: communityDecksResult, isLoading: loadingDecks } = useCommunityItems("flashcards", { search: filters.search });
+
+  const communityDocs = communityDocsResult?.data?.items || [];
+  const communityDecks = communityDecksResult?.data?.items || [];
+  const isLoading = loadingDocs || loadingDecks;
+
   const [contributors, setContributors] = useState<ContributorDTO[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
-  const [communityDocs, setCommunityDocs] = useState<DocumentDTO[]>([]);
-  const [communityDecks, setCommunityDecks] = useState<MarketplaceFlashcardDeckDTO[]>([]);
   const [selectedItem, setSelectedItem] = useState<{ id: number; type: "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK"; title: string } | null>(null);
   
   // State quản lý danh sách Yêu thích & Theo dõi
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [followedUsers, setFollowedUsers] = useState<number[]>([]);
-
-  useEffect(() => {
-    let timeoutId: any;
-    const fetchAll = async () => {
-      setIsLoading(true);
-      await Promise.all([loadCommunityDocs(), loadCommunityDecks()]);
-      timeoutId = setTimeout(() => setIsLoading(false), 600);
-    };
-    fetchAll();
-    return () => clearTimeout(timeoutId);
-  }, [filters.search]);
-
-  const loadCommunityDocs = async () => {
-    try {
-      const res = await documentService.getCommunityDocuments(0, 50, filters.search);
-      if (res.success) setCommunityDocs(res.data.items);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const loadCommunityDecks = async () => {
-    try {
-      const res = await flashcardService.getMarketplaceFlashcardDecks(0, 50, filters.search);
-      if (res.success) setCommunityDecks(res.data.items);
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   useEffect(() => {
     if (filters.category === "leaderboard" && contributors.length === 0) {
@@ -110,15 +91,15 @@ export default function CommunityPage() {
   }, [filters.category]);
 
   const list = useMemo(() => {
-    const dynamicDocs = (communityDocs || []).map((d) => ({
-      id: "doc_" + d.id,
-      realId: d.id,
+    const dynamicDocs = (communityDocs || []).map((d: any) => ({
+      id: "doc_" + (d.targetId || d.id),
+      realId: (d.targetId || d.id),
       kind: "doc",
       title: d.title,
       subject: d.subjectId ? `Môn #${d.subjectId}` : "Tài liệu chung",
-      author: `User ${d.userId}`,
-      userId: d.userId,
-      isVerified: d.userId % 3 === 0,
+      author: d.creatorName || `User ${d.userId || d.targetId}`,
+      userId: d.userId || (d.targetId ? d.targetId + 200 : 0),
+      isVerified: (d.userId || d.targetId || 0) % 3 === 0,
       rating: d.acceptPercentage ? (d.acceptPercentage / 20).toFixed(1) : "4.8",
       downloads: d.downloadCount,
     }));
@@ -206,9 +187,19 @@ export default function CommunityPage() {
 
   const totalPages = Math.max(1, Math.ceil(list.length / itemsPerPage));
   const paginatedList = useMemo(
-    () => list.slice((page - 1) * itemsPerPage, page * itemsPerPage),
+    () => list.slice(0, page * itemsPerPage),
     [list, page, itemsPerPage],
   );
+
+  const { ref, inView } = useInView({
+    threshold: 0.1,
+  });
+
+  useEffect(() => {
+    if (inView && page < totalPages) {
+      setPage(p => p + 1);
+    }
+  }, [inView, page, totalPages]);
 
   useEffect(() => {
     setPage(1);
@@ -240,25 +231,13 @@ export default function CommunityPage() {
     });
   };
 
+  const cloneMutation = useCloneItem();
+
   const handleClone = async (realId: number, kind: string) => {
-    Loading.circle(kind === "doc" ? "Đang sao chép tài liệu về Workspace của bạn..." : "Đang đồng bộ bộ Flashcard...");
-    try {
-      // Simulate network latency for 800ms
-      await new Promise(resolve => setTimeout(resolve, 800));
-      if (kind === "doc") {
-        const res = await documentService.cloneMarketplaceDocument(realId);
-        if (res.success) Notify.success("Clone tài liệu thành công vào Workspace của bạn!");
-      } else if (kind === "deck") {
-        const res = await flashcardService.cloneMarketplaceDeck(realId);
-        if (res.success) Notify.success("Clone bộ Flashcard thành công!");
-      } else {
-        Notify.success("Tính năng đang phát triển cho loại này");
-      }
-    } catch (e: any) {
-      Notify.failure(e.message || "Lỗi khi clone");
-    } finally {
-      Loading.remove();
-    }
+    cloneMutation.mutate({
+      type: kind === "doc" ? "documents" : "flashcards",
+      id: realId
+    });
   };
 
   const handleDirectDownload = (title: string) => {
@@ -277,7 +256,12 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="space-y-6"
+    >
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
@@ -581,10 +565,8 @@ export default function CommunityPage() {
                 <motion.div
                   key={m.id}
                   layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  whileHover={{ y: -3 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="surface-card p-5 flex flex-col cursor-pointer group relative"
                   onClick={() => {
                     if ((m as any).realId) {
@@ -631,7 +613,7 @@ export default function CommunityPage() {
 
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <div className="size-6 rounded-full bg-gradient-to-br from-primary/60 to-primary text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                      {m.author.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+                      {m.author.split(" ").map((p: string) => p[0]).slice(0, 2).join("")}
                     </div>
                     <span className="truncate max-w-[90px] text-xs">{m.author}</span>
                     {(m as any).isVerified && (
@@ -685,51 +667,10 @@ export default function CommunityPage() {
       )}
       </div>
 
-      {/* PAGINATION */}
-      {filters.category !== "leaderboard" && !isLoading && totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-1">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="size-9 rounded-xl flex items-center justify-center border border-border/50 bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft size={16} />
-          </button>
-
-          <div className="flex items-center gap-0.5 mx-2">
-            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-              let pageNum = i + 1;
-              if (totalPages > 5) {
-                if (page > 3 && page < totalPages - 1) {
-                  pageNum = page - 2 + i;
-                } else if (page >= totalPages - 1) {
-                  pageNum = totalPages - 4 + i;
-                }
-              }
-
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setPage(pageNum)}
-                  className={`size-9 rounded-xl flex items-center justify-center text-xs font-semibold transition-all ${
-                    page === pageNum
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="size-9 rounded-xl flex items-center justify-center border border-border/50 bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight size={16} />
-          </button>
+      {/* INFINITE SCROLL TRIGGER */}
+      {filters.category !== "leaderboard" && !isLoading && page < totalPages && (
+        <div ref={ref} className="mt-8 flex justify-center py-4">
+          <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
 
@@ -743,6 +684,6 @@ export default function CommunityPage() {
           title={selectedItem.title}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

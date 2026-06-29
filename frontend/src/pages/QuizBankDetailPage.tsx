@@ -152,8 +152,8 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
               {questions.map((q, idx) => (
                 <motion.div 
                   layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   key={q.id} 
                   className={`border rounded-xl transition-all ${activeQuestionId === q.id ? 'border-primary ring-1 ring-primary/20 bg-primary/5' : 'border-border bg-card hover:border-primary/40'}`}
@@ -304,8 +304,8 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
           {/* PREVIEW / EDIT QUESTION FORM */}
           {activeQuestionId && activeQuestion && (
             <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               className="surface-card p-4 rounded-2xl flex-1 flex flex-col border border-border bg-card"
             >
               <div className="flex items-center justify-between mb-3 border-b border-border pb-3">

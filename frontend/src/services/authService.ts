@@ -83,7 +83,7 @@ export async function authRequest<T>(endpoint: string, bodyPayload: any): Promis
             avatarUrl: null,
             currentSemesterId: 3,
             comboId: 1,
-            role: "STUDENT",
+            role: email.includes("admin") ? "ADMIN" : (email.includes("reviewer") ? "REVIEWER" : "STUDENT"),
             reputationPoints: 120,
             isActive: true,
             createdAt: "2026-06-12T21:30:00"

@@ -18,7 +18,7 @@ export function DashboardHero() {
   const userName = profileRes?.data?.fullName?.split(" ")?.pop() || "bạn";
 
   return (
-    <section className="surface-card gradient-hero p-6 lg:p-8 flex flex-col lg:flex-row gap-6 items-center overflow-hidden relative min-h-[250px] shadow-sm rounded-2xl">
+    <section className="card-hero p-6 lg:p-8 flex flex-col lg:flex-row gap-6 items-center overflow-hidden relative min-h-[250px] rounded-2xl">
       <div className="flex-1 min-w-0 z-10 relative text-left">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
           <Flame size={14} aria-hidden="true" /> 

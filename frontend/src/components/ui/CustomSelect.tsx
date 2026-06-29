@@ -63,8 +63,12 @@ export default function CustomSelect({ value, onChange, data, placeholder, class
     <div className={`relative ${isOpen ? 'z-[100]' : ''} ${className}`} ref={containerRef}>
       <button
         type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={placeholder || "Chọn tùy chọn"}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-11 px-3 text-sm flex items-center justify-between outline-none cursor-pointer bg-muted/50 hover:bg-muted/80 border border-transparent focus:border-primary focus:bg-card rounded-xl transition-all"
+        className="w-full h-11 px-3 text-sm flex items-center justify-between outline-none cursor-pointer bg-muted/50 hover:bg-muted/80 border border-transparent focus:border-primary focus:bg-card focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-xl transition-all"
       >
         <span className="truncate pr-2 font-medium">{selectedLabel}</span>
         <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? "rotate-180" : ""}`} />
@@ -79,12 +83,15 @@ export default function CustomSelect({ value, onChange, data, placeholder, class
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="absolute z-50 mt-1.5 w-full min-w-[200px] left-0 md:left-auto right-auto md:right-0 bg-card border border-border shadow-lg rounded-xl overflow-hidden"
           >
-            <div className="max-h-[500px] overflow-y-auto custom-scrollbar py-1.5">
+            <div 
+              role="listbox" 
+              className="max-h-[500px] overflow-y-auto custom-scrollbar py-1.5"
+            >
               {data.map((item, i) => {
                 if ("options" in item) {
                   // It's a group
                   return (
-                    <div key={i} className="mb-1">
+                    <div key={i} className="mb-1" role="group" aria-label={item.label}>
                       <div className="px-3 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider bg-muted/20">
                         {item.label}
                       </div>
@@ -92,8 +99,10 @@ export default function CustomSelect({ value, onChange, data, placeholder, class
                         <button
                           key={opt.value}
                           type="button"
+                          role="option"
+                          aria-selected={value === opt.value}
                           onClick={() => handleSelect(opt.value)}
-                          className="w-full px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-muted/50 transition-colors"
+                          className="w-full px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-muted/50 transition-colors focus:bg-muted/50 outline-none"
                         >
                           <span className={value === opt.value ? "font-semibold text-primary" : ""}>{opt.label}</span>
                           {value === opt.value && <Check size={14} className="text-primary" />}
@@ -107,8 +116,10 @@ export default function CustomSelect({ value, onChange, data, placeholder, class
                     <button
                       key={item.value}
                       type="button"
+                      role="option"
+                      aria-selected={value === item.value}
                       onClick={() => handleSelect(item.value)}
-                      className="w-full px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-muted/50 transition-colors"
+                      className="w-full px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-muted/50 transition-colors focus:bg-muted/50 outline-none"
                     >
                       <span className={value === item.value ? "font-semibold text-primary" : ""}>{item.label}</span>
                       {value === item.value && <Check size={14} className="text-primary" />}

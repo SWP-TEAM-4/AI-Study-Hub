@@ -113,7 +113,10 @@ const BASE_URL = "/api";
 async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token) {
+    const cleanToken = token.replace(/['"]+/g, '');
+    headers.set("Authorization", `Bearer ${cleanToken}`);
+  }
   if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE" && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
@@ -121,6 +124,16 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
   const result = text ? JSON.parse(text) : {};
+
+  if (response.status === 401) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      localStorage.removeItem("auth-storage");
+      window.location.href = "/";
+    }
+    throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
+  }
 
   if (!response.ok) {
     throw {
@@ -284,12 +297,16 @@ export const documentService = {
     }
   },
 
-  async getMarketplaceDocuments(page = 0, size = 10): Promise<ApiResponse<PaginatedResponse<MarketplaceDocumentDTO>>> {
+  async getMarketplaceDocuments(page = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<MarketplaceDocumentDTO>>> {
     try {
-      return await docRequest(`/marketplace/documents?page=${page}&size=${size}`, { method: "GET" });
+      return await docRequest(`/marketplace/documents?page=${page}&size=${size}&keyword=${keyword}`, { method: "GET" });
     } catch (e) {
       return new Promise(res => setTimeout(() => {
-        const docs = mockDocuments.filter(d => d.visibility === "MARKETPLACE" && d.marketStatus === "APPROVED").map(d => ({
+        let docs = mockDocuments.filter(d => d.visibility === "MARKETPLACE" && d.marketStatus === "APPROVED");
+        if (keyword) {
+          docs = docs.filter(d => d.title.toLowerCase().includes(keyword.toLowerCase()));
+        }
+        const mappedDocs = docs.map(d => ({
           targetType: "DOCUMENT" as const,
           targetId: d.id,
           title: d.title,
@@ -301,7 +318,7 @@ export const documentService = {
           marketStatus: "APPROVED" as const,
           visibility: "MARKETPLACE" as const
         }));
-        res({ success: true, message: "Success", data: { items: docs, page, size, totalElements: docs.length, totalPages: 1 } });
+        res({ success: true, message: "Success", data: { items: mappedDocs, page, size, totalElements: mappedDocs.length, totalPages: 1 } });
       }, 300));
     }
   },

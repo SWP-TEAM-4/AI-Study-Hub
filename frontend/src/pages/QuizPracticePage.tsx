@@ -1,8 +1,41 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Check, X, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, X, Trophy, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { quizService, TestDTO, QuestionDTO } from "../services/quizService";
 import { Notify } from "notiflix";
+
+function AiExplainButton({ question, selected }: { question: string; selected: string }) {
+  const [explain, setExplain] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleExplain = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setExplain(`AI nhận thấy bạn đã nhầm lẫn. Lựa chọn "${selected}" không chính xác vì câu hỏi yêu cầu đặc tả khác. Hãy xem lại kiến thức về phần này!`);
+      setLoading(false);
+    }, 1500);
+  };
+
+  if (explain) {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-primary/5 text-xs text-primary italic border border-primary/20 flex gap-2">
+        <Sparkles size={14} className="shrink-0 mt-0.5" />
+        <span><strong>AI Giải thích:</strong> {explain}</span>
+      </div>
+    );
+  }
+
+  return (
+    <button 
+      onClick={handleExplain}
+      disabled={loading}
+      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors text-xs font-semibold disabled:opacity-50"
+    >
+      {loading ? <div className="size-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Sparkles size={14} />}
+      Hỏi AI vì sao sai
+    </button>
+  );
+}
 
 interface QuizPracticePageProps {
   quizId: number;
@@ -85,7 +118,25 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
   };
 
   if (isLoading) {
-    return <div className="py-20 text-center text-muted-foreground"><div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />Đang tạo đề thi...</div>;
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-12 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="h-2 bg-muted animate-pulse rounded-full" />
+        <div className="surface-card p-6 lg:p-8 space-y-6 relative overflow-hidden">
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+          <div className="h-7 w-3/4 bg-muted rounded mb-6" />
+          <div className="space-y-3">
+            <div className="h-14 w-full bg-muted rounded-xl" />
+            <div className="h-14 w-full bg-muted rounded-xl" />
+            <div className="h-14 w-full bg-muted rounded-xl" />
+            <div className="h-14 w-full bg-muted rounded-xl" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!q) return null;
@@ -97,16 +148,16 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
 
     return (
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
         className="max-w-2xl mx-auto"
       >
         {/* ── RESULT CARD ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15, duration: 0.3 }}
           className="surface-card p-8 lg:px-12 text-center gradient-hero"
         >
           <motion.div
@@ -149,19 +200,26 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
                     <div className={`size-6 rounded-full mt-0.5 grid place-items-center shrink-0 ${correct ? "bg-success text-white" : "bg-destructive text-white"}`}>
                       {correct ? <Check size={14} /> : <X size={14} />}
                     </div>
-                    <div>
-                      <div className="font-medium text-sm">{i + 1}. {question.questionText}</div>
-                      {!correct && selectedOpt && (
-                        <div className="text-xs text-destructive mt-2">
-                          Bạn chọn: <span className="line-through">{selectedOpt.optionText}</span>
-                        </div>
-                      )}
-                      {item.explanation && (
-                        <div className="mt-3 p-3 rounded-lg bg-card text-xs text-muted-foreground italic border border-border">
-                          <strong>Giải thích:</strong> {item.explanation}
-                        </div>
-                      )}
-                    </div>
+                      <div>
+                        <div className="font-medium text-sm">{i + 1}. {question.questionText}</div>
+                        {!correct && selectedOpt && (
+                          <div className="text-xs text-destructive mt-2">
+                            Bạn chọn: <span className="line-through">{selectedOpt.optionText}</span>
+                          </div>
+                        )}
+                        {(item.explanation || correct) ? (
+                          item.explanation && (
+                            <div className="mt-3 p-3 rounded-lg bg-card text-xs text-muted-foreground italic border border-border">
+                              <strong>Giải thích:</strong> {item.explanation}
+                            </div>
+                          )
+                        ) : (
+                          <AiExplainButton 
+                            question={question.questionText} 
+                            selected={selectedOpt?.optionText || ""} 
+                          />
+                        )}
+                      </div>
                   </div>
                 </div>
               );
@@ -207,16 +265,9 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
         <motion.div className="h-full bg-primary" initial={false} animate={{ width: `${progress}%` }} />
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={q.id}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          className="surface-card p-6 lg:p-8"
-        >
-          <h2 className="text-xl lg:text-2xl font-display font-semibold leading-relaxed">{q.questionText}</h2>
-          <div className="mt-6 space-y-3">
+      <div className="surface-card p-6 lg:p-8 min-h-[300px]">
+        <h2 className="text-xl lg:text-2xl font-display font-semibold leading-relaxed">{q.questionText}</h2>
+        <div className="mt-6 space-y-3">
             {q.options.map((opt, i) => {
               const selected = picked === opt.id;
               return (
@@ -237,8 +288,7 @@ export default function QuizPracticePage({ quizId, onBack }: QuizPracticePagePro
               );
             })}
           </div>
-        </motion.div>
-      </AnimatePresence>
+      </div>
 
       <div className="flex justify-end">
         <button

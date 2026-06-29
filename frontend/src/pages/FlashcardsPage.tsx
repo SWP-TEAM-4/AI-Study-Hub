@@ -1,12 +1,18 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import FlashcardStudyPage from "./FlashcardStudyPage";
-import { flashcardService, FlashcardDeckDTO } from "../services/flashcardService";
-import { Notify } from "notiflix";
+import { Notify, Confirm } from "notiflix";
 import { MockFeatureModal } from "../components/ui/MockFeatureModal";
 import CustomSelect from "../components/ui/CustomSelect";
+import { 
+  useFlashcardDecks, 
+  useGenerateFlashcardDeck,
+  useDeleteFlashcardDeck
+} from "../hooks/useFlashcards";
+import { SkeletonCard } from "../components/ui/SkeletonCard";
+import { motionFadeUp } from "../lib/motion";
 
 export default function FlashcardsPage() {
   const { t } = useTranslation();
@@ -16,9 +22,9 @@ export default function FlashcardsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
-  const [decksList, setDecksList] = useState<FlashcardDeckDTO[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { data: decksList = [], isLoading } = useFlashcardDecks();
+  const generateMutation = useGenerateFlashcardDeck();
+  const isGenerating = generateMutation.isPending;
 
   const [mockModal, setMockModal] = useState<{ isOpen: boolean; type: "EDIT" | "TAG" }>({ isOpen: false, type: "EDIT" });
 
@@ -26,24 +32,12 @@ export default function FlashcardsPage() {
   const handleEdit = (id: number) => setMockModal({ isOpen: true, type: "EDIT" });
   const handlePublish = (id: number) => {
     Notify.success("Đã gửi lên cộng đồng! Trạng thái: Chờ duyệt.");
-    // In real app: call API to update visibility to MARKETPLACE
   };
   const handleAddTag = (id: number) => setMockModal({ isOpen: true, type: "TAG" });
 
-  useEffect(() => {
-    loadDecks();
-  }, []);
-
-  const loadDecks = async () => {
-    setIsLoading(true);
-    try {
-      const res = await flashcardService.getMyFlashcardDecks(0, 50);
-      if (res.success) setDecksList(res.data.items);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
+  const deleteMutation = useDeleteFlashcardDeck();
+  const handleDeleteDeck = (id: number) => {
+    deleteMutation.mutate(id);
   };
 
   const list = useMemo(
@@ -69,19 +63,8 @@ export default function FlashcardsPage() {
     [q, filterSubject, filterVisibility, filterStatus, sortBy, decksList],
   );
 
-  const handleGenerateDeck = async () => {
-    setIsGenerating(true);
-    try {
-      const res = await flashcardService.generateFlashcardDeck({ numberOfCards: 20 });
-      if (res.success) {
-        Notify.success("Đã sinh xong bộ Flashcard bằng AI!");
-        setDecksList(prev => [res.data, ...prev]);
-      }
-    } catch (e: any) {
-      Notify.failure(e.message || "Lỗi khi sinh Flashcard");
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleGenerateDeck = () => {
+    generateMutation.mutate({ numberOfCards: 20 });
   };
 
   if (activeDeckId) {
@@ -89,7 +72,12 @@ export default function FlashcardsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="space-y-6"
+    >
       <MockFeatureModal 
         isOpen={mockModal.isOpen} 
         onClose={() => setMockModal({ isOpen: false, type: "EDIT" })} 
@@ -185,18 +173,18 @@ export default function FlashcardsPage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <AnimatePresence>
-          {list.map((deck, i) => {
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+          ) : list.map((deck, i) => {
             const masteredCount = Math.floor(deck.cards.length / 2); // Mock mastered count since progress is a separate API
             const pct = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
             return (
               <motion.div
                 key={deck.id}
                 layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ delay: i * 0.04 }}
-                whileHover={{ y: -3 }}
                 className="surface-card p-5 !overflow-visible"
               >
                 <div className="flex items-start justify-between mb-3">
@@ -219,6 +207,9 @@ export default function FlashcardsPage() {
                       </button>
                       <button onClick={() => handlePublish(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
                         <Globe size={14} /> {t('pages.flashcards.publish')}
+                      </button>
+                      <button onClick={() => handleDeleteDeck(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
+                        <Trash2 size={14} /> {t('pages.flashcards.delete', "Xóa bộ thẻ")}
                       </button>
                     </div>
                   </div>
@@ -249,6 +240,6 @@ export default function FlashcardsPage() {
           })}
         </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }
