@@ -1,7 +1,10 @@
 {
   "hero": {
     "streak": "7-day learning streak",
-    "greeting": "Hi Khoa, what to learn today?",
+    "greeting": "Hi {{name}}, what to learn today?",
+    "description": "Today you need to achieve your learning goals to maintain your leaderboard standing. Complete tasks or continue studying your subjects!",
+    "doQuiz": "Take Quiz",
+    "viewCommunity": "View Community",
     "desc1": "You have ",
     "desc2": " uncompleted quizzes and ",
     "desc3": " flashcards to review this week.",

@@ -36,9 +36,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('auth_user', JSON.stringify(data.user));
-        
+        const token = data.data?.accessToken || data.token || data.accessToken;
+        const user = data.data?.user || data.user;
+        localStorage.setItem('auth_token', token || '');
+        localStorage.setItem('auth_user', JSON.stringify(user || {}));
+
         setTimeout(() => {
           navigate('/dashboard');
         }, 500);

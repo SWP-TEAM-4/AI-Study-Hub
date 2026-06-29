@@ -1,5 +1,7 @@
-import React, { useRef } from "react";
-import { X, FileText, Maximize2, Download } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { X, FileText, Maximize2, Download, Edit3, Sparkles, Loader2, Save } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Notify } from "notiflix";
 
 export interface DocumentViewerPaneProps {
   documentTitle: string;
@@ -8,9 +10,36 @@ export interface DocumentViewerPaneProps {
 }
 
 export default function DocumentViewerPane({ documentTitle, onClose, viewerRef }: DocumentViewerPaneProps) {
+  const [activeTab, setActiveTab] = useState<"none" | "note" | "ai">("none");
+  const [noteContent, setNoteContent] = useState("");
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  
+  const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
+  const [outlineContent, setOutlineContent] = useState<string | null>(null);
+
+  const handleSaveNote = () => {
+    setIsSavingNote(true);
+    setTimeout(() => {
+      setIsSavingNote(false);
+      Notify.success("Đã lưu ghi chú cá nhân");
+    }, 800);
+  };
+
+  const handleGenerateOutline = () => {
+    setIsGeneratingOutline(true);
+    setOutlineContent(null);
+    setTimeout(() => {
+      setIsGeneratingOutline(false);
+      setOutlineContent("# Đề Cương Ôn Tập\n\n## 1. Microservices là gì?\n- Biến thể của SOA\n- Gồm các dịch vụ nhỏ, độc lập\n- Giao tiếp qua HTTP/gRPC\n\n## 2. Ưu điểm\n- Độc lập triển khai\n- Tự do công nghệ\n\n## 3. Thách thức\n- Network Latency\n- Distributed Transactions");
+      Notify.success("Đã tạo đề cương thành công!");
+    }, 2500);
+  };
+
   return (
-    <div className="flex-1 flex flex-col border-r border-border/50 bg-background/50 h-full overflow-hidden">
-      {/* Header */}
+    <div className="flex-1 flex border-r border-border/50 bg-background/50 h-full overflow-hidden">
+      {/* LEFT: Document Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border/50 bg-muted/10 shrink-0">
         <div className="flex items-center gap-2 overflow-hidden">
           <div className="size-8 shrink-0 rounded-lg bg-card border border-border/50 grid place-items-center text-primary shadow-sm">
@@ -25,6 +54,21 @@ export default function DocumentViewerPane({ documentTitle, onClose, viewerRef }
         </div>
         
         <div className="flex items-center gap-1 shrink-0 ml-2">
+          <button 
+            onClick={() => setActiveTab(activeTab === "note" ? "none" : "note")}
+            className={`flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors ${activeTab === "note" ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            <Edit3 size={14} /> Ghi chú
+          </button>
+          <button 
+            onClick={() => setActiveTab(activeTab === "ai" ? "none" : "ai")}
+            className={`flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors mr-2 ${activeTab === "ai" ? "bg-rose-500/20 text-rose-500" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            <Sparkles size={14} /> AI Outline
+          </button>
+          
+          <div className="w-px h-4 bg-border/50 mx-1" />
+          
           <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors" title="Phóng to">
             <Maximize2 size={16} />
           </button>
@@ -67,6 +111,80 @@ export default function DocumentViewerPane({ documentTitle, onClose, viewerRef }
           </p>
         </div>
       </div>
+      </div>
+
+      {/* RIGHT: Tools Sidebar */}
+      <AnimatePresence>
+        {activeTab !== "none" && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 320, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="border-l border-border/50 bg-card flex flex-col shrink-0 h-full overflow-hidden"
+          >
+            <div className="p-4 border-b border-border/50 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                {activeTab === "note" ? <><Edit3 size={16} className="text-primary"/> Ghi chú cá nhân</> : <><Sparkles size={16} className="text-rose-500"/> Tạo Đề Cương (AI)</>}
+              </h3>
+              <button onClick={() => setActiveTab("none")} className="text-muted-foreground hover:text-foreground"><X size={16}/></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+              {activeTab === "note" && (
+                <>
+                  <p className="text-xs text-muted-foreground">Ghi chú này được lưu riêng tư cho bạn đối với tài liệu này.</p>
+                  <textarea
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                    placeholder="Nhập ghi chú của bạn vào đây..."
+                    className="flex-1 w-full bg-muted/30 border border-border/50 rounded-xl p-3 text-sm focus:border-primary outline-none resize-none custom-scrollbar"
+                  />
+                  <button 
+                    onClick={handleSaveNote}
+                    disabled={isSavingNote}
+                    className="w-full h-10 rounded-xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {isSavingNote ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    {isSavingNote ? "Đang lưu..." : "Lưu ghi chú"}
+                  </button>
+                </>
+              )}
+
+              {activeTab === "ai" && (
+                <>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Hệ thống AI sẽ đọc toàn bộ nội dung tài liệu và trích xuất thành một Đề Cương Ôn Tập (Outline) bao gồm các chương và ý chính.
+                  </p>
+                  
+                  {!outlineContent && !isGeneratingOutline && (
+                    <button 
+                      onClick={handleGenerateOutline}
+                      className="w-full h-10 mt-2 rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 hover:scale-[1.02] transition-transform"
+                    >
+                      <Sparkles size={16} /> Tạo Đề Cương Ngay
+                    </button>
+                  )}
+
+                  {isGeneratingOutline && (
+                    <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
+                      <div className="size-12 rounded-full border-4 border-rose-500/30 border-t-rose-500 animate-spin" />
+                      <p className="text-sm font-semibold text-rose-500 animate-pulse">AI đang phân tích tài liệu...</p>
+                    </div>
+                  )}
+
+                  {outlineContent && (
+                    <div className="mt-2 bg-muted/30 border border-border/50 rounded-xl p-4">
+                      <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+                        {outlineContent}
+                      </pre>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

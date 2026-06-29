@@ -5,8 +5,8 @@ import { feedbackService } from "../../services/feedbackService";
 
 const feedbackStatusBadge: Record<string, string> = {
   OPEN: "bg-red-500/15 text-red-500",
-  IN_PROGRESS: "bg-warning/20 text-warning-foreground",
-  RESOLVED: "bg-success/15 text-success",
+  IN_PROGRESS: "bg-amber-500/12 text-amber-300 border border-amber-500/25",
+  RESOLVED: "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25",
   CLOSED: "bg-muted text-muted-foreground",
 };
 

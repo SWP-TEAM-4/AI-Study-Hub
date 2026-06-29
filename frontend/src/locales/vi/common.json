@@ -43,5 +43,33 @@
     "keepItUp": "Giữ vững phong độ! ",
     "upload": "Tải lên",
     "exit": "Thoát"
+  },
+  "filters": {
+    "allSubjects": "Tất cả môn học",
+    "allVisibility": "Tất cả hiển thị",
+    "allStatus": "Tất cả trạng thái duyệt",
+    "allLevels": "Tất cả độ khó",
+    "easy": "Dễ",
+    "medium": "Trung bình",
+    "hard": "Khó",
+    "sortNewest": "Mới nhất",
+    "sortOldest": "Cũ nhất",
+    "sortAZ": "A-Z",
+    "private": "Riêng tư",
+    "workspace": "Workspace",
+    "marketplace": "Marketplace",
+    "pending": "Chờ duyệt",
+    "approved": "Đã duyệt",
+    "rejected": "Từ chối",
+    "allSemesters": "Tất cả học kỳ",
+    "semester1": "Học kỳ 1 (S1)",
+    "semester2": "Học kỳ 2 (S2)",
+    "semester3": "Học kỳ 3 (S3)",
+    "semester4": "Học kỳ 4 (S4)",
+    "semester5": "Học kỳ 5 (S5)",
+    "semester6": "Học kỳ 6 (S6)",
+    "semester7": "Học kỳ 7 (S7)",
+    "semester8": "Học kỳ 8 (S8)",
+    "semester9": "Học kỳ 9 (S9)"
   }
 }

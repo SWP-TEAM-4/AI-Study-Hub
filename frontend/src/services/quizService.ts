@@ -166,7 +166,15 @@ export const quizService = {
 
   async getQuizzes(): Promise<ApiResponse<PaginatedResponse<QuizDTO>>> {
     try {
-      return await qRequest(`/quizzes`);
+      const res = await qRequest<ApiResponse<PaginatedResponse<QuizDTO>>>(`/quizzes`);
+      if (!res.data || !res.data.items || res.data.items.length === 0) {
+        return {
+          success: true,
+          message: "Success (Mock)",
+          data: { items: mockQuizzes, page: 0, size: 10, totalElements: mockQuizzes.length, totalPages: 1 }
+        };
+      }
+      return res;
     } catch {
       return new Promise((res) => setTimeout(() => {
         res({

@@ -7,6 +7,7 @@ import "highlight.js/styles/atom-one-dark.css";
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { chatService, ChatSessionDTO, MessageDTO } from "../../services/chatService";
 import { Notify } from "notiflix";
+import AiConfigModal from "../ui/AiConfigModal";
 
 interface NotebookChatProps {
   notebookId: number;
@@ -60,6 +61,9 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
   const [isSessionsDropdownOpen, setIsSessionsDropdownOpen] = useState(false);
   const [activeStudioTab, setActiveStudioTab] = useState<"overview" | "quiz" | "flashcard">("overview");
+
+  // AI Config Modal State
+  const [aiConfigModalType, setAiConfigModalType] = useState<"quiz" | "flashcard" | null>(null);
 
   // Document Viewer inside sources panel
   const [viewingDocument, setViewingDocument] = useState<any | null>(null);
@@ -175,18 +179,30 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
     }
   };
 
+  const lastPinTimeRef = useRef<Record<number, number>>({});
+
   const togglePinSession = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    setSessions(prev => {
-      const updated = prev.map(s => s.id === id ? { ...s, isPinned: !s.isPinned } : s);
-      const target = updated.find(s => s.id === id);
-      if (!target?.isPinned) {
-        Notify.success("Đã bỏ ghim phiên chat");
-      } else {
-        Notify.success("Đã ghim phiên chat lên đầu");
-      }
-      return updated;
-    });
+    const now = Date.now();
+    const lastTime = lastPinTimeRef.current[id] || 0;
+    if (now - lastTime < 1000) {
+      return;
+    }
+    lastPinTimeRef.current[id] = now;
+
+    const session = sessions.find(s => s.id === id);
+    if (!session) return;
+
+    const nextPinState = !session.isPinned;
+    if (nextPinState) {
+      Notify.success("Đã ghim phiên chat lên đầu");
+    } else {
+      Notify.success("Đã bỏ ghim phiên chat");
+    }
+
+    setSessions(prev => 
+      prev.map(s => s.id === id ? { ...s, isPinned: nextPinState } : s)
+    );
   };
 
   const sortedSessions = [...sessions].sort((a, b) => {
@@ -288,13 +304,24 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
   };
 
   const handleGenQuiz = () => {
-    send("Hãy tạo cho tôi một bài Quiz 5 câu hỏi trắc nghiệm dựa trên kiến thức của Notebook này.");
-    setActiveStudioTab("quiz");
+    setAiConfigModalType("quiz");
   };
 
   const handleGenFlashcard = () => {
-    send("Hãy tạo cho tôi một bộ Flashcard gồm 5 thẻ từ vựng hoặc khái niệm quan trọng nhất trong Notebook này.");
-    setActiveStudioTab("flashcard");
+    setAiConfigModalType("flashcard");
+  };
+
+  const handleAiGenerate = (config: any) => {
+    const { amount, level, type } = config;
+    const levelText = level === "easy" ? "Dễ" : level === "medium" ? "Trung bình" : "Khó";
+    
+    if (type === "quiz") {
+      send(`Hãy tạo cho tôi một bài Quiz ${amount} câu hỏi trắc nghiệm (Mức độ: ${levelText}) dựa trên kiến thức của Notebook này.`);
+      setActiveStudioTab("quiz");
+    } else {
+      send(`Hãy tạo cho tôi một bộ Flashcard gồm ${amount} thẻ từ vựng (Mức độ: ${levelText}) dựa trên kiến thức của Notebook này.`);
+      setActiveStudioTab("flashcard");
+    }
   };
 
   const startResizeLeft = (e: React.MouseEvent) => {
@@ -549,7 +576,23 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
                             `}
                           >
                             {s.isPinned ? <Pin size={10} className="rotate-45 text-primary fill-primary shrink-0" /> : <MessageSquare size={10} className="text-muted-foreground shrink-0" />}
-                            <span className="truncate">{s.title}</span>
+                            {editingSessionId === s.id ? (
+                              <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") renameSession(s.id, editTitle);
+                                  else if (e.key === "Escape") setEditingSessionId(null);
+                                }}
+                                onBlur={() => renameSession(s.id, editTitle)}
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full bg-background text-foreground text-xs px-2 py-0.5 rounded border border-primary outline-none font-medium"
+                              />
+                            ) : (
+                              <span className="truncate">{s.title}</span>
+                            )}
                           </button>
                           
                           {/* Thao tác trên phiên chat */}
@@ -861,6 +904,13 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
           </div>
         )}
       </div>
+
+      <AiConfigModal 
+        isOpen={aiConfigModalType !== null}
+        onClose={() => setAiConfigModalType(null)}
+        type={aiConfigModalType || "quiz"}
+        onGenerate={handleAiGenerate}
+      />
     </div>
   );
 });

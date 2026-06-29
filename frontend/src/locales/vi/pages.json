@@ -1,0 +1,127 @@
+{
+  "notebooks": {
+    "title": "Kho Notebooks",
+    "desc": "Quản lý và tổ chức các ghi chú, bài giảng của bạn.",
+    "addNotebook": "Thêm Notebook",
+    "search": "Tìm kiếm notebook...",
+    "recent": "Notebooks Gần Đây",
+    "myNotebooks": "Notebooks Của Tôi",
+    "emptyTitle": "Chưa có Notebook nào",
+    "emptyDesc": "Bạn chưa tạo Notebook nào hoặc không có Notebook nào phù hợp với bộ lọc. Hãy tạo một Notebook mới để bắt đầu lưu trữ tài liệu và ghi chú học tập.",
+    "createFirst": "Tạo Notebook Đầu Tiên",
+    "edit": "Sửa",
+    "addTag": "Gắn thẻ",
+    "publish": "Đăng cộng đồng",
+    "delete": "Xóa"
+  },
+  "notebookDetail": {
+    "back": "Quay lại",
+    "rename": "Đổi tên",
+    "share": "Chia sẻ",
+    "overview": "Tổng quan",
+    "chat": "Hỏi đáp AI",
+    "summary": "Tóm tắt & Giải thích"
+  },
+  "documents": {
+    "title": "Quản lý Tài liệu",
+    "desc": "Lưu trữ, phân loại và tìm kiếm mọi tài liệu học tập của bạn.",
+    "upload": "Tải lên",
+    "search": "Tìm kiếm tài liệu...",
+    "dragDrop": "Kéo & thả tài liệu vào đây",
+    "maxSize": "PDF, DOCX, PPTX, TXT · tối đa 50MB / file",
+    "uploading": "Đang xử lý tải tài liệu lên...",
+    "category": "Danh mục",
+    "semester": "Học kỳ",
+    "sort": "Sắp xếp theo",
+    "sortNewest": "Mới nhất",
+    "sortOldest": "Cũ nhất",
+    "sortSizeDesc": "Dung lượng giảm dần",
+    "sortSizeAsc": "Dung lượng tăng dần",
+    "table": {
+      "document": "Tài liệu",
+      "subject": "Môn",
+      "tags": "Tags",
+      "size": "Dung lượng",
+      "downloads": "Tải",
+      "editDesc": "Sửa mô tả",
+      "addTag": "Gắn thẻ",
+      "publish": "Đăng cộng đồng"
+    },
+    "emptyTitle": "Chưa có tài liệu nào",
+    "emptyDesc": "Bạn chưa tải lên tài liệu nào hoặc không có tài liệu nào phù hợp với bộ lọc. Kéo thả file hoặc nhấn Tải lên để thêm tài liệu mới.",
+    "uploadNow": "Tải tài liệu ngay"
+  },
+  "sharedDocument": {
+    "back": "Trở về Cộng đồng",
+    "download": "Tải tài liệu ngay",
+    "size": "Dung lượng",
+    "sharedBy": "Người chia sẻ",
+    "comments": "Bình luận",
+    "simulatedContent": "Mô phỏng nội dung file PDF/DOCX...",
+    "commentPlaceholder": "Viết bình luận của bạn...",
+    "send": "Gửi"
+  },
+  "flashcards": {
+    "title": "Kho Flashcards",
+    "desc": "Ôn tập kiến thức nhanh chóng với thẻ ghi nhớ thông minh.",
+    "addDeck": "Tạo Bộ Thẻ",
+    "search": "Tìm kiếm bộ flashcard...",
+    "subject": "Môn",
+    "progress": "Tiến độ",
+    "studyNow": "Học ngay",
+    "emptyTitle": "Chưa có bộ Flashcard nào",
+    "emptyDesc": "Bạn chưa tạo bộ Flashcard nào. Hãy tạo Flashcard từ tài liệu của bạn trong Kho Tài Liệu.",
+    "goToDocs": "Đi tới Tài Liệu",
+    "edit": "Sửa",
+    "addTag": "Gắn thẻ",
+    "publish": "Đăng cộng đồng"
+  },
+  "quiz": {
+    "title": "Luyện tập Trắc nghiệm",
+    "desc": "Kiểm tra kiến thức qua các bài Quiz được tự động tạo bởi AI.",
+    "createQuiz": "Tạo Bài Test",
+    "search": "Tìm kiếm bài quiz...",
+    "level": "Độ khó",
+    "questions": "câu hỏi",
+    "bestScore": "Điểm cao nhất",
+    "playNow": "Làm bài ngay",
+    "emptyTitle": "Chưa có bài Quiz nào",
+    "emptyDesc": "Bạn chưa có quiz nào hoặc không có quiz nào phù hợp với bộ lọc. Hãy tạo Quiz từ tài liệu của bạn trong Kho Tài Liệu.",
+    "goToDocs": "Đi tới Tài Liệu",
+    "edit": "Sửa",
+    "addTag": "Gắn thẻ",
+    "publish": "Đăng cộng đồng"
+  },
+  "community": {
+    "title": "Cộng đồng AI Study Hub",
+    "desc": "Chia sẻ, thảo luận và học hỏi cùng hàng ngàn sinh viên khác.",
+    "tabs": {
+      "explore": "Khám phá Tài liệu",
+      "leaderboard": "Bảng Xếp Hạng",
+      "discussion": "Thảo luận"
+    },
+    "search": "Tìm kiếm trong cộng đồng...",
+    "semester": "Học kỳ",
+    "subject": "Môn học",
+    "post": "+ Đăng bài",
+    "leaderboard": {
+      "rank": "Hạng",
+      "contributor": "Contributor",
+      "badge": "Danh hiệu",
+      "downloads": "Lượt tải",
+      "rating": "Đánh giá chung",
+      "interaction": "Tương tác",
+      "follow": "Theo dõi",
+      "following": "Đang theo dõi"
+    }
+  },
+  "chat": {
+    "title": "Chat với AI",
+    "placeholder": "Hỏi về nội dung môn học, ví dụ: 'Giải thích về Pointer trong C'...",
+    "history": "Lịch sử Chat",
+    "newChat": "Chat Mới",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "older": "Cũ hơn"
+  }
+}

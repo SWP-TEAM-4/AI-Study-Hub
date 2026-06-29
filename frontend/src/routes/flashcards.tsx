@@ -58,7 +58,7 @@
 //                 className="surface-card p-5"
 //               >
 //                 <div className="flex items-center justify-between mb-3">
-//                   <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium">{deck.subject}</span>
+//                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium">{deck.subject}</span>
 //                   <span className="text-xs text-muted-foreground">{deck.updated}</span>
 //                 </div>
 //                 <h3 className="font-display text-lg font-semibold">{deck.title}</h3>

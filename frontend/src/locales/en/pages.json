@@ -1,0 +1,127 @@
+{
+  "notebooks": {
+    "title": "Notebooks Hub",
+    "desc": "Manage and organize your notes and lectures.",
+    "addNotebook": "Add Notebook",
+    "search": "Search notebooks...",
+    "recent": "Recent Notebooks",
+    "myNotebooks": "My Notebooks",
+    "emptyTitle": "No Notebooks Yet",
+    "emptyDesc": "You haven't created any notebooks yet, or none match the filter. Create your first notebook to start organizing your study materials.",
+    "createFirst": "Create First Notebook",
+    "edit": "Edit",
+    "addTag": "Add Tag",
+    "publish": "Publish to Community",
+    "delete": "Delete"
+  },
+  "notebookDetail": {
+    "back": "Back",
+    "rename": "Rename",
+    "share": "Share",
+    "overview": "Overview",
+    "chat": "AI Q&A",
+    "summary": "Summary & Explanation"
+  },
+  "documents": {
+    "title": "Document Management",
+    "desc": "Store, categorize, and search all your study materials.",
+    "upload": "Upload",
+    "search": "Search documents...",
+    "dragDrop": "Drag & drop documents here",
+    "maxSize": "PDF, DOCX, PPTX, TXT · max 50MB / file",
+    "uploading": "Uploading documents...",
+    "category": "Category",
+    "semester": "Semester",
+    "sort": "Sort by",
+    "sortNewest": "Newest",
+    "sortOldest": "Oldest",
+    "sortSizeDesc": "Size (Large to Small)",
+    "sortSizeAsc": "Size (Small to Large)",
+    "table": {
+      "document": "Document",
+      "subject": "Subject",
+      "tags": "Tags",
+      "size": "Size",
+      "downloads": "Downloads",
+      "editDesc": "Edit Description",
+      "addTag": "Add Tag",
+      "publish": "Publish to Community"
+    },
+    "emptyTitle": "No Documents Yet",
+    "emptyDesc": "You haven't uploaded any documents yet, or none match the filter. Drag & drop or click Upload to add your materials.",
+    "uploadNow": "Upload Document Now"
+  },
+  "sharedDocument": {
+    "back": "Back to Community",
+    "download": "Download Document Now",
+    "size": "Size",
+    "sharedBy": "Shared by",
+    "comments": "Comments",
+    "simulatedContent": "Simulated PDF/DOCX content...",
+    "commentPlaceholder": "Write your comment...",
+    "send": "Send"
+  },
+  "flashcards": {
+    "title": "Flashcards Hub",
+    "desc": "Review knowledge quickly with smart flashcards.",
+    "addDeck": "Create Deck",
+    "search": "Search flashcard decks...",
+    "subject": "Subject",
+    "progress": "Progress",
+    "studyNow": "Study Now",
+    "emptyTitle": "No Flashcards Yet",
+    "emptyDesc": "You haven't created any flashcard decks. Create one from your documents in the Documents Hub.",
+    "goToDocs": "Go to Documents",
+    "edit": "Edit",
+    "addTag": "Add Tag",
+    "publish": "Publish to Community"
+  },
+  "quiz": {
+    "title": "Quiz Practice",
+    "desc": "Test your knowledge through AI-generated quizzes.",
+    "createQuiz": "Create Quiz",
+    "search": "Search quizzes...",
+    "level": "Difficulty",
+    "questions": "questions",
+    "bestScore": "Best Score",
+    "playNow": "Play Now",
+    "emptyTitle": "No Quizzes Yet",
+    "emptyDesc": "You don't have any quizzes or none match the filter. Create a Quiz from your documents in the Documents Hub.",
+    "goToDocs": "Go to Documents",
+    "edit": "Edit",
+    "addTag": "Add Tag",
+    "publish": "Publish to Community"
+  },
+  "community": {
+    "title": "AI Study Hub Community",
+    "desc": "Share, discuss, and learn together with thousands of other students.",
+    "tabs": {
+      "explore": "Explore Documents",
+      "leaderboard": "Leaderboard",
+      "discussion": "Discussion"
+    },
+    "search": "Search the community...",
+    "semester": "Semester",
+    "subject": "Subject",
+    "post": "+ New Post",
+    "leaderboard": {
+      "rank": "Rank",
+      "contributor": "Contributor",
+      "badge": "Badge",
+      "downloads": "Downloads",
+      "rating": "Overall Rating",
+      "interaction": "Interaction",
+      "follow": "Follow",
+      "following": "Following"
+    }
+  },
+  "chat": {
+    "title": "Chat with AI",
+    "placeholder": "Ask about course materials, e.g., 'Explain Pointer in C'...",
+    "history": "Chat History",
+    "newChat": "New Chat",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "older": "Older"
+  }
+}

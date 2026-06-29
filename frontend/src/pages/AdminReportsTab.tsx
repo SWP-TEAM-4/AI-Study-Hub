@@ -125,7 +125,7 @@ export default function AdminReportsTab() {
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
                         report.status === "PENDING_ADMIN" ? "bg-warning/10 text-warning-foreground border-warning/20" :
-                        report.status === "RESOLVED" ? "bg-success/10 text-success border-success/20" :
+                        report.status === "RESOLVED" ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" :
                         "bg-destructive/10 text-destructive border-destructive/20"
                       }`}>
                         {report.status === "PENDING_ADMIN" ? <Clock size={12} /> : report.status === "RESOLVED" ? <CheckCircle2 size={12} /> : <XCircle size={12} />}

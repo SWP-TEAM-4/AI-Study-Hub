@@ -445,7 +445,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
                       <td className="px-4 py-3 font-semibold text-foreground truncate max-w-[200px] text-left">{test.title}</td>
                       <td className="px-4 py-3 font-mono font-bold text-primary text-left">{test.totalScore}/10</td>
                       <td className="px-4 py-3 hidden sm:table-cell text-left text-muted-foreground">{test.duration} phút</td>
-                      <td className="px-4 py-3 text-right"><span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${test.status === "COMPLETED" ? "bg-success/15 text-success" : "bg-warning/15 text-warning-foreground"}`}>{test.status}</span></td>
+                      <td className="px-4 py-3 text-right"><span className={`text-[9px] px-2.5 py-0.5 rounded-full font-medium uppercase ${test.status === "COMPLETED" ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : "bg-amber-500/12 text-amber-300 border border-amber-500/25"}`}>{test.status}</span></td>
                     </tr>
                   ))
                 )}

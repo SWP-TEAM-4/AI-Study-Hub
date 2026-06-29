@@ -269,8 +269,15 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   const handleFinishCombo = () => {
     const token = localStorage.getItem("auth_token") || "";
     const userStr = localStorage.getItem("auth_user");
-    const user = userStr ? JSON.parse(userStr) : { email: "", role: "student" };
-    onLoginSuccess(token, user);
+    let user = { email: "anhkhoa@fpt.edu.vn", role: "STUDENT" };
+    if (userStr && userStr !== "undefined") {
+      try {
+        user = JSON.parse(userStr);
+      } catch (e) {
+        console.error("Error parsing user from localStorage", e);
+      }
+    }
+    onLoginSuccess(token, user as any);
   };
 
   return (
@@ -331,8 +338,15 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
                 onLoginSuccess={(email: string) => {
                   const token = localStorage.getItem("auth_token") || "";
                   const userStr = localStorage.getItem("auth_user");
-                  const user = userStr ? JSON.parse(userStr) : { email, role: "STUDENT" };
-                  onLoginSuccess(token, user);
+                  let user = { email: email || "anhkhoa@fpt.edu.vn", role: "STUDENT" };
+                  if (userStr && userStr !== "undefined") {
+                    try {
+                      user = JSON.parse(userStr);
+                    } catch (e) {
+                      console.error("Error parsing user from localStorage", e);
+                    }
+                  }
+                  onLoginSuccess(token, user as any);
                 }}
               />
             </motion.div>

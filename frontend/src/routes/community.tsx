@@ -88,7 +88,7 @@ function CommunityPage() {
                 >
                   <Icon size={18} />
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium">{m.subject}</span>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium">{m.subject}</span>
               </div>
               <h3 className="font-display font-semibold leading-snug flex-1">{m.title}</h3>
               <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">

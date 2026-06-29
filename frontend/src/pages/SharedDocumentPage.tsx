@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FileText, Download, Lock, Clock, User, AlertTriangle, AlertCircle, HardDrive } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { documentService, SharedDocumentDTO } from "../services/documentService";
 
 interface SharedDocumentPageProps {
@@ -8,6 +9,7 @@ interface SharedDocumentPageProps {
 }
 
 export default function SharedDocumentPage({ shareToken }: SharedDocumentPageProps) {
+  const { t } = useTranslation();
   const [doc, setDoc] = useState<SharedDocumentDTO | null>(null);
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +66,9 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
     return (
       <div className="w-screen h-screen flex flex-col items-center justify-center bg-space text-cream app-shell-font">
         <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-        <div className="text-sm font-medium tracking-widest text-muted-foreground uppercase animate-pulse">Đang kết nối vệ tinh...</div>
+        <div className="text-sm font-medium tracking-widest text-muted-foreground uppercase animate-pulse">
+          {t('pages.sharedDocument.connecting', 'Đang kết nối vệ tinh...')}
+        </div>
       </div>
     );
   }
@@ -77,10 +81,10 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
           <div className="size-20 mx-auto bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-6">
             {error.code === "SHARE_LINK_EXPIRED" ? <Clock size={32} /> : <AlertTriangle size={32} />}
           </div>
-          <h1 className="text-2xl font-display font-bold text-foreground mb-2">Truy cập bị từ chối</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground mb-2">{t('pages.sharedDocument.accessDenied', 'Truy cập bị từ chối')}</h1>
           <p className="text-muted-foreground text-sm leading-relaxed mb-8">{error.message}</p>
           <button onClick={() => window.location.href = "/"} className="h-12 px-8 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold transition-colors">
-            Quay về Trang chủ
+            {t('pages.sharedDocument.backToHome', 'Quay về Trang chủ')}
           </button>
         </motion.div>
       </div>
@@ -113,7 +117,7 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
                     </span>
                   )}
                 </div>
-                <h1 className="text-2xl md:text-3xl font-display font-bold text-white truncate w-full" title={doc?.title}>
+                <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground truncate w-full" title={doc?.title}>
                   {doc?.title}
                 </h1>
                 <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
@@ -126,10 +130,10 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
 
           {/* Body Area */}
           <div className="p-8">
-            <div className="bg-white/5 rounded-2xl p-5 border border-white/5 mb-8">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Mô tả tài liệu</h4>
-              <p className="text-sm text-cream/90 leading-relaxed font-medium">
-                {doc?.description || "Tài liệu không có lời tựa mô tả đính kèm."}
+            <div className="bg-muted/40 rounded-2xl p-5 border border-border/50 mb-8">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{t('pages.sharedDocument.descriptionTitle', 'Mô tả tài liệu')}</h4>
+              <p className="text-sm text-foreground/90 leading-relaxed font-medium">
+                {doc?.description || t('pages.sharedDocument.noDescription', 'Tài liệu không có lời tựa mô tả đính kèm.')}
               </p>
             </div>
 
@@ -141,14 +145,14 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
                   className="flex-1 w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold text-base hover:brightness-110 active:scale-95 transition-all shadow-[0_0_30px_rgba(var(--primary),0.3)] flex items-center justify-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
                 >
                   {isDownloading ? (
-                    <><div className="size-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> Đang chuẩn bị...</>
+                    <><div className="size-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> {t('pages.sharedDocument.preparing', 'Đang chuẩn bị...')}</>
                   ) : (
-                    <><Download size={20} /> Tải tài liệu ngay</>
+                    <><Download size={20} /> {t('pages.sharedDocument.download')}</>
                   )}
                 </button>
               ) : (
                 <div className="flex-1 w-full h-14 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive font-bold text-base flex items-center justify-center gap-2 cursor-not-allowed">
-                  <Lock size={20} /> Tác giả không cho phép tải xuống
+                  <Lock size={20} /> {t('pages.sharedDocument.downloadDisabled', 'Tải xuống bị vô hiệu hóa')}
                 </div>
               )}
             </div>

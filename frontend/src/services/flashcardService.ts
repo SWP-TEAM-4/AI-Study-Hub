@@ -126,7 +126,19 @@ export const flashcardService = {
 
   async getMyFlashcardDecks(page = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>> {
     try {
-      return await flashcardRequest(`/flashcard-decks?page=${page}&size=${size}&keyword=${keyword}`, { method: "GET" });
+      const res = await flashcardRequest<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>>(`/flashcard-decks?page=${page}&size=${size}&keyword=${keyword}`, { method: "GET" });
+      if (!res.data || !res.data.items || res.data.items.length === 0) {
+        let items = mockDecks.filter(d => d.userId === 1);
+        if (keyword) {
+          items = items.filter(d => d.title.toLowerCase().includes(keyword.toLowerCase()));
+        }
+        return {
+          success: true,
+          message: "Success (Mock)",
+          data: { items, page, size, totalElements: items.length, totalPages: 1 }
+        };
+      }
+      return res;
     } catch (e) {
       return new Promise(res => setTimeout(() => {
         let items = mockDecks.filter(d => d.userId === 1);

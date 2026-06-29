@@ -1,0 +1,32 @@
+{
+  "aiConfigModal": {
+    "titleQuiz": "Cấu hình Quiz",
+    "titleFlashcard": "Cấu hình Flashcard",
+    "amountQuestions": "Số lượng câu hỏi",
+    "amountCards": "Số lượng thẻ",
+    "difficulty": "Độ khó",
+    "easy": "Dễ",
+    "medium": "Vừa",
+    "hard": "Khó",
+    "processing": "Đang xử lý...",
+    "generate": "Tạo bằng AI"
+  },
+  "aiProcessModal": {
+    "title": "AI đang xử lý",
+    "ocr": "Đang quét OCR tài liệu...",
+    "extract": "Đang trích xuất khái niệm chính...",
+    "vectorize": "Đang tạo vector index cho Chatbot...",
+    "done": "Hoàn tất xử lý!"
+  },
+  "publishModal": {
+    "title": "Chia sẻ Cộng đồng",
+    "desc": "Công khai tài liệu của bạn để nhận danh hiệu và đóng góp cho cộng đồng.",
+    "doc": "Tài liệu",
+    "semester": "Học kỳ",
+    "subject": "Môn học",
+    "description": "Mô tả",
+    "descriptionPlaceholder": "Giới thiệu sơ qua về tài liệu này...",
+    "cancel": "Hủy",
+    "publish": "Đăng tải"
+  }
+}

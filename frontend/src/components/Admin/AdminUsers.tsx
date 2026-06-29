@@ -81,14 +81,14 @@ export default function AdminUsers() {
                   </select>
                 </td>
                 <td className="px-5 py-3 text-left">
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${user.isActive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}>
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium uppercase ${user.isActive ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : "bg-rose-500/12 text-rose-300 border border-rose-500/25"}`}>
                     {user.isActive ? t("admin.users.active") : t("admin.users.locked")}
                   </span>
                 </td>
                 <td className="px-5 py-3 text-right">
                   <div className="inline-flex gap-1.5">
                     <button onClick={() => handleRewardBadge(user.id)} className="size-8 rounded-lg border border-border grid place-items-center hover:text-primary transition-colors cursor-pointer"><Award size={13} /></button>
-                    <button onClick={() => handleToggleActive(user.id, user.isActive)} className={`size-8 rounded-lg grid place-items-center ${user.isActive ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"} cursor-pointer`}>
+                    <button onClick={() => handleToggleActive(user.id, user.isActive)} className={`size-8 rounded-lg grid place-items-center ${user.isActive ? "bg-rose-500/12 text-rose-300 border border-rose-500/25" : "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25"} cursor-pointer`}>
                       {user.isActive ? <UserMinus size={13} /> : <UserCheck size={13} />}
                     </button>
                   </div>

@@ -76,10 +76,32 @@ const MOCK_SUBJECTS = {
 
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
 
+function getUserId(): number {
+  try {
+    const userStr = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
+    if (userStr && userStr !== "undefined") {
+      const user = JSON.parse(userStr);
+      return user.id || user.userId || 1;
+    }
+  } catch (e) {
+    console.error("Error parsing auth_user in getUserId:", e);
+  }
+  return 1;
+}
+
 export const notebookService = {
   async getNotebooks(page = 0, size = 10): Promise<ApiResponse<PaginatedResponse<NotebookDTO>>> {
     try {
-      return await nbRequest(`/notebooks?page=${page}&size=${size}`, { method: "GET" });
+      const userId = getUserId();
+      const res = await nbRequest<ApiResponse<PaginatedResponse<NotebookDTO>>>(`/notebooks?page=${page}&size=${size}&userId=${userId}`, { method: "GET" });
+      if (!res.data || !res.data.items || res.data.items.length === 0) {
+        return {
+          success: true,
+          message: "Success (Mock)",
+          data: { items: mockNotebooks, page, size, totalElements: mockNotebooks.length, totalPages: 1 }
+        };
+      }
+      return res;
     } catch (e) {
       return new Promise(res => setTimeout(() => {
         res({
@@ -96,7 +118,8 @@ export const notebookService = {
 
   async getNotebookDetails(id: number): Promise<ApiResponse<NotebookDTO>> {
     try {
-      return await nbRequest(`/notebooks/${id}`, { method: "GET" });
+      const userId = getUserId();
+      return await nbRequest(`/notebooks/${id}?userId=${userId}`, { method: "GET" });
     } catch (e) {
       return new Promise((res, rej) => setTimeout(() => {
         const item = mockNotebooks.find(n => n.id === id);
@@ -108,7 +131,8 @@ export const notebookService = {
 
   async createNotebook(subjectId: number, title: string): Promise<ApiResponse<NotebookDTO>> {
     try {
-      return await nbRequest(`/notebooks`, {
+      const userId = getUserId();
+      return await nbRequest(`/notebooks?userId=${userId}`, {
         method: "POST",
         body: JSON.stringify({ subjectId, title })
       });
@@ -132,7 +156,8 @@ export const notebookService = {
 
   async updateNotebook(id: number, subjectId: number, title: string): Promise<ApiResponse<NotebookDTO>> {
     try {
-      return await nbRequest(`/notebooks/${id}`, {
+      const userId = getUserId();
+      return await nbRequest(`/notebooks/${id}?userId=${userId}`, {
         method: "PUT",
         body: JSON.stringify({ subjectId, title })
       });
@@ -153,7 +178,8 @@ export const notebookService = {
 
   async deleteNotebook(id: number): Promise<ApiResponse<{ deleted: boolean }>> {
     try {
-      return await nbRequest(`/notebooks/${id}`, { method: "DELETE" });
+      const userId = getUserId();
+      return await nbRequest(`/notebooks/${id}?userId=${userId}`, { method: "DELETE" });
     } catch (e) {
       return new Promise(res => setTimeout(() => {
         mockNotebooks = mockNotebooks.filter(n => n.id !== id);

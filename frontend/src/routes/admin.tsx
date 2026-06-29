@@ -38,9 +38,9 @@ const queue = [
 ];
 
 const statusStyles: Record<string, { Icon: typeof CheckCircle2; text: string; cls: string }> = {
-  pending: { Icon: Clock, text: "Chờ duyệt", cls: "bg-warning/20 text-warning-foreground" },
-  approved: { Icon: CheckCircle2, text: "Đã duyệt", cls: "bg-success/15 text-success" },
-  rejected: { Icon: XCircle, text: "Từ chối", cls: "bg-destructive/15 text-destructive" },
+  pending: { Icon: Clock, text: "Chờ duyệt", cls: "bg-amber-500/12 text-amber-300 border border-amber-500/25" },
+  approved: { Icon: CheckCircle2, text: "Đã duyệt", cls: "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" },
+  rejected: { Icon: XCircle, text: "Từ chối", cls: "bg-rose-500/12 text-rose-300 border border-rose-500/25" },
 };
 
 function AdminPage() {

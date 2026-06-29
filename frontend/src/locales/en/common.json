@@ -43,5 +43,33 @@
     "keepItUp": "Keep it up! ",
     "upload": "Upload",
     "exit": "Exit"
+  },
+  "filters": {
+    "allSubjects": "All Subjects",
+    "allVisibility": "All Visibility",
+    "allStatus": "All Approval Status",
+    "allLevels": "All Levels",
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Hard",
+    "sortNewest": "Newest",
+    "sortOldest": "Oldest",
+    "sortAZ": "A-Z",
+    "private": "Private",
+    "workspace": "Workspace",
+    "marketplace": "Marketplace",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "allSemesters": "All Semesters",
+    "semester1": "Semester 1 (S1)",
+    "semester2": "Semester 2 (S2)",
+    "semester3": "Semester 3 (S3)",
+    "semester4": "Semester 4 (S4)",
+    "semester5": "Semester 5 (S5)",
+    "semester6": "Semester 6 (S6)",
+    "semester7": "Semester 7 (S7)",
+    "semester8": "Semester 8 (S8)",
+    "semester9": "Semester 9 (S9)"
   }
 }

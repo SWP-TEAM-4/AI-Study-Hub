@@ -1,12 +1,13 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, Send, Sparkles, FileText, Plus, Trash2, MessageSquare, Clock, Pencil, Pin, MoreVertical } from "lucide-react";
+import { Bot, Send, Sparkles, FileText, Plus, Trash2, MessageSquare, Clock, Pencil, Pin, MoreVertical, Paperclip, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/atom-one-dark.css";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { chatService, ChatSessionDTO, MessageDTO } from "../services/chatService";
 import { Notify } from "notiflix";
 
@@ -20,10 +21,13 @@ const suggestions = [
 ];
 
 export default function ChatPage() {
+  const { t } = useTranslation();
   const [sessions, setSessions] = useState<ExtendedChatSessionDTO[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [input, setInput] = useState("");
+  const [attachedDoc, setAttachedDoc] = useState<{id: number, title: string} | null>(null);
+  const [isAttachOpen, setIsAttachOpen] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -266,10 +270,10 @@ export default function ChatPage() {
         <div className="flex-1 surface-card overflow-hidden flex flex-col rounded-2xl border border-border/50">
           <div className="p-4 border-b border-border/50 bg-muted/20">
             <h3 className="font-display font-semibold flex items-center gap-2 text-sm text-foreground">
-              <Clock size={16} className="text-primary" /> Lịch sử Chat
+              <Clock size={16} className="text-primary" /> {t('pages.chat.history')}
             </h3>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 pt-0 scrollbar-hidden">
+          <div className="flex-1 overflow-y-auto p-3 pt-0 pb-32 scrollbar-hidden">
             {loadingSessions ? (
               <div className="flex flex-col gap-2 mt-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -412,7 +416,7 @@ export default function ChatPage() {
             <Bot size={20} />
           </div>
           <div>
-            <h1 className="font-display text-lg font-bold">Trợ lý AI RAG</h1>
+            <h1 className="font-display text-lg font-bold">{t('pages.chat.title', 'Trợ lý AI RAG')}</h1>
             <div className="text-[11px]  text-muted-foreground flex items-center gap-1.5 mt-0.5">
               <span className="size-1.5 rounded-full bg-success animate-pulse" /> Kết nối cơ sở dữ liệu học thuật
             </div>
@@ -434,8 +438,8 @@ export default function ChatPage() {
               <div className="size-16 rounded-3xl bg-muted grid place-items-center mb-4 text-muted-foreground">
                 <Sparkles size={28} />
               </div>
-              <h2 className="text-lg font-bold mb-2">Hỏi AI bất kỳ điều gì!</h2>
-              <p className="text-sm text-muted-foreground max-w-sm">Hệ thống sẽ tổng hợp câu trả lời dựa trên các tài liệu đã tải lên trong thư mục này.</p>
+              <h2 className="text-lg font-bold mb-2">{t('pages.chat.welcomeTitle', 'Hỏi AI bất kỳ điều gì!')}</h2>
+              <p className="text-sm text-muted-foreground max-w-sm">{t('pages.chat.welcomeDesc', 'Hệ thống sẽ tổng hợp câu trả lời dựa trên các tài liệu đã tải lên trong thư mục này.')}</p>
             </div>
           ) : (
             <AnimatePresence initial={false}>
@@ -499,7 +503,7 @@ export default function ChatPage() {
                 <Bot size={16} />
               </div>
               <div className="px-4 py-3.5 rounded-2xl rounded-tl-sm bg-muted/40 border border-border/50 flex items-center gap-1.5 text-muted-foreground text-sm">
-                <span className=" text-xs">AI đang phân tích tài liệu</span>
+                <span className=" text-xs">{t('pages.chat.thinking', 'AI đang phân tích tài liệu')}</span>
                 <span className="flex gap-0.5 ml-1">
                   {[0, 1, 2].map((i) => (
                     <motion.span
@@ -541,44 +545,124 @@ export default function ChatPage() {
               e.preventDefault();
               send();
             }}
-            className="flex items-end gap-2 bg-muted/30 border border-border/60 p-1.5 rounded-2xl focus-within:border-primary/50 focus-within:bg-card transition-colors"
+            className="flex flex-col gap-2 bg-muted/30 border border-border/60 p-2 rounded-2xl focus-within:border-primary/50 focus-within:bg-card transition-colors relative"
           >
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              rows={1}
-              placeholder="Nhập nội dung hỏi đáp (Shift + Enter để xuống dòng)..."
-              className="flex-1 bg-transparent px-4 py-2.5 text-sm outline-none resize-none max-h-32 min-h-[44px] font-medium placeholder:text-muted-foreground/60"
-            />
-            {thinking ? (
+            {/* Vùng hiển thị Document được đính kèm */}
+            {attachedDoc && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl w-max ml-1 mt-1">
+                <FileText size={14} className="text-primary" />
+                <span className="text-xs font-semibold text-primary">{attachedDoc.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setAttachedDoc(null)}
+                  className="ml-1 text-primary/60 hover:text-primary transition-colors cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-end gap-2 w-full">
               <button
                 type="button"
-                onClick={handleStop}
-                className="size-[44px] shrink-0 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 active:scale-95 transition-all cursor-pointer animate-pulse"
+                onClick={() => setIsAttachOpen(true)}
+                className="size-[44px] shrink-0 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
+                title="Đính kèm tài liệu"
               >
-                <div className="size-3 bg-white rounded-[2px]" />
+                <Paperclip size={18} />
               </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                className="size-[44px] shrink-0 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
-              >
-                <Send size={18} className="mr-0.5" />
-              </button>
-            )}
+
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
+                rows={1}
+                placeholder={t('pages.chat.placeholder')}
+                className="flex-1 bg-transparent px-2 py-3 text-sm outline-none resize-none max-h-32 min-h-[44px] font-medium placeholder:text-muted-foreground/60"
+              />
+              
+              {thinking ? (
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="size-[44px] shrink-0 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 active:scale-95 transition-all cursor-pointer animate-pulse"
+                >
+                  <div className="size-3 bg-white rounded-[2px]" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="size-[44px] shrink-0 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Send size={18} className="mr-0.5" />
+                </button>
+              )}
+            </div>
           </form>
           <div className="text-center mt-2 text-[11px] text-muted-foreground">
             AI có thể đưa ra thông tin không chính xác. Hãy kiểm tra lại các trích dẫn tài liệu.
           </div>
         </div>
       </div>
+
+      {/* POPUP CHỌN TÀI LIỆU ĐÍNH KÈM */}
+      <AnimatePresence>
+        {isAttachOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsAttachOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-md bg-card border border-border shadow-2xl rounded-2xl overflow-hidden flex flex-col"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-border/50 bg-muted/20">
+                <h3 className="font-bold text-base text-foreground">Chọn tài liệu ngữ cảnh</h3>
+                <button
+                  onClick={() => setIsAttachOpen(false)}
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted/50 p-1.5 rounded-full transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-4 max-h-[300px] overflow-y-auto custom-scrollbar flex flex-col gap-2">
+                {[
+                  { id: 1, title: "Bài giảng SWP391 - Chương 1" },
+                  { id: 2, title: "Tài liệu ôn thi cuối kỳ PRN221" },
+                  { id: 3, title: "Đề cương chi tiết MAD101" }
+                ].map(doc => (
+                  <button
+                    key={doc.id}
+                    onClick={() => {
+                      setAttachedDoc(doc);
+                      setIsAttachOpen(false);
+                    }}
+                    className="flex items-center gap-3 p-3 w-full text-left rounded-xl hover:bg-muted/50 transition-colors border border-transparent hover:border-border cursor-pointer"
+                  >
+                    <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                      <FileText size={16} />
+                    </div>
+                    <span className="text-sm font-semibold truncate">{doc.title}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

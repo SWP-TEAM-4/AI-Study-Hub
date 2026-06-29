@@ -3,12 +3,14 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { BookMarked, Plus, Search, Filter, Trash2, X, MoreHorizontal, Edit, Globe, Tag } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import NotebookDetailPage from "./NotebookDetailPage";
 import { notebookService, NotebookDTO } from "../services/notebookService";
 import { Notify } from "notiflix";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { handleApiError } from "../utils/errorHandler";
 import CustomSelect from "../components/ui/CustomSelect";
+import EmptyState from "../components/ui/EmptyState";
 
 const subjects = ["Tất cả", "SWP391", "SWT301", "SWR302", "PRN221", "PRJ301"];
 
@@ -21,6 +23,7 @@ export default function NotebooksPage() {
   const [filterVisibility, setFilterVisibility] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const { t } = useTranslation();
 
   // Create Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -128,14 +131,14 @@ export default function NotebooksPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Notebooks</h1>
-          <p className="text-muted-foreground mt-1">Sổ tay học tập, phân nhóm theo môn học.</p>
+          <h1 className="text-3xl font-bold">{t('pages.notebooks.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('pages.notebooks.desc')}</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
           className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 self-start md:self-auto"
         >
-          <Plus size={16} /> Notebook mới
+          <Plus size={16} /> {t('pages.notebooks.addNotebook')}
         </button>
       </div>
 
@@ -145,7 +148,7 @@ export default function NotebooksPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm notebook..."
+            placeholder={t('pages.notebooks.search')}
             className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
@@ -154,9 +157,9 @@ export default function NotebooksPage() {
           <CustomSelect
             value={filterSubject}
             onChange={setFilterSubject}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả môn học", value: "all" },
+              { label: t("filters.allSubjects"), value: "all" },
               {
                 label: "Semester 5",
                 options: [
@@ -177,33 +180,33 @@ export default function NotebooksPage() {
           <CustomSelect
             value={filterVisibility}
             onChange={setFilterVisibility}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả hiển thị", value: "all" },
-              { label: "Riêng tư", value: "PRIVATE" },
-              { label: "Workspace", value: "WORKSPACE" },
-              { label: "Marketplace", value: "MARKETPLACE" }
+              { label: t("filters.allVisibility"), value: "all" },
+              { label: t("filters.private"), value: "PRIVATE" },
+              { label: t("filters.workspace"), value: "WORKSPACE" },
+              { label: t("filters.marketplace"), value: "MARKETPLACE" }
             ]}
           />
           <CustomSelect
             value={filterStatus}
             onChange={setFilterStatus}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả trạng thái duyệt", value: "all" },
-              { label: "Chờ duyệt", value: "PENDING" },
-              { label: "Đã duyệt", value: "APPROVED" },
-              { label: "Từ chối", value: "REJECTED" }
+              { label: t("filters.allStatus"), value: "all" },
+              { label: t("filters.pending"), value: "PENDING" },
+              { label: t("filters.approved"), value: "APPROVED" },
+              { label: t("filters.rejected"), value: "REJECTED" }
             ]}
           />
           <CustomSelect
             value={sortBy}
             onChange={setSortBy}
-            className="flex-1 md:flex-none min-w-[130px]"
+            className="flex-1 md:flex-none w-full md:w-[140px]"
             data={[
-              { label: "Mới nhất", value: "newest" },
-              { label: "Cũ nhất", value: "oldest" },
-              { label: "A-Z", value: "az" }
+              { label: t("filters.sortNewest"), value: "newest" },
+              { label: t("filters.sortOldest"), value: "oldest" },
+              { label: t("filters.sortAZ"), value: "az" }
             ]}
           />
         </div>
@@ -214,7 +217,15 @@ export default function NotebooksPage() {
           {isLoading ? (
             <div className="col-span-full py-12 text-center text-muted-foreground"><div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />Đang tải dữ liệu...</div>
           ) : filtered.length === 0 ? (
-            <div className="col-span-full text-center py-16 text-muted-foreground">Không tìm thấy notebook nào.</div>
+            <div className="col-span-full">
+              <EmptyState 
+                title={t('pages.notebooks.emptyTitle')}
+                description={t('pages.notebooks.emptyDesc')}
+                actionText={t('pages.notebooks.createFirst')}
+                actionIcon={<Plus size={16} />}
+                onAction={() => setIsModalOpen(true)}
+              />
+            </div>
           ) : (
             filtered.map((nb, i) => (
               <motion.div
@@ -228,7 +239,7 @@ export default function NotebooksPage() {
               >
                 <div
                   onClick={() => navigate(`/notebooks/${nb.id}`)}
-                  className="block surface-card p-5 transition-shadow h-full cursor-pointer hover:shadow-md hover:border-primary/30 relative group overflow-hidden flex flex-col justify-between"
+                  className="block surface-card p-5 transition-shadow h-full cursor-pointer hover:shadow-md hover:border-primary/30 relative group flex flex-col justify-between !overflow-visible"
                 >
                   <div>
                     {/* Hàng 1: Icon & Nút Xóa */}
@@ -250,16 +261,16 @@ export default function NotebooksPage() {
                         </button>
                         <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(nb); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                            <Edit size={14} /> Sửa
+                            <Edit size={14} /> {t('pages.notebooks.edit')}
                           </button>
                           <button onClick={(e) => { e.stopPropagation(); handleAddTag(nb.id); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                            <Tag size={14} /> Gắn thẻ
+                            <Tag size={14} /> {t('pages.notebooks.addTag')}
                           </button>
                           <button onClick={(e) => { e.stopPropagation(); handlePublish(nb.id); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                            <Globe size={14} /> Đăng cộng đồng
+                            <Globe size={14} /> {t('pages.notebooks.publish')}
                           </button>
                           <button onClick={(e) => handleDelete(nb.id, e)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
-                            <Trash2 size={14} /> Xóa
+                            <Trash2 size={14} /> {t('pages.notebooks.delete')}
                           </button>
                         </div>
                       </div>

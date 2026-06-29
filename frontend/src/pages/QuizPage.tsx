@@ -1,19 +1,22 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap, Plus, Search, Sparkles, MoreHorizontal, Edit, Globe, Tag, BookOpen } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import QuizPracticePage from "./QuizPracticePage";
 import QuizBankDetailPage from "./QuizBankDetailPage";
 import CustomSelect from "../components/ui/CustomSelect";
+import EmptyState from "../components/ui/EmptyState";
 import { quizService, QuizDTO } from "../services/quizService";
 import { Notify } from "notiflix";
 
 const levelStyles: Record<string, string> = {
-  Easy: "bg-success/15 text-success",
-  Medium: "bg-warning/20 text-warning-foreground",
-  Hard: "bg-destructive/15 text-destructive",
+  Easy: "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25",
+  Medium: "bg-amber-500/12 text-amber-300 border border-amber-500/25",
+  Hard: "bg-rose-500/12 text-rose-300 border border-rose-500/25",
 };
 
 export default function QuizPage() {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [filterSubject, setFilterSubject] = useState("all");
   const [filterLevel, setFilterLevel] = useState("all");
@@ -90,12 +93,12 @@ export default function QuizPage() {
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <GraduationCap className="text-primary" /> Quiz
+            <GraduationCap className="text-primary" /> {t('pages.quiz.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">Bộ câu hỏi luyện tập theo môn, AI sinh hoặc tự tạo.</p>
+          <p className="text-muted-foreground mt-1">{t('pages.quiz.desc')}</p>
         </div>
         <button className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium self-start">
-          <Sparkles size={16} /> AI tạo quiz
+          <Sparkles size={16} /> {t('pages.quiz.createQuiz')}
         </button>
       </div>
 
@@ -105,7 +108,7 @@ export default function QuizPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm quiz theo tiêu đề hoặc môn..."
+            placeholder={t('pages.quiz.search')}
             className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
@@ -114,9 +117,9 @@ export default function QuizPage() {
           <CustomSelect
             value={filterSubject}
             onChange={setFilterSubject}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả môn học", value: "all" },
+              { label: t("filters.allSubjects"), value: "all" },
               {
                 label: "Semester 5",
                 options: [
@@ -137,33 +140,33 @@ export default function QuizPage() {
           <CustomSelect
             value={filterLevel}
             onChange={setFilterLevel}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả độ khó", value: "all" },
-              { label: "Dễ (Easy)", value: "Easy" },
-              { label: "Trung bình (Medium)", value: "Medium" },
-              { label: "Khó (Hard)", value: "Hard" }
+              { label: t("filters.allLevels"), value: "all" },
+              { label: t("filters.easy"), value: "Easy" },
+              { label: t("filters.medium"), value: "Medium" },
+              { label: t("filters.hard"), value: "Hard" }
             ]}
           />
           <CustomSelect
             value={filterStatus}
             onChange={setFilterStatus}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả trạng thái", value: "all" },
-              { label: "Chờ duyệt", value: "PENDING" },
-              { label: "Đã duyệt", value: "APPROVED" },
-              { label: "Từ chối", value: "REJECTED" }
+              { label: t("filters.allStatus"), value: "all" },
+              { label: t("filters.pending"), value: "PENDING" },
+              { label: t("filters.approved"), value: "APPROVED" },
+              { label: t("filters.rejected"), value: "REJECTED" }
             ]}
           />
           <CustomSelect
             value={sortBy}
             onChange={setSortBy}
-            className="flex-1 md:flex-none min-w-[130px]"
+            className="flex-1 md:flex-none w-full md:w-[140px]"
             data={[
-              { label: "Mới nhất", value: "newest" },
-              { label: "Cũ nhất", value: "oldest" },
-              { label: "A-Z", value: "az" }
+              { label: t("filters.sortNewest"), value: "newest" },
+              { label: t("filters.sortOldest"), value: "oldest" },
+              { label: t("filters.sortAZ"), value: "az" }
             ]}
           />
         </div>
@@ -174,7 +177,15 @@ export default function QuizPage() {
           {isLoading ? (
             <div className="col-span-full py-12 text-center text-muted-foreground"><div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />Đang tải dữ liệu...</div>
           ) : filtered.length === 0 ? (
-            <div className="col-span-full text-center py-16 text-muted-foreground">Không tìm thấy quiz nào.</div>
+            <div className="col-span-full">
+              <EmptyState 
+                title={t('pages.quiz.emptyTitle')}
+                description={t('pages.quiz.emptyDesc')}
+                actionText={t('pages.quiz.goToDocs')}
+                actionHref="/documents"
+                actionIcon={<BookOpen size={16} />}
+              />
+            </div>
           ) : filtered.map((quiz, i) => (
             <motion.div
               key={quiz.id}
@@ -184,12 +195,12 @@ export default function QuizPage() {
               exit={{ opacity: 0 }}
               transition={{ delay: i * 0.04 }}
               whileHover={{ y: -3 }}
-              className="surface-card p-5 flex flex-col"
+              className="surface-card p-5 flex flex-col !overflow-visible"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium mr-2">{quiz.subject || "No Subject"}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${levelStyles[quiz.level || "Medium"] || levelStyles.Medium}`}>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium mr-2">{quiz.subject || "No Subject"}</span>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${levelStyles[quiz.level || "Medium"] || levelStyles.Medium}`}>
                     {quiz.level || "Medium"}
                   </span>
                 </div>
@@ -201,23 +212,23 @@ export default function QuizPage() {
                   </button>
                   <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
                     <button onClick={() => handleEdit(quiz.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                      <Edit size={14} /> Sửa
+                      <Edit size={14} /> {t('pages.quiz.edit')}
                     </button>
                     <button onClick={() => handleAddTag(quiz.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                      <Tag size={14} /> Gắn thẻ
+                      <Tag size={14} /> {t('pages.quiz.addTag')}
                     </button>
                     <button onClick={() => handlePublish(quiz.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                      <Globe size={14} /> Đăng cộng đồng
+                      <Globe size={14} /> {t('pages.quiz.publish')}
                     </button>
                   </div>
                 </div>
               </div>
               <h3 className="font-display text-lg font-semibold">{quiz.title}</h3>
-              <div className="mt-2 text-sm text-muted-foreground">{quiz.questions} câu hỏi</div>
+              <div className="mt-2 text-sm text-muted-foreground">{quiz.questions} {t('pages.quiz.questions')}</div>
 
               <div className="mt-4 mb-4 flex items-center justify-between p-3 rounded-lg bg-muted/40">
                 <div>
-                  <div className="text-xs text-muted-foreground">Điểm cao nhất</div>
+                  <div className="text-xs text-muted-foreground">{t('pages.quiz.bestScore')}</div>
                   <div className="font-bold text-lg">{quiz.bestScore || 0}/100</div>
                 </div>
                 <div className="text-right">
@@ -237,7 +248,7 @@ export default function QuizPage() {
                   onClick={() => setActiveDetailId(quiz.id)}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
                 >
-                  <Plus size={16} /> Bắt đầu làm
+                  <Plus size={16} /> {t('pages.quiz.playNow')}
                 </button>
               </div>
             </motion.div>

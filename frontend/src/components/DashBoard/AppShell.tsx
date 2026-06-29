@@ -30,7 +30,16 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
-  Upload
+  Upload,
+  Compass,
+  Library,
+  FileStack,
+  Gamepad2,
+  Layers,
+  Globe2,
+  BellRing,
+  CircleUserRound,
+  ShieldCheck
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useRive } from "@rive-app/react-canvas";
@@ -45,17 +54,19 @@ function RiveFireIcon() {
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
 const Spline = lazy(() => import("@splinetool/react-spline"));
+import { FeedbackModal } from "../ui/FeedbackModal";
+
 
 const nav = [
-  { path: "/dashboard", labelKey: "appShell.nav.dashboard", icon: Home },
-  { path: "/notebooks", labelKey: "appShell.nav.notebooks", icon: BookMarked },
-  { path: "/documents", labelKey: "appShell.nav.documents", icon: FileText },
-  { path: "/quiz", labelKey: "appShell.nav.quiz", icon: GraduationCap },
-  { path: "/flashcards", labelKey: "appShell.nav.flashcards", icon: BookOpen },
-  { path: "/community", labelKey: "appShell.nav.community", icon: Users },
-  { path: "/notifications", labelKey: "appShell.nav.notifications", icon: Bell },
-  { path: "/profile", labelKey: "appShell.nav.profile", icon: User },
-  { path: "/admin", labelKey: "appShell.nav.admin", icon: Shield },
+  { path: "/dashboard", labelKey: "appShell.nav.dashboard", icon: Compass },
+  { path: "/notebooks", labelKey: "appShell.nav.notebooks", icon: Library },
+  { path: "/documents", labelKey: "appShell.nav.documents", icon: FileStack },
+  { path: "/quiz", labelKey: "appShell.nav.quiz", icon: Gamepad2 },
+  { path: "/flashcards", labelKey: "appShell.nav.flashcards", icon: Layers },
+  { path: "/community", labelKey: "appShell.nav.community", icon: Globe2 },
+  { path: "/notifications", labelKey: "appShell.nav.notifications", icon: BellRing },
+  { path: "/profile", labelKey: "appShell.nav.profile", icon: CircleUserRound },
+  { path: "/admin", labelKey: "appShell.nav.admin", icon: ShieldCheck },
 ] as const;
 
 const adminNav = [
@@ -82,6 +93,7 @@ export function AppShell() {
   const [displayInitials, setDisplayInitials] = useState("AK");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isFlameAnimated, setIsFlameAnimated] = useState(true);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   // Mobile Drawer & Sidebar Toggle State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -126,6 +138,19 @@ export function AppShell() {
   };
 
   const { t, i18n } = useTranslation();
+
+  const [isChangingLanguage, setIsChangingLanguage] = useState(false);
+  const [langTarget, setLangTarget] = useState("");
+
+  const handleLanguageChange = () => {
+    const nextLang = i18n.language === "vi" ? "en" : "vi";
+    setLangTarget(nextLang);
+    setIsChangingLanguage(true);
+    setTimeout(() => {
+      i18n.changeLanguage(nextLang);
+      setIsChangingLanguage(false);
+    }, 700);
+  };
 
   const activeAdminTab = location.pathname.startsWith('/admin/') 
     ? location.pathname.split('/')[2] 
@@ -398,6 +423,22 @@ export function AppShell() {
               </div>
             </div>
           )}
+          
+          {/* Nút Phản Hồi (Nằm dưới cùng Sidebar) */}
+          <div className="mt-8 px-3">
+            <button
+              onClick={() => { setIsFeedbackOpen(true); setIsMobileMenuOpen(false); }}
+              className="relative flex items-center w-full px-3 py-2.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer bg-white/5 hover:bg-white/10 border border-white/5"
+            >
+              <MessageSquare
+                size={18}
+                className="relative z-10 transition-colors duration-200 shrink-0 text-orange-400"
+              />
+              <span className="relative z-10 font-semibold text-white/90 group-hover:text-white transition-colors duration-200">
+                {t("appShell.sendFeedback", "Gửi phản hồi")}
+              </span>
+            </button>
+          </div>
         </nav>
       </aside>
 
@@ -453,7 +494,7 @@ export function AppShell() {
                 <div className="w-px h-4 bg-border/50 mx-1" />
 
                 <button
-                  onClick={() => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi')}
+                  onClick={handleLanguageChange}
                   title="Change Language"
                   className="flex items-center gap-1.5 px-2.5 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background hover:shadow-sm active:scale-95 transition-all outline-none cursor-pointer text-xs font-bold"
                 >
@@ -530,10 +571,10 @@ export function AppShell() {
 
               {/* CỤM 3: Action & Profile */}
               <div className="flex items-center gap-3 sm:gap-4 pl-1 sm:pl-2 md:border-l md:border-border/50">
-                <button
-                  onClick={() => navigate("/documents")}
-                  className="inline-flex items-center justify-center gap-1.5 px-0 sm:px-4 w-9 sm:w-auto h-9 rounded-full bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-md shadow-primary/20 cursor-pointer"
-                >
+                  <button
+                    onClick={() => navigate("/documents")}
+                    className="inline-flex items-center justify-center gap-1.5 px-0 sm:px-4 w-9 sm:w-auto h-9 rounded-full text-sm font-semibold glow-button active:scale-[0.98] transition-all cursor-pointer"
+                  >
                   <Upload size={16} strokeWidth={2.5} /> <span className="hidden sm:inline">{t("appShell.upload")}</span>
                 </button>
 
@@ -562,6 +603,31 @@ export function AppShell() {
           </Suspense>
         </main>
       </div>
+
+      {/* MODALS */}
+      <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+
+      {/* LANGUAGE CHANGE OVERLAY */}
+      <AnimatePresence>
+        {isChangingLanguage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-md z-[9999] flex flex-col items-center justify-center gap-4"
+          >
+            <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-foreground font-semibold text-lg sm:text-xl tracking-wide"
+            >
+              {langTarget === "en" ? "Switching to English..." : "Đang chuyển sang Tiếng Việt..."}
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

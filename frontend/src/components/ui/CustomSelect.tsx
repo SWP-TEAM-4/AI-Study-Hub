@@ -79,7 +79,7 @@ export default function CustomSelect({ value, onChange, data, placeholder, class
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="absolute z-50 mt-1.5 w-full min-w-[200px] left-0 md:left-auto right-auto md:right-0 bg-card border border-border shadow-lg rounded-xl overflow-hidden"
           >
-            <div className="max-h-[300px] overflow-y-auto custom-scrollbar py-1.5">
+            <div className="max-h-[500px] overflow-y-auto custom-scrollbar py-1.5">
               {data.map((item, i) => {
                 if ("options" in item) {
                   // It's a group

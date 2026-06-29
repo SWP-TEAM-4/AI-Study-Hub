@@ -3,9 +3,13 @@
 import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { documentService, DocumentDTO, ShareLinkDTO } from "../services/documentService";
 import { Notify } from "notiflix";
 import CustomSelect from "../components/ui/CustomSelect";
+import PublishModal from "../components/ui/PublishModal";
+import AiProcessModal from "../components/ui/AiProcessModal";
+import EmptyState from "../components/ui/EmptyState";
 
 // 🎯 BẢNG MÀU CHUẨN THƯƠNG HIỆU CHO TỪNG LOẠI FILE (HỖ TRỢ CẢ DARK MODE)
 const typeStyles: Record<string, { activeBtn: string; badge: string }> = {
@@ -32,6 +36,7 @@ const typeStyles: Record<string, { activeBtn: string; badge: string }> = {
 };
 
 export default function DocumentsPage() {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [type, setType] = useState<string>("all");
   const [drag, setDrag] = useState(false);
@@ -48,15 +53,20 @@ export default function DocumentsPage() {
   // Mock functions for missing features
   const handleEdit = (id: number) => Notify.info("Tính năng Sửa đang được phát triển!");
   const handlePublish = (id: number) => {
-    Notify.success("Đã gửi lên cộng đồng! Trạng thái: Chờ duyệt.");
+    const doc = list.find(x => x.id === id);
+    if (doc) setPublishModalDoc(doc);
   };
   const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
   // Share Modal State
   const [shareModalDoc, setShareModalDoc] = useState<DocumentDTO | null>(null);
+  const [publishModalDoc, setPublishModalDoc] = useState<DocumentDTO | null>(null);
   const [shareInfo, setShareInfo] = useState<ShareLinkDTO | null>(null);
   const [isShareLoading, setIsShareLoading] = useState(false);
   const [shareForm, setShareForm] = useState({ allowDownload: true, expiresAt: "" });
+
+  // AI Process State
+  const [aiProcessFiles, setAiProcessFiles] = useState<FileList | null>(null);
 
   useEffect(() => {
     loadDocs();
@@ -77,8 +87,15 @@ export default function DocumentsPage() {
   {/* 🌟 HÀM DÙNG CHUNG: Xử lý vòng lặp upload danh sách File nhận vào */}
   const processFilesUpload = async (files: FileList) => {
     if (files.length === 0) return;
-    
+    setAiProcessFiles(files);
+  };
+
+  const executeActualUpload = async () => {
+    if (!aiProcessFiles) return;
+    const files = aiProcessFiles;
+    setAiProcessFiles(null);
     setIsUploading(true);
+    
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -227,9 +244,12 @@ export default function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Tài liệu</h1>
-        <p className="text-muted-foreground mt-1">Tải lên, sắp xếp và tìm kiếm tài liệu học tập.</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">{t('pages.documents.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('pages.documents.desc')}</p>
+        </div>
+       
       </div>
 
       {/* Uploader (Khung kéo thả) */}
@@ -248,7 +268,7 @@ export default function DocumentsPage() {
           drag ? "border-primary bg-primary/5 scale-[1.01]" : "border-border hover:border-primary/50"
         } ${isUploading ? "opacity-50 pointer-events-none" : ""}`}
       >
-        <input ref={inputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
+        <input id="file-upload" ref={inputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
         <div className="size-14 mx-auto mb-3 rounded-2xl bg-primary/10 text-primary grid place-items-center">
           {isUploading ? (
             <div className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -257,10 +277,10 @@ export default function DocumentsPage() {
           )}
         </div>
         <div className="font-display text-lg font-semibold">
-          {isUploading ? "Đang xử lý tải tài liệu lên..." : "Kéo & thả tài liệu vào đây"}
+          {isUploading ? t('pages.documents.uploading') : t('pages.documents.dragDrop')}
         </div>
         <div className="text-sm text-muted-foreground mt-1">
-          PDF, DOCX, PPTX, TXT · tối đa 50MB / file
+          {t('pages.documents.maxSize')}
         </div>
       </motion.div>
 
@@ -271,7 +291,7 @@ export default function DocumentsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm tên tài liệu..."
+            placeholder={t('pages.documents.search')}
             className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
@@ -280,9 +300,9 @@ export default function DocumentsPage() {
           <CustomSelect
             value={filterSubject}
             onChange={setFilterSubject}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả môn học", value: "all" },
+              { label: t("filters.allSubjects"), value: "all" },
               {
                 label: "Semester 5",
                 options: [
@@ -303,33 +323,33 @@ export default function DocumentsPage() {
           <CustomSelect
             value={filterVisibility}
             onChange={setFilterVisibility}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả hiển thị", value: "all" },
-              { label: "Riêng tư", value: "PRIVATE" },
-              { label: "Workspace", value: "WORKSPACE" },
-              { label: "Marketplace", value: "MARKETPLACE" }
+              { label: t("filters.allVisibility"), value: "all" },
+              { label: t("filters.private"), value: "PRIVATE" },
+              { label: t("filters.workspace"), value: "WORKSPACE" },
+              { label: t("filters.marketplace"), value: "MARKETPLACE" }
             ]}
           />
           <CustomSelect
             value={filterStatus}
             onChange={setFilterStatus}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả trạng thái", value: "all" },
-              { label: "Chờ duyệt", value: "PENDING" },
-              { label: "Đã duyệt", value: "APPROVED" },
-              { label: "Từ chối", value: "REJECTED" }
+              { label: t("filters.allStatus"), value: "all" },
+              { label: t("filters.pending"), value: "PENDING" },
+              { label: t("filters.approved"), value: "APPROVED" },
+              { label: t("filters.rejected"), value: "REJECTED" }
             ]}
           />
           <CustomSelect
             value={sortBy}
             onChange={setSortBy}
-            className="flex-1 md:flex-none min-w-[130px]"
+            className="flex-1 md:flex-none w-full md:w-[140px]"
             data={[
-              { label: "Mới nhất", value: "newest" },
-              { label: "Cũ nhất", value: "oldest" },
-              { label: "A-Z", value: "az" }
+              { label: t('pages.documents.sortNewest'), value: "newest" },
+              { label: t('pages.documents.sortOldest'), value: "oldest" },
+              { label: t("filters.sortAZ"), value: "az" }
             ]}
           />
         </div>
@@ -355,15 +375,15 @@ export default function DocumentsPage() {
         </div>
 
       {/* Table List */}
-      <div className="surface-card overflow-x-auto no-scrollbar border border-border/40 shadow-sm">
+      <div className="surface-card !overflow-visible border border-border/40 shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground tracking-wider border-b border-border/50">
             <tr>
-              <th className="text-left px-5 py-3.5">Tài liệu</th>
-              <th className="text-left px-5 py-3.5 hidden md:table-cell">Môn</th>
-              <th className="text-left px-5 py-3.5 hidden lg:table-cell">Tags</th>
-              <th className="text-left px-5 py-3.5 hidden sm:table-cell">Dung lượng</th>
-              <th className="text-left px-5 py-3.5 hidden lg:table-cell">Tải</th>
+              <th className="text-left px-5 py-3.5">{t('pages.documents.table.document')}</th>
+              <th className="text-left px-5 py-3.5 hidden md:table-cell">{t('pages.documents.table.subject')}</th>
+              <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.tags')}</th>
+              <th className="text-left px-5 py-3.5 hidden sm:table-cell">{t('pages.documents.table.size')}</th>
+              <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.downloads')}</th>
               <th className="px-5 py-3.5" />
             </tr>
           </thead>
@@ -418,15 +438,15 @@ export default function DocumentsPage() {
                       <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
                         <MoreVertical size={14} />
                       </button>
-                      <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
+                      <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleEdit(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                          <FileText size={14} /> Sửa mô tả
+                          <FileText size={14} /> {t('pages.documents.table.editDesc')}
                         </button>
                         <button onClick={() => handleAddTag(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                          <Tag size={14} /> Gắn thẻ
+                          <Tag size={14} /> {t('pages.documents.table.addTag')}
                         </button>
                         <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                          <Globe size={14} /> Đăng cộng đồng
+                          <Globe size={14} /> {t('pages.documents.table.publish')}
                         </button>
                       </div>
                     </div>
@@ -541,6 +561,22 @@ export default function DocumentsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* PUBLISH TO COMMUNITY MODAL */}
+      <PublishModal 
+        isOpen={!!publishModalDoc}
+        onClose={() => setPublishModalDoc(null)}
+        documentTitle={publishModalDoc?.title || ""}
+        documentId={publishModalDoc?.id || ""}
+      />
+
+      {/* AI PROCESSING MODAL */}
+      <AiProcessModal 
+        isOpen={!!aiProcessFiles}
+        fileName={aiProcessFiles?.length === 1 ? aiProcessFiles[0].name : `${aiProcessFiles?.length} tài liệu`}
+        onComplete={executeActualUpload}
+      />
+
     </div>
   );
 }

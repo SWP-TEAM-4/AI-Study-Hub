@@ -15,9 +15,9 @@ export const Route = createFileRoute("/quiz")({
 });
 
 const levelStyles: Record<string, string> = {
-  Easy: "bg-success/15 text-success",
-  Medium: "bg-warning/20 text-warning-foreground",
-  Hard: "bg-destructive/15 text-destructive",
+  Easy: "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25",
+  Medium: "bg-amber-500/12 text-amber-300 border border-amber-500/25",
+  Hard: "bg-rose-500/12 text-rose-300 border border-rose-500/25",
 };
 
 function QuizPage() {
@@ -62,8 +62,8 @@ function QuizPage() {
               className="surface-card p-5"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium">{quiz.subject}</span>
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${levelStyles[quiz.level]}`}>{quiz.level}</span>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium">{quiz.subject}</span>
+                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${levelStyles[quiz.level]}`}>{quiz.level}</span>
               </div>
               <h3 className="font-display text-lg font-semibold">{quiz.title}</h3>
               <div className="mt-2 text-sm text-muted-foreground">{quiz.questions} câu hỏi</div>

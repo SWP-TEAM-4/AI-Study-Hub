@@ -1,7 +1,10 @@
 {
   "hero": {
     "streak": "Chuỗi học 7 ngày liên tiếp",
-    "greeting": "Chào Khoa, hôm nay học gì nhỉ?",
+    "greeting": "Chào {{name}}, hôm nay học gì nhỉ?",
+    "description": "Hôm nay bạn cần đạt mục tiêu học tập để giữ vững phong độ xếp hạng. Hãy hoàn thành các nhiệm vụ hoặc học tiếp các môn học của bạn!",
+    "doQuiz": "Làm bài Quiz",
+    "viewCommunity": "Xem cộng đồng",
     "desc1": "Bạn còn ",
     "desc2": " chưa hoàn thành và ",
     "desc3": " cần ôn lại trong tuần này.",

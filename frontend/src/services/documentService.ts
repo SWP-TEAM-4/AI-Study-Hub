@@ -363,7 +363,19 @@ export const documentService = {
 
   async getWorkspaceDocuments(page = 0, size = 50, keyword = ""): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
     try {
-      return await docRequest(`/documents?page=${page}&size=${size}&keyword=${keyword}`, { method: "GET" });
+      const res = await docRequest<ApiResponse<PaginatedResponse<DocumentDTO>>>(`/documents?page=${page}&size=${size}&keyword=${keyword}`, { method: "GET" });
+      if (!res.data || !res.data.items || res.data.items.length === 0) {
+        let docs = mockDocuments.filter(d => d.userId === 1);
+        if (keyword) {
+          docs = docs.filter(d => d.title.toLowerCase().includes(keyword.toLowerCase()));
+        }
+        return {
+          success: true,
+          message: "Success (Mock)",
+          data: { items: docs, page, size, totalElements: docs.length, totalPages: 1 }
+        };
+      }
+      return res;
     } catch (e) {
       return new Promise(res => setTimeout(() => {
         let docs = mockDocuments.filter(d => d.userId === 1);

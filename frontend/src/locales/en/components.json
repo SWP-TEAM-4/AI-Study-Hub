@@ -1,0 +1,32 @@
+{
+  "aiConfigModal": {
+    "titleQuiz": "Configure Quiz",
+    "titleFlashcard": "Configure Flashcard",
+    "amountQuestions": "Number of questions",
+    "amountCards": "Number of cards",
+    "difficulty": "Difficulty",
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Hard",
+    "processing": "Processing...",
+    "generate": "Generate with AI"
+  },
+  "aiProcessModal": {
+    "title": "AI is processing",
+    "ocr": "Scanning document (OCR)...",
+    "extract": "Extracting key concepts...",
+    "vectorize": "Building vector index for Chatbot...",
+    "done": "Processing complete!"
+  },
+  "publishModal": {
+    "title": "Publish to Community",
+    "desc": "Make your document public to earn badges and contribute to the community.",
+    "doc": "Document",
+    "semester": "Semester",
+    "subject": "Subject",
+    "description": "Description",
+    "descriptionPlaceholder": "Briefly introduce this document...",
+    "cancel": "Cancel",
+    "publish": "Publish"
+  }
+}

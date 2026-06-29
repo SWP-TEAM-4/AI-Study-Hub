@@ -10,6 +10,7 @@ import FloatingAIToolbar from "../components/Notebook/FloatingAIToolbar";
 
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 export default function NotebookDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,7 @@ export default function NotebookDetailPage() {
   const queryClient = useQueryClient();
   const chatRef = useRef<NotebookChatRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
   
   const { data: res, isLoading, error } = useQuery({
     queryKey: ['notebook', id],
@@ -80,7 +82,7 @@ export default function NotebookDetailPage() {
 
   const handleDocumentClick = (doc: typeof documents[0]) => {
     setActiveDocument(doc);
-    Notify.info("Đã mở tài liệu ở chế độ Split-Pane.");
+    // Notify.info("Đã mở tài liệu ở chế độ Split-Pane.");
   };
 
   const handleFloatingAction = (action: string, selectedText: string) => {
@@ -106,7 +108,7 @@ export default function NotebookDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-7rem)]">
         <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-muted-foreground text-sm font-medium">Đang tải Notebook...</p>
+        <p className="mt-4 text-muted-foreground text-sm font-medium">{t('pages.notebookDetail.loading', 'Đang tải Notebook...')}</p>
       </div>
     );
   }
@@ -115,10 +117,10 @@ export default function NotebookDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-7rem)] text-center">
         <Bot size={48} className="text-muted-foreground mb-4 opacity-50" />
-        <h2 className="text-xl font-bold text-foreground mb-2">Không tìm thấy Notebook</h2>
-        <p className="text-muted-foreground text-sm mb-6">Notebook này không tồn tại hoặc bạn không có quyền truy cập.</p>
+        <h2 className="text-xl font-bold text-foreground mb-2">{t('pages.notebookDetail.notFoundTitle', 'Không tìm thấy Notebook')}</h2>
+        <p className="text-muted-foreground text-sm mb-6">{t('pages.notebookDetail.notFoundDesc', 'Notebook này không tồn tại hoặc bạn không có quyền truy cập.')}</p>
         <button onClick={() => navigate("/notebooks")} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity">
-          Quay lại danh sách
+          {t('pages.notebookDetail.backToList', 'Quay lại danh sách')}
         </button>
       </div>
     );

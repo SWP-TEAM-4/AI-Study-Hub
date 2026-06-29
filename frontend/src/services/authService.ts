@@ -61,7 +61,12 @@ export async function authRequest<T>(endpoint: string, bodyPayload: any): Promis
 
     return result;
   } catch (error: any) {
-    // 🛡️ NẾU BACKEND CHƯA SẴN SÀNG HOẶC TRẢ VỀ RỖNG, TỰ ĐỘNG CUNG CẤP FALLBACK LUỒNG CHẠY MƯỢT MÀ
+    // Nếu server có phản hồi lỗi (ví dụ: 400, 401, 403, 500) thì không chạy mock fallback, ném lỗi thật ra ngoài
+    if (error && typeof error.status === "number") {
+      throw error;
+    }
+
+    // 🛡️ NẾU BACKEND CHƯA SẴN SÀNG (LỖI KẾT NỐI/NETWORK ERROR), TỰ ĐỘNG CUNG CẤP FALLBACK
     if (endpoint === "/auth/login") {
       const email = bodyPayload.email;
       return {

@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import FlashcardStudyPage from "./FlashcardStudyPage";
 import { flashcardService, FlashcardDeckDTO } from "../services/flashcardService";
 import { Notify } from "notiflix";
@@ -8,6 +9,7 @@ import { MockFeatureModal } from "../components/ui/MockFeatureModal";
 import CustomSelect from "../components/ui/CustomSelect";
 
 export default function FlashcardsPage() {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [filterSubject, setFilterSubject] = useState("all");
   const [filterVisibility, setFilterVisibility] = useState("all");
@@ -97,9 +99,9 @@ export default function FlashcardsPage() {
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <BookOpen style={{ color: "var(--color-coral)" }} /> Flashcards
+            <BookOpen style={{ color: "var(--color-coral)" }} /> {t('pages.flashcards.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">Học lặp lại ngắt quãng theo thuật toán Leitner.</p>
+          <p className="text-muted-foreground mt-1">{t('pages.flashcards.desc')}</p>
         </div>
         <button 
           onClick={handleGenerateDeck}
@@ -107,7 +109,7 @@ export default function FlashcardsPage() {
           className={`inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium self-start ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
         >
           {isGenerating ? <div className="size-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> : <Sparkles size={16} />} 
-          {isGenerating ? "Đang sinh thẻ..." : "AI tạo deck"}
+          {isGenerating ? t('components.aiConfigModal.processing', "Đang xử lý...") : t('pages.flashcards.addDeck', "+ Tạo Bộ Thẻ")}
         </button>
       </div>
 
@@ -117,7 +119,7 @@ export default function FlashcardsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm deck theo tên..."
+            placeholder={t('pages.flashcards.search')}
             className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
@@ -126,9 +128,9 @@ export default function FlashcardsPage() {
           <CustomSelect
             value={filterSubject}
             onChange={setFilterSubject}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả môn học", value: "all" },
+              { label: t("filters.allSubjects"), value: "all" },
               {
                 label: "Semester 5",
                 options: [
@@ -149,33 +151,33 @@ export default function FlashcardsPage() {
           <CustomSelect
             value={filterVisibility}
             onChange={setFilterVisibility}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả hiển thị", value: "all" },
-              { label: "Riêng tư", value: "PRIVATE" },
-              { label: "Workspace", value: "WORKSPACE" },
-              { label: "Marketplace", value: "MARKETPLACE" }
+              { label: t("filters.allVisibility"), value: "all" },
+              { label: t("filters.private"), value: "PRIVATE" },
+              { label: t("filters.workspace"), value: "WORKSPACE" },
+              { label: t("filters.marketplace"), value: "MARKETPLACE" }
             ]}
           />
           <CustomSelect
             value={filterStatus}
             onChange={setFilterStatus}
-            className="flex-1 md:flex-none min-w-[140px]"
+            className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: "Tất cả trạng thái", value: "all" },
-              { label: "Chờ duyệt", value: "PENDING" },
-              { label: "Đã duyệt", value: "APPROVED" },
-              { label: "Từ chối", value: "REJECTED" }
+              { label: t("filters.allStatus"), value: "all" },
+              { label: t("filters.pending"), value: "PENDING" },
+              { label: t("filters.approved"), value: "APPROVED" },
+              { label: t("filters.rejected"), value: "REJECTED" }
             ]}
           />
           <CustomSelect
             value={sortBy}
             onChange={setSortBy}
-            className="flex-1 md:flex-none min-w-[130px]"
+            className="flex-1 md:flex-none w-full md:w-[140px]"
             data={[
-              { label: "Mới nhất", value: "newest" },
-              { label: "Cũ nhất", value: "oldest" },
-              { label: "A-Z", value: "az" }
+              { label: t("filters.sortNewest"), value: "newest" },
+              { label: t("filters.sortOldest"), value: "oldest" },
+              { label: t("filters.sortAZ"), value: "az" }
             ]}
           />
         </div>
@@ -195,11 +197,11 @@ export default function FlashcardsPage() {
                 exit={{ opacity: 0 }}
                 transition={{ delay: i * 0.04 }}
                 whileHover={{ y: -3 }}
-                className="surface-card p-5"
+                className="surface-card p-5 !overflow-visible"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium mr-2">{deck.subjectId ? `Môn #${deck.subjectId}` : "Tự do"}</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium mr-2">{deck.subjectId ? `Môn #${deck.subjectId}` : "Tự do"}</span>
                     <span className="text-xs text-muted-foreground">{new Date(deck.createdAt).toLocaleDateString()}</span>
                   </div>
                   
@@ -210,20 +212,20 @@ export default function FlashcardsPage() {
                     </button>
                     <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
                       <button onClick={() => handleEdit(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                        <Edit size={14} /> Sửa
+                        <Edit size={14} /> {t('pages.flashcards.edit')}
                       </button>
                       <button onClick={() => handleAddTag(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                        <Tag size={14} /> Gắn thẻ
+                        <Tag size={14} /> {t('pages.flashcards.addTag')}
                       </button>
                       <button onClick={() => handlePublish(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                        <Globe size={14} /> Đăng cộng đồng
+                        <Globe size={14} /> {t('pages.flashcards.publish')}
                       </button>
                     </div>
                   </div>
                 </div>
                 <h3 className="font-display text-lg font-semibold">{deck.title}</h3>
                 <div className="mt-3 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Tiến độ</span>
+                  <span className="text-muted-foreground">{t('pages.flashcards.progress')}</span>
                   <span className="font-medium">{masteredCount}/{deck.cards.length}</span>
                 </div>
                 <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
@@ -240,7 +242,7 @@ export default function FlashcardsPage() {
                   className="mt-4 inline-flex w-full items-center justify-center gap-1.5 h-10 rounded-xl text-white text-sm font-medium hover:opacity-90"
                   style={{ background: "var(--color-coral)" }}
                 >
-                  <Plus size={16} /> Học deck
+                  <Plus size={16} /> {t('pages.flashcards.studyNow')}
                 </button>
               </motion.div>
             );

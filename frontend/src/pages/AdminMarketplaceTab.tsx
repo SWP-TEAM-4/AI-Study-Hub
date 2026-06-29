@@ -162,7 +162,7 @@ export default function AdminMarketplaceTab() {
                         <div className="flex flex-col gap-1.5 items-start">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
                             item.marketStatus === "PENDING" ? "bg-warning/10 text-warning-foreground border-warning/20" :
-                            item.marketStatus === "APPROVED" ? "bg-success/10 text-success border-success/20" :
+                            item.marketStatus === "APPROVED" ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" :
                             item.marketStatus === "REJECTED" ? "bg-destructive/10 text-destructive border-destructive/20" :
                             "bg-muted text-muted-foreground border-border"
                           }`}>

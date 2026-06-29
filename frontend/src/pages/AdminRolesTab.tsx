@@ -170,9 +170,9 @@ export default function AdminRolesTab() {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                      r.status === "ACTIVE" ? "bg-success/15 text-success" :
-                      r.status === "REVOKED" ? "bg-destructive/15 text-destructive" :
-                      "bg-warning/15 text-warning-foreground"
+                      r.status === "ACTIVE" ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" :
+                      r.status === "REVOKED" ? "bg-rose-500/12 text-rose-300 border border-rose-500/25" :
+                      "bg-amber-500/12 text-amber-300 border border-amber-500/25"
                     }`}>
                       {r.status}
                     </span>

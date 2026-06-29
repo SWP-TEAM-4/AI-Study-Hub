@@ -86,7 +86,6 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
   const handleDelete = (id: number) => {
     setQuestions(questions.filter(q => q.id !== id));
     if (activeQuestionId === id) setActiveQuestionId(null);
-    Notify.success("Đã xóa câu hỏi");
   };
 
   const handleAddNew = () => {
@@ -197,7 +196,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                         <div className="px-4 pb-4 pt-1 border-t border-border/50">
                           <div className="space-y-2 mt-2">
                             {q.options.map((opt, oIdx) => (
-                              <div key={opt.id} className={`flex items-center gap-2 p-2 rounded-lg text-sm border ${opt.isCorrect ? 'bg-success/10 border-success/30 text-success-foreground' : 'bg-muted/30 border-transparent text-muted-foreground'}`}>
+                              <div key={opt.id} className={`flex items-center gap-2 p-2 rounded-lg text-sm border ${opt.isCorrect ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : 'bg-muted/30 border-transparent text-muted-foreground'}`}>
                                 <div className={`size-5 rounded-full flex items-center justify-center text-[10px] font-bold ${opt.isCorrect ? 'bg-success text-white' : 'bg-muted border border-border'}`}>
                                   {String.fromCharCode(65 + oIdx)}
                                 </div>
@@ -227,51 +226,53 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
         </div>
 
         {/* RIGHT COLUMN - CONFIG & PREVIEW */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-6 min-h-0 overflow-y-auto custom-scrollbar pb-6 pr-2">
+        <div className={`w-full lg:w-1/2 flex min-h-0 ${!activeQuestionId ? 'flex-col md:flex-row gap-5' : 'flex-col'}`}>
           
           {/* STATS & CONFIG BLOCK */}
           {!activeQuestionId && (
             <>
               {/* Thống kê lịch sử */}
-              <div className="surface-card p-5 rounded-2xl border border-border">
-                <h3 className="font-bold mb-4 flex items-center gap-2"><RotateCcw size={16} className="text-primary"/> Chỉ số bài test</h3>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="p-4 rounded-xl bg-muted/40 border border-border text-center">
-                    <div className="text-2xl font-display font-bold text-primary">85/100</div>
-                    <div className="text-xs text-muted-foreground mt-1">Điểm cao nhất</div>
+              <div className="flex-1 surface-card p-5 rounded-2xl border border-border bg-card flex flex-col justify-between min-h-0">
+                <div>
+                  <h3 className="font-bold mb-4 flex items-center gap-2 text-sm"><RotateCcw size={15} className="text-primary"/> Chỉ số bài test</h3>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border text-center">
+                      <div className="text-xl font-display font-bold text-primary">85/100</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Điểm cao nhất</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border text-center">
+                      <div className="text-xl font-display font-bold text-foreground">3</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Số lần đã làm</div>
+                    </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-muted/40 border border-border text-center">
-                    <div className="text-2xl font-display font-bold text-foreground">3</div>
-                    <div className="text-xs text-muted-foreground mt-1">Số lần đã làm</div>
-                  </div>
-                </div>
-                {/* Lịch sử */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-muted-foreground px-1 pb-1">
-                    <span>Lịch sử gần đây</span>
-                    <span>Điểm</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2.5 rounded-lg bg-card border border-border text-sm">
-                    <span className="font-medium">Hôm qua, 14:30</span>
-                    <span className="font-bold text-success">85/100</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2.5 rounded-lg bg-card border border-border text-sm">
-                    <span className="font-medium">12/06/2026</span>
-                    <span className="font-bold text-muted-foreground">60/100</span>
+                  {/* Lịch sử */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 pb-1">
+                      <span>Lịch sử gần đây</span>
+                      <span>Điểm</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 rounded-lg bg-card border border-border text-xs">
+                      <span className="font-medium">Hôm qua, 14:30</span>
+                      <span className="font-bold text-success">85/100</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 rounded-lg bg-card border border-border text-xs">
+                      <span className="font-medium">12/06/2026</span>
+                      <span className="font-bold text-muted-foreground">60/100</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Lựa chọn trích xuất Quiz & Cấu hình */}
-              <div className="surface-card p-5 rounded-2xl border border-border">
-                <h3 className="font-bold mb-4 flex items-center gap-2"><Settings2 size={16} className="text-primary"/> Tạo Bài Test</h3>
+              <div className="flex-1 surface-card p-5 rounded-2xl border border-border bg-card flex flex-col justify-between min-h-0">
                 <div className="space-y-4">
+                  <h3 className="font-bold flex items-center gap-2 text-sm"><Settings2 size={15} className="text-primary"/> Tạo Bài Test</h3>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Kiểu trích xuất câu hỏi</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Kiểu trích xuất</label>
                     <select 
                       value={selectionMode}
                       onChange={e => setSelectionMode(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all cursor-pointer text-sm"
+                      className="w-full h-9 px-3 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all cursor-pointer text-xs"
                     >
                       <option value="ALL">Tất cả câu hỏi ({questions.length})</option>
                       <option value="RANDOM">Ngẫu nhiên (Trộn câu hỏi)</option>
@@ -279,21 +280,21 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Thời gian làm bài (Phút)</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Thời gian làm bài (Phút)</label>
                     <div className="relative">
-                      <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input 
                         type="number"
                         value={timeLimit}
                         onChange={e => setTimeLimit(Number(e.target.value))}
-                        className="w-full h-11 pl-9 pr-3 rounded-xl bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm"
+                        className="w-full h-9 pl-8 pr-3 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs"
                       />
                     </div>
                   </div>
                 </div>
-                <div className="mt-6 pt-6 border-t border-border">
-                  <button onClick={onStartTest} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
-                    <Play size={18} fill="currentColor" /> Tạo Test & Bắt Đầu
+                <div className="mt-4 pt-4 border-t border-border">
+                  <button onClick={onStartTest} className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 shadow-md shadow-primary/10 transition-all flex items-center justify-center gap-1.5 text-xs cursor-pointer">
+                    <Play size={14} fill="currentColor" /> Tạo Test & Bắt Đầu
                   </button>
                 </div>
               </div>
@@ -305,70 +306,93 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="surface-card p-5 rounded-2xl flex-1 flex flex-col border border-border"
+              className="surface-card p-4 rounded-2xl flex-1 flex flex-col border border-border bg-card"
             >
-              <div className="flex items-center justify-between mb-4 border-b border-border pb-4">
-                <h3 className="font-bold flex items-center gap-2 text-lg">
-                  <Edit size={18} className="text-primary"/> Chi tiết câu hỏi
+              <div className="flex items-center justify-between mb-3 border-b border-border pb-3">
+                <h3 className="font-bold flex items-center gap-2 text-base">
+                  <Edit size={16} className="text-primary"/> Chi tiết câu hỏi
                 </h3>
-                <button onClick={() => setActiveQuestionId(null)} className="text-sm px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground font-medium flex items-center gap-1 transition-colors">
+                <button onClick={() => setActiveQuestionId(null)} className="text-xs px-2.5 py-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1 transition-colors">
                   Đóng Form
                 </button>
               </div>
               
-              <div className="space-y-5 flex-1">
+              <div className="space-y-4 flex-1">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Nội dung câu hỏi</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Nội dung câu hỏi</label>
                   <textarea 
                     value={activeQuestion.questionText}
                     onChange={(e) => {
                       const updated = questions.map(q => q.id === activeQuestion.id ? { ...q, questionText: e.target.value } : q);
                       setQuestions(updated);
                     }}
-                    className="w-full min-h-[100px] p-3 rounded-xl bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm resize-y"
+                    rows={2}
+                    className="w-full min-h-[50px] p-2.5 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs resize-none"
                   />
                 </div>
                 
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">Các đáp án</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Các đáp án</label>
                   </div>
-                  <div className="space-y-2.5">
+                  <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
                     {activeQuestion.options.map((opt, i) => (
-                      <div key={opt.id} className={`flex items-start gap-2 p-2.5 rounded-xl border ${opt.isCorrect ? 'border-success/50 bg-success/10' : 'border-border bg-card'}`}>
+                      <div key={opt.id} className={`flex items-center gap-2 p-1.5 px-3 rounded-xl border transition-all ${opt.isCorrect ? 'border-success/40 bg-success/5' : 'border-border bg-card hover:border-primary/20'}`}>
                         <button 
-                          className={`mt-1.5 size-5 rounded-full shrink-0 flex items-center justify-center border transition-colors ${opt.isCorrect ? 'bg-success border-success text-white' : 'bg-muted border-border hover:border-primary/50 text-transparent hover:text-primary/50'}`}
+                          className={`size-4.5 rounded-full shrink-0 flex items-center justify-center border transition-colors ${opt.isCorrect ? 'bg-success border-success text-white' : 'bg-muted border-border hover:border-primary/50 text-transparent hover:text-primary/50'}`}
                           onClick={() => {
                             const newOpts = activeQuestion.options.map(o => ({ ...o, isCorrect: o.id === opt.id }));
                             const updated = questions.map(q => q.id === activeQuestion.id ? { ...q, options: newOpts } : q);
                             setQuestions(updated);
                           }}
                         >
-                          <Check size={12} />
+                          <Check size={10} />
                         </button>
-                        <textarea 
+                        <input 
+                          type="text"
                           value={opt.optionText}
                           onChange={(e) => {
                             const newOpts = activeQuestion.options.map(o => o.id === opt.id ? { ...o, optionText: e.target.value } : o);
                             const updated = questions.map(q => q.id === activeQuestion.id ? { ...q, options: newOpts } : q);
                             setQuestions(updated);
                           }}
-                          rows={2}
-                          className="flex-1 bg-transparent border-none outline-none text-sm resize-none"
+                          className="flex-1 bg-transparent border-none outline-none text-xs py-1"
                         />
-                        <button className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                          <Trash2 size={16} />
+                        <button 
+                          onClick={() => {
+                            const newOpts = activeQuestion.options.filter(o => o.id !== opt.id);
+                            const updated = questions.map(q => q.id === activeQuestion.id ? { ...q, options: newOpts } : q);
+                            setQuestions(updated);
+                          }}
+                          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0"
+                          title="Xóa đáp án"
+                        >
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     ))}
-                    <button className="w-full p-2.5 border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 rounded-xl text-sm font-medium text-muted-foreground transition-colors flex items-center justify-center gap-1.5">
-                      <Plus size={16} /> Thêm đáp án
+                    
+                    <button 
+                      onClick={() => {
+                        const newOpt = {
+                          id: Date.now(),
+                          questionId: activeQuestion.id,
+                          optionText: `Option ${String.fromCharCode(65 + activeQuestion.options.length)}`,
+                          isCorrect: false
+                        };
+                        const newOpts = [...activeQuestion.options, newOpt];
+                        const updated = questions.map(q => q.id === activeQuestion.id ? { ...q, options: newOpts } : q);
+                        setQuestions(updated);
+                      }}
+                      className="w-full p-2 border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 rounded-xl text-[11px] font-bold text-muted-foreground transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus size={13} /> Thêm đáp án
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Giải thích (Tùy chọn)</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Giải thích (Tùy chọn)</label>
                   <textarea 
                     value={activeQuestion.explanation || ""}
                     onChange={(e) => {
@@ -376,13 +400,14 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                       setQuestions(updated);
                     }}
                     placeholder="Nhập giải thích cho đáp án đúng..."
-                    className="w-full h-24 p-3 rounded-xl bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm resize-none"
+                    rows={2}
+                    className="w-full min-h-[46px] p-2.5 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs resize-none"
                   />
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-border flex justify-end gap-3">
-                <button onClick={() => Notify.success("Đã lưu thay đổi câu hỏi!")} className="h-11 px-6 rounded-xl bg-primary text-primary-foreground font-medium text-sm shadow-md hover:opacity-90 transition-opacity">
+              <div className="mt-4 pt-3 border-t border-border flex justify-end gap-3 shrink-0">
+                <button onClick={() => Notify.success("Đã lưu thay đổi câu hỏi!")} className="h-9 px-5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-md hover:opacity-90 transition-opacity">
                   Lưu thay đổi
                 </button>
               </div>
