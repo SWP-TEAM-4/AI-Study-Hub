@@ -59,7 +59,7 @@ public class SecurityConfig {
                                                                                 ErrorCode.ACCESS_DENIED)))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(SecurityConstants.PUBLIC_URLS).permitAll()
-                                                .requestMatchers(HttpMethod.GET, "/api/semesters", "/api/subjects",
+                                                .requestMatchers(HttpMethod.GET, "/api/semesters", "/api/subjects/**",
                                                                 "/api/combos")
                                                 .permitAll()
                                                 .requestMatchers("/api/admin/marketplace/**")

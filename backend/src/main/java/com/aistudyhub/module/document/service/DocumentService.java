@@ -1,6 +1,7 @@
 package com.aistudyhub.module.document.service;
 
 import java.util.List;
+import org.springframework.http.MediaType;
 
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Visibility;
@@ -23,4 +24,8 @@ public interface DocumentService {
     DocumentResponse updateDocument(Long id, Long userId, UpdateDocumentRequest request);
 
     void deleteDocument(Long id, Long userId);
+
+    DocumentFileDownload downloadDocument(Long id, Long userId);
+
+    record DocumentFileDownload(byte[] content, MediaType mediaType, String filename) {}
 }

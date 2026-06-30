@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.LinkedHashMap;
 
 import org.springframework.stereotype.Service;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
+import org.springframework.util.StringUtils;
 import com.aistudyhub.common.enums.ActivityActionType;
 import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.enums.ProcessingStatus;
@@ -32,6 +35,7 @@ public class DocumentServiceImpl implements DocumentService {
         private final UserRepository userRepository;
         private final SubjectRepository subjectRepository;
         private final ActivityLogService activityLogService;
+        private final StorageService storageService;
 
         @Override
         public DocumentResponse createDocument(Long userId, CreateDocumentRequest request) {
@@ -112,6 +116,27 @@ public class DocumentServiceImpl implements DocumentService {
                                 document.getTitle(),
                                 document.getFileType(),
                                 document.getSubject() != null ? document.getSubject().getCode() : null);
+        }
+
+        @Override
+        public DocumentFileDownload downloadDocument(Long id, Long userId) {
+                Document document = documentRepository.findByIdAndUserId(id, userId)
+                                .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED));
+                if (!StringUtils.hasText(document.getCloudFilePath())) {
+                        throw new AppException(ErrorCode.DOCUMENT_NO_FILE);
+                }
+                byte[] content = storageService.readFileContent(document.getCloudFilePath());
+                if (content == null || content.length == 0) {
+                        throw new AppException(ErrorCode.INTERNAL_ERROR, "Document file is unavailable");
+                }
+                String extension = StringUtils.hasText(document.getFileType())
+                                ? "." + document.getFileType().toLowerCase()
+                                : "";
+                String title = StringUtils.hasText(document.getTitle()) ? document.getTitle() : "document";
+                String filename = title.toLowerCase().endsWith(extension) ? title : title + extension;
+                MediaType mediaType = MediaTypeFactory.getMediaType("file" + extension)
+                                .orElse(MediaType.APPLICATION_OCTET_STREAM);
+                return new DocumentFileDownload(content, mediaType, filename.replace("\"", ""));
         }
 
         private Specification<Document> hasUserId(Long userId) {
