@@ -35,7 +35,7 @@ public class SubjectController {
     }
 
     @GetMapping("/api/subjects/{id}")
-    public ApiResponse<SubjectResponse> getSubjectById(@RequestParam Long id) {
+    public ApiResponse<SubjectResponse> getSubjectById(@PathVariable Long id) {
         return ApiResponse.success(subjectService.getSubjectById(id));
     }
 

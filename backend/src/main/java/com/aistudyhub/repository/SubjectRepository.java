@@ -14,17 +14,26 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
 
     boolean existsByCode(String code);
 
+    List<Subject> findAllByOrderByCodeAsc();
+
+    List<Subject> findByStandardSemesterNumberOrderByCodeAsc(Integer semester);
+
     @Query("""
             SELECT s FROM Subject s
-            WHERE
-            (:keyword IS NULL
-                OR LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-
-            )
-                AND (:semester IS NULL
-                OR  s.standardSemesterNumber = :semester)
-
+            WHERE LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            ORDER BY s.code ASC
             """)
-    List<Subject> searchSubjects(@Param("keyword") String keyword, @Param("semester") Integer semester);
+    List<Subject> searchByKeyword(@Param("keyword") String keyword);
+
+    @Query("""
+            SELECT s FROM Subject s
+            WHERE (LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND s.standardSemesterNumber = :semester
+            ORDER BY s.code ASC
+            """)
+    List<Subject> searchByKeywordAndSemester(
+            @Param("keyword") String keyword,
+            @Param("semester") Integer semester);
 }

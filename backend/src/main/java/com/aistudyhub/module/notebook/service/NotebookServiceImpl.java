@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.aistudyhub.common.exception.AppException;
+import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.Notebook;
 import com.aistudyhub.entity.Subject;
 import com.aistudyhub.entity.User;
@@ -25,9 +27,10 @@ public class NotebookServiceImpl implements NotebookService {
 
     @Override
     public NotebookResponse createNotebook(long userId, CreateNotebookRequest request) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         Subject subject = subjectRepository.findById(request.getSubjectId())
-                .orElseThrow(() -> new RuntimeException("Subject not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.SUBJECT_NOT_FOUND));
         Notebook notebook = Notebook.builder()
                 .title(request.getTitle())
                 .subject(subject)
@@ -56,16 +59,18 @@ public class NotebookServiceImpl implements NotebookService {
     @Override
     public NotebookResponse getDetail(long notebookId, long userId) {
         Notebook notebook = notebookRepository.findByIdAndUserId(notebookId, userId)
-                .orElseThrow(() -> new RuntimeException("Notebook not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.NOTEBOOK_NOT_FOUND));
         return mapToResponse(notebook);
     }
 
     @Override
     public NotebookResponse updateNotebook(long notebookId, long userId, UpdateNotebookRequest request) {
         Notebook notebook = notebookRepository.findByIdAndUserId(notebookId, userId)
-                .orElseThrow(() -> new RuntimeException("Notebook not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.NOTEBOOK_NOT_FOUND));
+        Subject subject = subjectRepository.findById(request.getSubjectId())
+                .orElseThrow(() -> new AppException(ErrorCode.SUBJECT_NOT_FOUND));
         notebook.setTitle(request.getTitle());
-        notebook.setSubject(null);
+        notebook.setSubject(subject);
         notebook = notebookRepository.save(notebook);
         return mapToResponse(notebook);
     }
@@ -73,7 +78,7 @@ public class NotebookServiceImpl implements NotebookService {
     @Override
     public void deleteNotebook(long notebookId, long userId) {
         Notebook notebook = notebookRepository.findByIdAndUserId(notebookId, userId)
-                .orElseThrow(() -> new RuntimeException("Notebook not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.NOTEBOOK_NOT_FOUND));
         notebookRepository.delete(notebook);
     }
 
