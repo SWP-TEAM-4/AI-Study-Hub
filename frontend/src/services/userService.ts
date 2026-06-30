@@ -7,12 +7,17 @@ export interface UserDTO {
   email: string;
   fullName: string;
   avatarUrl: string | null;
+  currentSemesterCode?: string | null;
+  currentSemesterName?: string | null;
   currentSemesterId: number | null;
+  comboCode?: string | null;
+  comboName?: string | null;
   comboId: number | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -37,12 +42,16 @@ export interface ActivityLogDTO {
 }
 
 export interface AIUsageDTO {
-  userId: number;
-  period: string;
+  userId?: number;
+  period?: string;
   chatRequests: number;
   quizGenerations: number;
   flashcardGenerations: number;
   estimatedTokens: number;
+  totalRequests: number;
+  totalTokens: number;
+  estimatedCost?: number;
+  actionCounts: Record<string, number>;
 }
 
 export interface BadgeDTO {
@@ -200,12 +209,11 @@ export const userService = {
    * 8. PATCH /api/users/me/change-password - Đổi mật khẩu của người dùng hiện tại
    */
   async changeMyPassword(passwordPayload: { oldPasswordInput: string; newPasswordInput: string }) {
-    // 🎯 Đồng bộ cấu trúc payload chuẩn hóa theo tài liệu: oldPassword & newPassword
     const contractPayload = {
-      oldPassword: passwordPayload.oldPasswordInput,
+      currentPassword: passwordPayload.oldPasswordInput,
       newPassword: passwordPayload.newPasswordInput
     };
-    return request<{ success: boolean; message: string; data: UserDTO }>("/users/me/change-password", {
+    return request<{ success: boolean; message: string; data: null }>("/users/me/change-password", {
       method: "PATCH",
       body: JSON.stringify(contractPayload)
     });
@@ -215,9 +223,25 @@ export const userService = {
    * 9. GET /api/users/me/ai-usage - Lấy thống kê sử dụng AI của người dùng hiện tại
    */
   async getMyAIUsage(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
-    return request<{ success: boolean; message: string; data: AIUsageDTO }>(
+    const res = await request<{ success: boolean; message: string; data: any }>(
       `/users/me/ai-usage${buildQueryString(params)}`
     );
+    const actionCounts = res.data?.actionCounts ?? {};
+    return {
+      ...res,
+      data: {
+        userId: res.data?.userId,
+        period: res.data?.period,
+        chatRequests: Number(actionCounts.CHAT_REQUEST ?? actionCounts.CHAT ?? actionCounts.AI_CHAT ?? res.data?.chatRequests ?? res.data?.totalRequests ?? 0),
+        quizGenerations: Number(actionCounts.GENERATE_QUIZ ?? actionCounts.QUIZ_GENERATION ?? res.data?.quizGenerations ?? 0),
+        flashcardGenerations: Number(actionCounts.GENERATE_FLASHCARD ?? actionCounts.FLASHCARD_GENERATION ?? res.data?.flashcardGenerations ?? 0),
+        estimatedTokens: Number(res.data?.totalTokens ?? res.data?.estimatedTokens ?? 0),
+        totalRequests: Number(res.data?.totalRequests ?? 0),
+        totalTokens: Number(res.data?.totalTokens ?? res.data?.estimatedTokens ?? 0),
+        estimatedCost: res.data?.estimatedCost !== undefined ? Number(res.data.estimatedCost) : undefined,
+        actionCounts,
+      } as AIUsageDTO,
+    };
   },
 
   /**
