@@ -6,19 +6,20 @@ import org.springframework.web.bind.annotation.RestController;
 import com.aistudyhub.common.response.ApiResponse;
 import com.aistudyhub.module.AiUsageLogs.dto.UserAiUsageResponse;
 import com.aistudyhub.module.AiUsageLogs.service.AiUsageService;
+import com.aistudyhub.module.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/users/me")
 public class UserAiUsageController {
     private final AiUsageService aiUsageService;
+    private final UserService userService;
 
     @GetMapping("/ai-usage")
-    public ApiResponse<UserAiUsageResponse> getMyUsage(@PathVariable Long userId) {
-        return ApiResponse.success(aiUsageService.getMyUsage(userId));
+    public ApiResponse<UserAiUsageResponse> getMyUsage() {
+        return ApiResponse.success(aiUsageService.getMyUsage(userService.getCurrentUserId()));
     }
 
 }

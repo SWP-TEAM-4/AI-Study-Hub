@@ -40,10 +40,7 @@ public class AiUsageServiceImpl implements AiUsageService {
     @Override
     public UserAiUsageResponse getMyUsage(Long userId) {
         List<AiUsageLogs> logs = aiUsageLogsRepository.findByUserId(userId);
-        Map<String, Long> actionCounts = logs.stream()
-                .collect(Collectors.groupingBy(
-                        log -> log.getActionType().name(),
-                        Collectors.counting()));
+        Map<String, Long> actionCounts = countByActionType(logs);
 
         int totalTokens = logs.stream()
                 .mapToInt(log -> log.getTokenCount() == null ? 0 : log.getTokenCount())
@@ -67,10 +64,7 @@ public class AiUsageServiceImpl implements AiUsageService {
     public AdminAiUsageResponse getAllUsage() {
         List<AiUsageLogs> logs = aiUsageLogsRepository.findAll();
 
-        Map<String, Long> actionCounts = logs.stream()
-                .collect(Collectors.groupingBy(
-                        log -> log.getActionType().name(),
-                        Collectors.counting()));
+        Map<String, Long> actionCounts = countByActionType(logs);
 
         int totalTokens = logs.stream()
                 .mapToInt(log -> log.getTokenCount() == null ? 0 : log.getTokenCount())
@@ -88,6 +82,14 @@ public class AiUsageServiceImpl implements AiUsageService {
                 .estimatedCost(totalCost)
                 .actionCounts(actionCounts)
                 .build();
+    }
+
+    private Map<String, Long> countByActionType(List<AiUsageLogs> logs) {
+        return logs.stream()
+                .filter(log -> log.getActionType() != null)
+                .collect(Collectors.groupingBy(
+                        log -> log.getActionType().name(),
+                        Collectors.counting()));
     }
 
 }
