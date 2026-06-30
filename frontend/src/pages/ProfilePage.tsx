@@ -21,7 +21,6 @@ import {
   Cpu,
   MessageSquare,
   Send,
-  LucideIcon
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -29,34 +28,20 @@ import { userService, UserDTO, TestHistoryDTO, ActivityLogDTO, AIUsageDTO } from
 import { communityService, ReferralDTO } from "../services/communityService";
 import { communityRoleService, CommunityRoleDTO } from "../services/communityRoleService";
 import { feedbackService } from "../services/feedbackService";
+import { notebookService } from "../services/notebookService";
+import { documentService } from "../services/documentService";
+import { flashcardService } from "../services/flashcardService";
+import { academicService, ComboDTO, SemesterDTO } from "../services/academicService";
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { useAuthStore } from "../store/useAuthStore";
 
 // ─── 🌐 1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
 
-const COMBO_MAJORS: Record<number, { major: string; spec: string }> = {
-  1: { major: "Kỹ thuật Phần mềm + AI", spec: "Trí tuệ nhân tạo (AI/ML)" },
-  2: { major: "Kinh doanh + Khoa học dữ liệu", spec: "Phân tích dữ liệu (Data Science)" },
-  3: { major: "Thiết kế đồ họa + UI/UX", spec: "Thiết kế trải nghiệm UI/UX" },
-};
-
-const statsConfig: { label: string; value: number; icon: LucideIcon }[] = [
-  { label: "Notebook", value: 5, icon: BookMarked },
-  { label: "Tài liệu", value: 42, icon: FileText },
-  { label: "Quiz đã làm", value: 28, icon: GraduationCap },
-];
-
-const MOCK_USER_FALLBACK: UserDTO = {
-  id: 1,
-  email: "anhkhoa@fpt.edu.vn",
-  fullName: "Lê Trần Anh Khoa",
-  avatarUrl: null,
-  currentSemesterId: 3,
-  comboId: 1,
-  role: "STUDENT",
-  reputationPoints: 11320,
-  isActive: true,
-  createdAt: "2026-03-15T21:30:00"
+const emptyStats = {
+  notebooks: 0,
+  documents: 0,
+  tests: 0,
+  flashcardDecks: 0,
 };
 
 // ─── 🧑‍🎓 2. MAIN PROFILE COMPONENT ──────────────────────────────────────────────
@@ -83,6 +68,8 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
   const [aiUsage, setAiUsage] = useState<AIUsageDTO | null>(null);
   const [myReferral, setMyReferral] = useState<ReferralDTO | null>(null);
   const [myRoles, setMyRoles] = useState<CommunityRoleDTO[]>([]);
+  const [stats, setStats] = useState(emptyStats);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // States quản lý Mã giới thiệu
@@ -93,6 +80,10 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
+  const [editSemesterId, setEditSemesterId] = useState<number | null>(null);
+  const [editComboId, setEditComboId] = useState<number | null>(null);
+  const [semesters, setSemesters] = useState<SemesterDTO[]>([]);
+  const [combos, setCombos] = useState<ComboDTO[]>([]);
 
   // States kiểm duyệt mật khẩu bảo mật
   const [oldPasswordInput, setOldPasswordInput] = useState("");
@@ -109,25 +100,34 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
   // 🔄 HÀM NẠP TIẾN TRÌNH ĐỒNG BỘ ĐÃ NÂNG CẤP BIỆN PHÁP AN TOÀN
   const loadFullProfileData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
-      const [profileRes, badgesRes, testsRes, logsRes, aiRes, refRes, rolesRes] = await Promise.all([
-        userService.getMyProfile(),
-        userService.getMyBadges(),
-        userService.getMyTestHistory({ page: 0, size: 5 }),
-        userService.getMyActivityLogs({ page: 0, size: 3 }),
-        userService.getMyAIUsage(),
-        communityService.getMyReferralInfo().catch(() => null),
-        communityRoleService.getMyCommunityRoles().catch(() => null)
-      ]);
+      const profileRes = await userService.getMyProfile();
 
       if (profileRes.success && profileRes.data) {
         setUserInfo(profileRes.data);
         setEditName(profileRes.data.fullName);
         setEditAvatarUrl(profileRes.data.avatarUrl);
+        setEditSemesterId(profileRes.data.currentSemesterId);
+        setEditComboId(profileRes.data.comboId);
       }
 
-      if (badgesRes.success && badgesRes.data) {
-        const mappedBadges = badgesRes.data.map((b: any, index: number) => {
+      const [badgesRes, testsRes, logsRes, aiRes, refRes, rolesRes, notebooksRes, documentsRes, flashcardsRes, semestersRes, combosRes] = await Promise.allSettled([
+        userService.getMyBadges(),
+        userService.getMyTestHistory({ page: 0, size: 5, sort: "newest" }),
+        userService.getMyActivityLogs({ page: 0, size: 8, sort: "newest" }),
+        userService.getMyAIUsage(),
+        communityService.getMyReferralInfo(),
+        communityRoleService.getMyCommunityRoles(),
+        notebookService.getNotebooks(0, 1),
+        documentService.getWorkspaceDocuments(0, 1),
+        flashcardService.getMyFlashcardDecks(0, 1),
+        academicService.getSemesters(),
+        academicService.getCombos(),
+      ]);
+
+      if (badgesRes.status === "fulfilled" && badgesRes.value.success && badgesRes.value.data) {
+        const mappedBadges = badgesRes.value.data.map((b: any, index: number) => {
           const colorMap = ["165", "35", "200", "75"];
           return {
             ...b,
@@ -135,45 +135,38 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
           };
         });
         setBadges(mappedBadges);
+      } else {
+        setBadges([]);
       }
-      if (testsRes.success && testsRes.data) setTestHistory(testsRes.data.items || []);
-      if (logsRes.success && logsRes.data) setActivityLogs(logsRes.data.items || []);
-      if (aiRes.success && aiRes.data) setAiUsage(aiRes.data);
-      if (refRes?.success && refRes.data) setMyReferral(refRes.data);
-      if (rolesRes?.success && rolesRes.data) setMyRoles(rolesRes.data);
+
+      if (testsRes.status === "fulfilled" && testsRes.value.success && testsRes.value.data) {
+        setTestHistory(testsRes.value.data.items || []);
+      } else {
+        setTestHistory([]);
+      }
+
+      if (logsRes.status === "fulfilled" && logsRes.value.success && logsRes.value.data) {
+        setActivityLogs(logsRes.value.data.items || []);
+      } else {
+        setActivityLogs([]);
+      }
+
+      setAiUsage(aiRes.status === "fulfilled" && aiRes.value.success ? aiRes.value.data : null);
+      setMyReferral(refRes.status === "fulfilled" && refRes.value.success ? refRes.value.data : null);
+      setMyRoles(rolesRes.status === "fulfilled" && rolesRes.value.success ? rolesRes.value.data : []);
+
+      setStats({
+        notebooks: notebooksRes.status === "fulfilled" ? notebooksRes.value.data.totalElements : 0,
+        documents: documentsRes.status === "fulfilled" ? documentsRes.value.data.totalElements : 0,
+        tests: testsRes.status === "fulfilled" ? testsRes.value.data.totalElements : 0,
+        flashcardDecks: flashcardsRes.status === "fulfilled" ? flashcardsRes.value.data.totalElements : 0,
+      });
+      setSemesters(semestersRes.status === "fulfilled" && semestersRes.value.success ? semestersRes.value.data : []);
+      setCombos(combosRes.status === "fulfilled" && combosRes.value.success ? combosRes.value.data : []);
 
     } catch (err: any) {
-      console.warn("⚠️ Hệ thống tự động kích hoạt chế độ Fallback Mock do chưa kết nối được Server:", err);
-
-      setUserInfo(MOCK_USER_FALLBACK);
-      setEditName(MOCK_USER_FALLBACK.fullName);
-
-      setBadges([
-        { id: 1, name: "Người mới", description: "Hoàn thành onboarding", color: "165" },
-        { id: 2, name: "Chăm chỉ", description: "Học 7 ngày liên tiếp", color: "35" },
-        { id: 3, name: "Đóng góp", description: "Upload 10 tài liệu", color: "200" },
-        { id: 4, name: "Quiz Master", description: "Đạt 100 điểm", color: "75" }
-      ]);
-
-      setTestHistory([
-        { id: 901, quizId: 801, userId: 1, title: "SWP391 — Kiến trúc ứng dụng web Java", totalScore: 9.0, duration: 15, status: "COMPLETED", createdAt: "2026-06-12T22:05:00" },
-        { id: 902, quizId: 802, userId: 1, title: "IOT102 — Lập trình điều khiển mạch ESP32", totalScore: 8.5, duration: 30, status: "COMPLETED", createdAt: "2026-06-11T14:15:00" }
-      ]);
-
-      setActivityLogs([
-        { id: 1, actorId: 1, action: "Hỏi trợ lý AI về cấu trúc JSTL tags", targetType: "CHAT", targetId: 10, metadata: {}, createdAt: "2026-06-15T21:30:00" },
-        { id: 2, actorId: 1, action: "Tải lên tài liệu \"Đề cương mạch ESP32\"", targetType: "DOCUMENT", targetId: 5, metadata: {}, createdAt: "2026-06-14T14:15:00" },
-        { id: 3, actorId: 1, action: "Hoàn thành Flashcard Java Servlets", targetType: "FLASHCARD", targetId: 2, metadata: {}, createdAt: "2026-06-12T09:00:00" }
-      ]);
-
-      setAiUsage({
-        userId: 1,
-        period: "2026-06",
-        chatRequests: 128,
-        quizGenerations: 5,
-        flashcardGenerations: 3,
-        estimatedTokens: 18500
-      });
+      setLoadError(err.message || "Không thể tải hồ sơ cá nhân từ backend.");
+      Notify.failure(err.message || "Không thể tải hồ sơ cá nhân");
     } finally {
       setIsLoading(false);
     }
@@ -200,13 +193,8 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        Notify.failure("Dung lượng ảnh đại diện không được vượt quá 5MB!");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => setEditAvatarUrl(reader.result as string);
-      reader.readAsDataURL(file);
+      Notify.warning("Backend profile hiện nhận avatarUrl, chưa có API upload avatar. Hãy dán URL ảnh đại diện.");
+      e.target.value = "";
     }
   };
 
@@ -235,11 +223,17 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
 
       const updateRes = await userService.updateMyProfile({
         fullName: editName,
-        avatarUrl: editAvatarUrl
+        avatarUrl: editAvatarUrl,
+        currentSemesterId: editSemesterId,
+        comboId: editComboId,
       });
 
       if (updateRes.success) {
         setUserInfo(updateRes.data || null);
+        if (updateRes.data && typeof window !== "undefined") {
+          const { id, email, fullName, avatarUrl, role, reputationPoints, createdAt } = updateRes.data;
+          localStorage.setItem("auth_user", JSON.stringify({ userId: id, email, fullName, avatarUrl, role, reputationPoints, createdAt }));
+        }
         Notify.success("Cập nhật tài khoản thành công!");
         setOldPasswordInput(""); setNewPasswordInput(""); setConfirmPasswordInput("");
         setTimeout(() => setIsSettingsOpen(false), 1000);
@@ -294,7 +288,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     }
   };
 
-  if (isLoading || !userInfo) {
+  if (isLoading) {
     return (
       <div className="py-24 text-center text-muted-foreground font-mono text-xs app-shell-font">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -302,6 +296,30 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
       </div>
     );
   }
+
+  if (loadError || !userInfo) {
+    return (
+      <div className="max-w-xl mx-auto py-24 text-center app-shell-font">
+        <div className="surface-card p-8">
+          <h1 className="text-xl font-bold text-foreground">Không thể tải hồ sơ</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{loadError || "Backend không trả về dữ liệu profile."}</p>
+          <button
+            onClick={loadFullProfileData}
+            className="mt-5 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const statsConfig = [
+    { label: "Notebook", value: stats.notebooks, icon: BookMarked },
+    { label: "Tài liệu", value: stats.documents, icon: FileText },
+    { label: "Quiz đã làm", value: stats.tests, icon: GraduationCap },
+    { label: "Bộ flashcard", value: stats.flashcardDecks, icon: BookMarked },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 relative app-shell-font">
@@ -335,14 +353,14 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
           </div>
 
           <div className="flex gap-2 w-full md:w-auto shrink-0">
-            <button onClick={() => { setEditName(userInfo.fullName); setEditAvatarUrl(userInfo.avatarUrl); setIsSettingsOpen(true); }} className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-4 h-10 rounded-xl bg-card border border-border text-sm font-semibold hover:bg-muted transition-all cursor-pointer"><Settings size={14} /> Cài đặt</button>
+            <button onClick={() => { setEditName(userInfo.fullName); setEditAvatarUrl(userInfo.avatarUrl); setEditSemesterId(userInfo.currentSemesterId); setEditComboId(userInfo.comboId); setIsSettingsOpen(true); }} className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-4 h-10 rounded-xl bg-card border border-border text-sm font-semibold hover:bg-muted transition-all cursor-pointer"><Settings size={14} /> Cài đặt</button>
             <button onClick={handleLogout} className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-4 h-10 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-all cursor-pointer"><LogOut size={14} /> Đăng xuất</button>
           </div>
         </div>
       </motion.div>
 
       {/* Stats Dashboard Tiles */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {statsConfig.map((s) => {
           const Icon = s.icon;
           return (
@@ -355,8 +373,46 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
         })}
         <div className="surface-card p-5 text-left">
           <Cpu size={18} className="text-coral mb-2" />
-          <div className="text-2xl font-bold font-display tracking-tight text-foreground">{aiUsage ? aiUsage.chatRequests : 0}</div>
-          <div className="text-xs font-medium text-muted-foreground mt-0.5">Lượt gọi AI ({aiUsage?.period || "2026-06"})</div>
+          <div className="text-2xl font-bold font-display tracking-tight text-foreground">{aiUsage ? aiUsage.totalRequests : 0}</div>
+          <div className="text-xs font-medium text-muted-foreground mt-0.5">Lượt gọi AI</div>
+        </div>
+      </section>
+
+      <section className="surface-card p-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 text-left">
+          <div>
+            <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2">
+              <Cpu size={18} className="text-coral" /> Thống kê sử dụng AI
+            </h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Dữ liệu sử dụng AI</p>
+          </div>
+          {aiUsage?.estimatedCost !== undefined && (
+            <div className="text-xs font-mono px-3 py-1.5 rounded-full bg-muted/50 border border-border text-muted-foreground">
+              Cost: ${aiUsage.estimatedCost.toFixed(4)}
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
+            <div className="text-xl font-bold">{aiUsage?.totalRequests ?? 0}</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Tổng request</div>
+          </div>
+          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
+            <div className="text-xl font-bold">{aiUsage?.chatRequests ?? 0}</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Chat</div>
+          </div>
+          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
+            <div className="text-xl font-bold">{aiUsage?.quizGenerations ?? 0}</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Sinh quiz</div>
+          </div>
+          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
+            <div className="text-xl font-bold">{aiUsage?.flashcardGenerations ?? 0}</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Sinh flashcard</div>
+          </div>
+          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
+            <div className="text-xl font-bold">{(aiUsage?.totalTokens ?? 0).toLocaleString()}</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Tokens</div>
+          </div>
         </div>
       </section>
 
@@ -627,9 +683,9 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
                   <div className="space-y-3">
                     <div className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1"><GraduationCap size={12} /> Thông tin đào tạo FPT</div>
                     <div className="rounded-xl bg-muted/50 border border-border/60 p-4 space-y-3 text-sm text-left">
-                      <div className="flex justify-between items-center border-b border-border/40 pb-2"><span className="text-muted-foreground font-medium">Mã số sinh viên:</span><span className="font-mono font-bold text-foreground">SE192585</span></div>
-                      <div className="flex flex-col gap-1 border-b border-border/40 pb-2"><span className="text-muted-foreground font-medium">Chuyên ngành chính:</span><span className="font-semibold text-foreground">{COMBO_MAJORS[userInfo.comboId ?? 1]?.major || "Kỹ thuật Phần mềm"}</span></div>
-                      <div className="flex flex-col gap-1"><span className="text-muted-foreground font-medium">Chuyên ngành hẹp:</span><span className="inline-flex items-center gap-1.5 font-bold text-coral bg-coral/5 border border-coral/10 px-2.5 py-1 rounded-lg w-fit mt-1 text-xs">{COMBO_MAJORS[userInfo.comboId ?? 1]?.spec || "Hệ thống nhúng & IoT"}</span></div>
+                      <div className="flex justify-between items-center border-b border-border/40 pb-2"><span className="text-muted-foreground font-medium">User ID:</span><span className="font-mono font-bold text-foreground">#{userInfo.id}</span></div>
+                      <div className="flex flex-col gap-1 border-b border-border/40 pb-2"><span className="text-muted-foreground font-medium">Học kỳ hiện tại:</span><span className="font-semibold text-foreground">{userInfo.currentSemesterCode ? `${userInfo.currentSemesterCode} - ${userInfo.currentSemesterName}` : "Chưa cập nhật"}</span></div>
+                      <div className="flex flex-col gap-1"><span className="text-muted-foreground font-medium">Combo ngành:</span><span className="inline-flex items-center gap-1.5 font-bold text-coral bg-coral/5 border border-coral/10 px-2.5 py-1 rounded-lg w-fit mt-1 text-xs">{userInfo.comboCode ? `${userInfo.comboCode} - ${userInfo.comboName}` : "Chưa cập nhật"}</span></div>
                     </div>
                   </div>
 
@@ -643,12 +699,50 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white gap-1 transition-all duration-200"><Camera size={16} /><span className="text-[9px] font-bold uppercase tracking-wider">Thay ảnh</span></div>
                         </div>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-                        <div className="text-xs text-muted-foreground leading-relaxed font-medium">Bấm vào ô vuông để upload ảnh mới.</div>
+                        <div className="text-xs text-muted-foreground leading-relaxed font-medium">Backend đang hỗ trợ lưu URL ảnh đại diện trong profile.</div>
                       </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Avatar URL:</label>
+                      <input
+                        type="url"
+                        value={editAvatarUrl || ""}
+                        onChange={(e) => setEditAvatarUrl(e.target.value || null)}
+                        placeholder="https://..."
+                        className="w-full px-3.5 h-10 rounded-xl bg-muted/60 border border-transparent focus:border-primary focus:bg-card outline-none text-sm transition-all font-medium text-foreground"
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground">Họ và tên hiển thị:</label>
                       <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3.5 h-10 rounded-xl bg-muted/60 border border-transparent focus:border-primary focus:bg-card outline-none text-sm transition-all font-medium text-foreground" required />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Học kỳ hiện tại:</label>
+                        <select
+                          value={editSemesterId ?? ""}
+                          onChange={(e) => setEditSemesterId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-3.5 h-10 rounded-xl bg-muted/60 border border-transparent focus:border-primary focus:bg-card outline-none text-sm transition-all font-medium text-foreground"
+                        >
+                          <option value="">Chưa chọn</option>
+                          {semesters.map((semester) => (
+                            <option key={semester.id} value={semester.id}>{semester.code} - {semester.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Combo ngành:</label>
+                        <select
+                          value={editComboId ?? ""}
+                          onChange={(e) => setEditComboId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-3.5 h-10 rounded-xl bg-muted/60 border border-transparent focus:border-primary focus:bg-card outline-none text-sm transition-all font-medium text-foreground"
+                        >
+                          <option value="">Chưa chọn</option>
+                          {combos.map((combo) => (
+                            <option key={combo.id} value={combo.id}>{combo.code} - {combo.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
 

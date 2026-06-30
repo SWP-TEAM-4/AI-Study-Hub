@@ -147,7 +147,7 @@ export const academicService = {
 
   // ================= COMBOS =================
   getCombos: async (): Promise<ApiResponse<ComboDTO[]>> => {
-    return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Success", data: [...mockCombos] }), 300));
+    return academicRequest<ApiResponse<ComboDTO[]>>(`/combos`, { method: "GET" });
   },
   adminCreateCombo: async (data: Omit<ComboDTO, "id">): Promise<ApiResponse<ComboDTO>> => {
     return new Promise(resolve => setTimeout(() => {
