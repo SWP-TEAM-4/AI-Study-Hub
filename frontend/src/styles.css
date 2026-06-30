@@ -543,3 +543,134 @@ body {
     -ms-overflow-style: none !important;
   }
 }
+
+/* Mission Control dashboard experience */
+.mission-dashboard {
+  --mission-panel: rgba(8, 18, 32, 0.72);
+  --mission-panel-strong: rgba(10, 22, 39, 0.86);
+  --mission-line: rgba(210, 235, 255, 0.13);
+  --mission-line-bright: rgba(166, 220, 255, 0.28);
+  --mission-copy: rgba(236, 246, 255, 0.96);
+  --mission-muted: rgba(189, 208, 224, 0.68);
+  color: var(--mission-copy);
+  font-family: "Geist Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.mission-dashboard .surface-card,
+.mission-dashboard .rounded-2xl.border,
+.mission-dashboard .rounded-3xl.border,
+.mission-dashboard section > .rounded-2xl,
+.mission-dashboard section > .surface-card {
+  background: linear-gradient(145deg, rgba(12, 25, 43, 0.82), rgba(6, 13, 24, 0.68)) !important;
+  border-color: var(--mission-line) !important;
+  color: var(--mission-copy) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.mission-dashboard .surface-card:hover,
+.mission-dashboard .rounded-2xl.border:hover {
+  border-color: var(--mission-line-bright) !important;
+  filter: brightness(1.06);
+}
+
+.mission-dashboard .bg-card,
+.mission-dashboard [class*="bg-card"] {
+  background-color: rgba(9, 20, 35, 0.68) !important;
+}
+
+.mission-dashboard .bg-muted,
+.mission-dashboard [class*="bg-muted"] {
+  background-color: rgba(232, 242, 255, 0.07) !important;
+}
+
+.mission-dashboard .text-foreground,
+.mission-dashboard [class*="text-slate-800"],
+.mission-dashboard [class*="text-slate-900"] {
+  color: var(--mission-copy) !important;
+}
+
+.mission-dashboard .text-muted-foreground,
+.mission-dashboard [class*="text-slate-500"],
+.mission-dashboard [class*="text-slate-600"] {
+  color: var(--mission-muted) !important;
+}
+
+.mission-dashboard .border-border,
+.mission-dashboard [class*="border-border"] {
+  border-color: var(--mission-line) !important;
+}
+
+.mission-dashboard .glow-button,
+.mission-dashboard [class*="bg-primary"] {
+  background: linear-gradient(135deg, #f8d99b, #ffb45d) !important;
+  color: #101722 !important;
+  box-shadow: 0 0 36px rgba(255, 186, 96, 0.18) !important;
+}
+
+.mission-dashboard h3,
+.mission-dashboard h4 {
+  letter-spacing: 0;
+}
+
+.mission-dashboard button {
+  transform: translateZ(0);
+}
+
+.mission-dashboard .recharts-wrapper text {
+  fill: rgba(209, 226, 242, 0.72) !important;
+}
+
+.mission-dashboard .recharts-cartesian-grid line,
+.mission-dashboard .recharts-reference-line line {
+  stroke: rgba(166, 220, 255, 0.2) !important;
+}
+
+.mission-dashboard .dashboard-command-card,
+.mission-dashboard .dashboard-command-card * {
+  box-sizing: border-box;
+}
+
+.dashboard-orbit-drift {
+  animation: dashboard-orbit-drift 34s linear infinite;
+  transform-origin: center;
+}
+
+.dashboard-planet-shadow {
+  animation: dashboard-planet-breathe 18s ease-in-out infinite;
+}
+
+.dashboard-light-sweep {
+  animation: dashboard-light-sweep 22s ease-in-out infinite;
+}
+
+.dashboard-scanline {
+  background-image: linear-gradient(to bottom, transparent 0, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  background-size: 100% 7px;
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+}
+
+@keyframes dashboard-orbit-drift {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.03); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes dashboard-planet-breathe {
+  0%, 100% { opacity: 0.86; transform: translate3d(0, 0, 0) scale(1); }
+  50% { opacity: 1; transform: translate3d(-10px, 8px, 0) scale(1.04); }
+}
+
+@keyframes dashboard-light-sweep {
+  0%, 100% { opacity: 0.2; transform: translateX(-16%); }
+  50% { opacity: 0.45; transform: translateX(16%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-orbit-drift,
+  .dashboard-planet-shadow,
+  .dashboard-light-sweep {
+    animation: none !important;
+  }
+}

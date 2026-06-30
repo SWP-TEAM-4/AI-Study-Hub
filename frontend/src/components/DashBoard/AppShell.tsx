@@ -55,6 +55,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
 const Spline = lazy(() => import("@splinetool/react-spline"));
 import { FeedbackModal } from "../ui/FeedbackModal";
+import { useAuthStore } from "../../store/useAuthStore";
 
 
 const nav = [
@@ -98,18 +99,9 @@ export function AppShell() {
   const [isFlameAnimated, setIsFlameAnimated] = useState(true);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
-  const authUserStr = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
-  let userRole = "STUDENT";
-  if (authUserStr && authUserStr !== "undefined") {
-    try {
-      const parsed = JSON.parse(authUserStr);
-      if (parsed && parsed.role) {
-        userRole = parsed.role;
-      }
-    } catch (e) {
-      console.error("Failed to parse auth_user:", e);
-    }
-  }
+  // Lấy user info từ zustand store (không parse localStorage thủ công)
+  const { user: authUser } = useAuthStore();
+  const userRole = authUser?.role ?? "STUDENT";
 
   // Mobile Drawer & Sidebar Toggle State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
