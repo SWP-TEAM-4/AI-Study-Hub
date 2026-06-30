@@ -1,10 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import FlashcardStudyPage from "./FlashcardStudyPage";
 import { Notify, Confirm } from "notiflix";
-import { MockFeatureModal } from "../components/ui/MockFeatureModal";
 import CustomSelect from "../components/ui/CustomSelect";
 import { 
   useFlashcardDecks, 
@@ -12,7 +11,9 @@ import {
   useDeleteFlashcardDeck
 } from "../hooks/useFlashcards";
 import { SkeletonCard } from "../components/ui/SkeletonCard";
-import { motionFadeUp } from "../lib/motion";
+import { flashcardService, FlashcardDeckDTO, FlashcardDeckPayload, FlashcardProgressDTO } from "../services/flashcardService";
+import { useSubjects } from "../hooks/useSubjects";
+import { notebookService, NotebookDTO } from "../services/notebookService";
 
 export default function FlashcardsPage() {
   const { t } = useTranslation();
@@ -22,22 +23,115 @@ export default function FlashcardsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
-  const { data: decksList = [], isLoading } = useFlashcardDecks();
+  const { data: decksList = [], isLoading, refetch } = useFlashcardDecks();
   const generateMutation = useGenerateFlashcardDeck();
   const isGenerating = generateMutation.isPending;
+  const [progressMap, setProgressMap] = useState<Record<number, FlashcardProgressDTO>>({});
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingDeck, setEditingDeck] = useState<FlashcardDeckDTO | null>(null);
+  const [deckForm, setDeckForm] = useState<FlashcardDeckPayload>({ title: "", visibility: "PRIVATE" });
+  const [isSavingDeck, setIsSavingDeck] = useState(false);
+  const { subjects, isLoading: isLoadingSubjects } = useSubjects();
+  const [notebooks, setNotebooks] = useState<NotebookDTO[]>([]);
 
-  const [mockModal, setMockModal] = useState<{ isOpen: boolean; type: "EDIT" | "TAG" }>({ isOpen: false, type: "EDIT" });
+  useEffect(() => {
+    if (decksList.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      decksList.map(async (deck) => {
+        try {
+          const res = await flashcardService.getFlashcardDeckProgress(deck.id);
+          return [deck.id, res.data] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((items) => {
+      if (cancelled) return;
+      setProgressMap(
+        items.reduce<Record<number, FlashcardProgressDTO>>((acc, item) => {
+          if (item) acc[item[0]] = item[1];
+          return acc;
+        }, {}),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [decksList]);
 
-  // Mock functions for missing features
-  const handleEdit = (id: number) => setMockModal({ isOpen: true, type: "EDIT" });
-  const handlePublish = (id: number) => {
-    Notify.success("Đã gửi lên cộng đồng! Trạng thái: Chờ duyệt.");
+  useEffect(() => {
+    notebookService.getNotebooks(0, 100)
+      .then((res) => {
+        if (res.success) setNotebooks(res.data.items);
+      })
+      .catch(() => {
+        setNotebooks([]);
+      });
+  }, []);
+
+  const openCreateModal = () => {
+    setEditingDeck(null);
+    setDeckForm({ title: "", visibility: "PRIVATE" });
+    setIsEditorOpen(true);
   };
-  const handleAddTag = (id: number) => setMockModal({ isOpen: true, type: "TAG" });
+
+  const toNullableNumber = (value: string) => (value ? Number(value) : null);
+
+  const handleEdit = (deck: FlashcardDeckDTO) => {
+    setEditingDeck(deck);
+    setDeckForm({
+      title: deck.title,
+      notebookId: deck.notebookId,
+      subjectId: deck.subjectId,
+      visibility: deck.visibility,
+    });
+    setIsEditorOpen(true);
+  };
+
+  const handleSaveDeck = async () => {
+    if (!deckForm.title.trim()) {
+      Notify.warning("Tên bộ thẻ không được để trống");
+      return;
+    }
+    setIsSavingDeck(true);
+    try {
+      if (editingDeck) {
+        await flashcardService.updateFlashcardDeck(editingDeck.id, deckForm);
+        Notify.success("Đã cập nhật bộ thẻ");
+      } else {
+        await flashcardService.createFlashcardDeck(deckForm);
+        Notify.success("Đã tạo bộ thẻ mới");
+      }
+      setIsEditorOpen(false);
+      await refetch();
+    } catch (e: any) {
+      Notify.failure(e.message || "Không thể lưu bộ thẻ");
+    } finally {
+      setIsSavingDeck(false);
+    }
+  };
+
+  const handlePublish = async (id: number) => {
+    try {
+      await flashcardService.submitToMarketplace(id);
+      Notify.success("Đã gửi bộ thẻ lên Marketplace. Trạng thái: Chờ duyệt.");
+      await refetch();
+    } catch (e: any) {
+      Notify.failure(e.message || "Không thể gửi bộ thẻ lên Marketplace");
+    }
+  };
+  const handleAddTag = () => Notify.warning("Backend hiện chưa có API gắn tag cho Flashcard Deck. API tag hiện chỉ hỗ trợ Document.");
 
   const deleteMutation = useDeleteFlashcardDeck();
   const handleDeleteDeck = (id: number) => {
-    deleteMutation.mutate(id);
+    Confirm.show(
+      "Xóa bộ thẻ",
+      "Bạn chắc chắn muốn xóa bộ flashcard này?",
+      "Xóa",
+      "Hủy",
+      () => deleteMutation.mutate(id),
+    );
   };
 
   const list = useMemo(
@@ -46,7 +140,7 @@ export default function FlashcardsPage() {
         const matchSearch = d.title.toLowerCase().includes(q.toLowerCase());
         const matchSubject = filterSubject === "all" || d.subjectId === Number(filterSubject);
         const matchVis = filterVisibility === "all" || d.visibility === filterVisibility;
-        const matchStatus = filterStatus === "all" || true;
+        const matchStatus = filterStatus === "all" || d.marketStatus === filterStatus;
         return matchSearch && matchSubject && matchVis && matchStatus;
       });
 
@@ -78,12 +172,80 @@ export default function FlashcardsPage() {
       transition={{ duration: 0.35, ease: "easeOut" }}
       className="space-y-6"
     >
-      <MockFeatureModal 
-        isOpen={mockModal.isOpen} 
-        onClose={() => setMockModal({ isOpen: false, type: "EDIT" })} 
-        type={mockModal.type} 
-        itemName="Flashcard Deck" 
-      />
+      {isEditorOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="surface-card w-full max-w-lg p-5 rounded-2xl border border-border bg-card">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-lg font-bold">{editingDeck ? "Sửa bộ thẻ" : "Tạo bộ thẻ mới"}</h2>
+                <p className="text-sm text-muted-foreground">Lưu trực tiếp vào backend Flashcard Deck.</p>
+              </div>
+              <button onClick={() => setIsEditorOpen(false)} className="size-8 rounded-lg bg-muted text-muted-foreground hover:text-foreground">×</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1 block">Tên bộ thẻ</label>
+                <input
+                  value={deckForm.title}
+                  onChange={(e) => setDeckForm((prev) => ({ ...prev, title: e.target.value }))}
+                  className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Môn học</label>
+                  <select
+                    value={deckForm.subjectId ?? ""}
+                    onChange={(e) => setDeckForm((prev) => ({ ...prev, subjectId: toNullableNumber(e.target.value) }))}
+                    className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
+                    disabled={isLoadingSubjects}
+                  >
+                    <option value="">Không chọn môn</option>
+                    {subjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.code} - {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Notebook</label>
+                  <select
+                    value={deckForm.notebookId ?? ""}
+                    onChange={(e) => setDeckForm((prev) => ({ ...prev, notebookId: toNullableNumber(e.target.value) }))}
+                    className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
+                  >
+                    <option value="">Không gắn notebook</option>
+                    {notebooks.map((notebook) => (
+                      <option key={notebook.id} value={notebook.id}>
+                        {notebook.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Hiển thị</label>
+                  <select
+                    value={deckForm.visibility || "PRIVATE"}
+                    onChange={(e) => setDeckForm((prev) => ({ ...prev, visibility: e.target.value as FlashcardDeckPayload["visibility"] }))}
+                    className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
+                  >
+                    <option value="PRIVATE">PRIVATE</option>
+                    <option value="WORKSPACE">WORKSPACE</option>
+                    <option value="MARKETPLACE">MARKETPLACE</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setIsEditorOpen(false)} className="h-10 px-4 rounded-xl bg-muted text-sm font-medium">Hủy</button>
+              <button disabled={isSavingDeck} onClick={handleSaveDeck} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
+                {isSavingDeck ? "Đang lưu..." : "Lưu"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -91,14 +253,19 @@ export default function FlashcardsPage() {
           </h1>
           <p className="text-muted-foreground mt-1">{t('pages.flashcards.desc')}</p>
         </div>
-        <button 
-          onClick={handleGenerateDeck}
-          disabled={isGenerating}
-          className={`inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium self-start ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
-        >
-          {isGenerating ? <div className="size-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> : <Sparkles size={16} />} 
-          {isGenerating ? t('components.aiConfigModal.processing', "Đang xử lý...") : t('pages.flashcards.addDeck', "+ Tạo Bộ Thẻ")}
-        </button>
+        <div className="flex gap-2 self-start">
+          <button onClick={openCreateModal} className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/80">
+            <Plus size={16} /> Tạo thủ công
+          </button>
+          <button 
+            onClick={handleGenerateDeck}
+            disabled={isGenerating}
+            className={`inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
+          >
+            {isGenerating ? <div className="size-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> : <Sparkles size={16} />} 
+            {isGenerating ? t('components.aiConfigModal.processing', "Đang xử lý...") : "AI tạo bộ thẻ"}
+          </button>
+        </div>
       </div>
 
       <div className="surface-card p-3 rounded-2xl flex flex-col lg:flex-row gap-3 items-center relative z-30">
@@ -119,21 +286,10 @@ export default function FlashcardsPage() {
             className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
               { label: t("filters.allSubjects"), value: "all" },
-              {
-                label: "Semester 5",
-                options: [
-                  { label: "SWP391", value: "SWP391" },
-                  { label: "SWT301", value: "SWT301" },
-                  { label: "SWR302", value: "SWR302" }
-                ]
-              },
-              {
-                label: "Semester 4",
-                options: [
-                  { label: "PRN221", value: "PRN221" },
-                  { label: "PRJ301", value: "PRJ301" }
-                ]
-              }
+              ...subjects.map((subject) => ({
+                label: `${subject.code} - ${subject.name}`,
+                value: String(subject.id),
+              })),
             ]}
           />
           <CustomSelect
@@ -176,8 +332,10 @@ export default function FlashcardsPage() {
           {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
           ) : list.map((deck, i) => {
-            const masteredCount = Math.floor(deck.cards.length / 2); // Mock mastered count since progress is a separate API
-            const pct = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
+            const progress = progressMap[deck.id];
+            const masteredCount = progress?.reviewedCards ?? 0;
+            const totalCards = progress?.totalCards ?? deck.cards.length;
+            const pct = totalCards > 0 ? Math.round(progress?.rememberedRate ?? 0) : 0;
             return (
               <motion.div
                 key={deck.id}
@@ -193,16 +351,16 @@ export default function FlashcardsPage() {
                     <span className="text-xs text-muted-foreground">{new Date(deck.createdAt).toLocaleDateString()}</span>
                   </div>
                   
-                  {/* Action Dropdown (Mocked) */}
+                  {/* Action Dropdown */}
                   <div className="relative group/menu">
                     <button className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50">
                       <MoreHorizontal size={16} />
                     </button>
                     <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => handleEdit(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                      <button onClick={() => handleEdit(deck)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                         <Edit size={14} /> {t('pages.flashcards.edit')}
                       </button>
-                      <button onClick={() => handleAddTag(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                      <button onClick={handleAddTag} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                         <Tag size={14} /> {t('pages.flashcards.addTag')}
                       </button>
                       <button onClick={() => handlePublish(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
@@ -217,7 +375,7 @@ export default function FlashcardsPage() {
                 <h3 className="font-display text-lg font-semibold">{deck.title}</h3>
                 <div className="mt-3 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{t('pages.flashcards.progress')}</span>
-                  <span className="font-medium">{masteredCount}/{deck.cards.length}</span>
+                  <span className="font-medium">{masteredCount}/{totalCards}</span>
                 </div>
                 <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
                   <motion.div

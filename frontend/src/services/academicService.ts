@@ -91,7 +91,7 @@ let mockComboSubjects: Record<number, number[]> = {
 export const academicService = {
   // ================= SEMESTERS =================
   getSemesters: async (): Promise<ApiResponse<SemesterDTO[]>> => {
-    return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Success", data: [...mockSemesters] }), 300));
+    return academicRequest<ApiResponse<SemesterDTO[]>>(`/semesters`, { method: "GET" });
   },
   adminCreateSemester: async (data: Omit<SemesterDTO, "id">): Promise<ApiResponse<SemesterDTO>> => {
     return new Promise(resolve => setTimeout(() => {
