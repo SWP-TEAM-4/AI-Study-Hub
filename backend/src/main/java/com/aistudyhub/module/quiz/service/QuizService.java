@@ -2,14 +2,17 @@ package com.aistudyhub.module.quiz.service;
 
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.Visibility;
+import com.aistudyhub.common.enums.TestStatus;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
+import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.entity.*;
 import com.aistudyhub.module.quiz.dto.QuizRequest;
 import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizResponseMapper;
 import com.aistudyhub.module.quiz.dto.QuizSearchRequest;
 import com.aistudyhub.module.quiz.dto.GenerateQuizRequest;
+import com.aistudyhub.module.quiz.dto.UserTestHistoryResponse;
 import com.aistudyhub.common.enums.QuestionType;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
@@ -17,7 +20,9 @@ import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +50,7 @@ public class QuizService {
     private final NotebookDocumentRepository notebookDocumentRepository;
     private final DocumentChunkRepository documentChunkRepository;
     private final QuizQuestionRepository quizQuestionRepository;
+    private final TestRepository testRepository;
 
     /**
      * Tạo một Quiz mới thuộc về người dùng hiện tại đăng nhập.
@@ -430,5 +436,54 @@ public class QuizService {
                 currentUser.getId());
 
         return QuizResponseMapper.toResponse(quiz);
+    }
+
+    /**
+     * Lay danh sach test attempts cua current user theo mot quiz bank.
+     */
+    @Transactional(readOnly = true)
+    public PaginationResponse<UserTestHistoryResponse> getTestsByQuiz(Long quizId, int page, int size, String keyword,
+            TestStatus status, String sort) {
+        User currentUser = userService.getCurrentUser();
+
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
+
+        if (!quiz.getCreator().getId().equals(currentUser.getId()) && quiz.getVisibility() == Visibility.PRIVATE) {
+            throw new AppException(ErrorCode.QUIZ_ACCESS_DENIED);
+        }
+
+        Sort.Direction direction = "oldest".equalsIgnoreCase(sort) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, "createdAt"));
+        String normalizedKeyword = keyword != null && !keyword.isBlank() ? keyword.trim() : null;
+
+        Page<Test> testPage;
+        if (normalizedKeyword != null && status != null) {
+            testPage = testRepository.findByUserIdAndQuizIdAndTitleContainingIgnoreCaseAndStatus(currentUser.getId(),
+                    quizId, normalizedKeyword, status, pageable);
+        } else if (normalizedKeyword != null) {
+            testPage = testRepository.findByUserIdAndQuizIdAndTitleContainingIgnoreCase(currentUser.getId(), quizId,
+                    normalizedKeyword, pageable);
+        } else if (status != null) {
+            testPage = testRepository.findByUserIdAndQuizIdAndStatus(currentUser.getId(), quizId, status, pageable);
+        } else {
+            testPage = testRepository.findByUserIdAndQuizId(currentUser.getId(), quizId, pageable);
+        }
+
+        Page<UserTestHistoryResponse> historyPage = testPage.map(this::toUserTestHistoryResponse);
+        return PaginationResponse.of(historyPage);
+    }
+
+    private UserTestHistoryResponse toUserTestHistoryResponse(Test test) {
+        return UserTestHistoryResponse.builder()
+                .id(test.getId())
+                .quizId(test.getQuiz().getId())
+                .userId(test.getUser().getId())
+                .title(test.getTitle())
+                .totalScore(test.getTotalScore())
+                .duration(test.getDuration())
+                .status(test.getStatus())
+                .createdAt(test.getCreatedAt())
+                .build();
     }
 }

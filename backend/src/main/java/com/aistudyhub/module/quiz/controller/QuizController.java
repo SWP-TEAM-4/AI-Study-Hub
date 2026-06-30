@@ -1,6 +1,7 @@
 package com.aistudyhub.module.quiz.controller;
 
 import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.TestStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.response.ApiResponse;
 import com.aistudyhub.common.response.PaginationResponse;
@@ -8,6 +9,7 @@ import com.aistudyhub.module.quiz.dto.QuizRequest;
 import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizSearchRequest;
 import com.aistudyhub.module.quiz.dto.GenerateQuizRequest;
+import com.aistudyhub.module.quiz.dto.UserTestHistoryResponse;
 import com.aistudyhub.module.quiz.service.QuizService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -82,14 +84,36 @@ public class QuizController {
     }
 
     /**
-     * API cập nhật metadata của Quiz (Tiêu đề, mô tả, môn học, học kỳ, notebook liên kết...).
-     * <p>
-     * Chỉ người tạo (creator) mới được phép thực hiện hành động này.
-     * 
-     * @param id ID của Quiz cần cập nhật
-     * @param request dữ liệu cập nhật mới
-     * @return ResponseEntity chứa thông tin Quiz sau khi cập nhật thành công và mã HTTP 200 OK
+     * API lay danh sach test attempts cua current user theo mot quiz bank.
      */
+    @Operation(summary = "Lay danh sach bai test duoc tao tu mot quiz bank")
+    @GetMapping("/{quizId}/tests")
+    public ResponseEntity<ApiResponse<PaginationResponse<UserTestHistoryResponse>>> getTestsByQuiz(
+            @PathVariable Long quizId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "newest") String sort) {
+
+        TestStatus statusEnum = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                statusEnum = TestStatus.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                ApiResponse<PaginationResponse<UserTestHistoryResponse>> errorResponse = ApiResponse
+                        .error("Invalid status value: " + status, "VALIDATION_ERROR");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+        }
+
+        PaginationResponse<UserTestHistoryResponse> response = quizService.getTestsByQuiz(quizId, page,
+                size, keyword, statusEnum, sort);
+        ApiResponse<PaginationResponse<UserTestHistoryResponse>> apiResult = ApiResponse.success("Success", response);
+
+        return ResponseEntity.ok(apiResult);
+    }
+
     @Operation(summary = "Cập nhật metadata của Quiz")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<QuizResponse>> updateQuiz(
