@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/aistudyhub
     username: postgres
-    password: 12345
+    password: 
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -77,7 +77,7 @@ app:
       fallback-to-stub-on-error: true
 
     openai:
-      api-key: //lộ key:)
+      api-key: s
       model: gpt-4o-mini
       base-url: https://api.openai.com/v1
       embedding-model: text-embedding-3-small
@@ -87,7 +87,7 @@ app:
       max-retries: 3
 
     gemini:
-      api-key: //no
+      api-key: 
       base-url: https://generativelanguage.googleapis.com/v1/models
       model: gemini-3.5-flash
       temperature: 0.1

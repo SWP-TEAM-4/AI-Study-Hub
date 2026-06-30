@@ -17,6 +17,10 @@ interface NotebookChatProps {
   onRenameClick?: () => void;
   onShareClick?: () => void;
   onDocumentClick?: (doc: any) => void;
+  onAttachDocumentClick?: () => void;
+  onDetachDocument?: (documentId: number) => void;
+  detachingDocumentId?: number | null;
+  documentsLoading?: boolean;
   documents?: any[];
   quizzes?: any[];
   decks?: any[];
@@ -34,6 +38,18 @@ const suggestions = [
   "Đề cương ôn tập chi tiết",
 ];
 
+function getDocumentType(doc: any) {
+  return (doc?.fileType || doc?.type || "PDF").toString().toUpperCase();
+}
+
+function formatDocumentSize(doc: any) {
+  if (doc?.size) return doc.size;
+  const bytes = Number(doc?.fileSize || 0);
+  if (!bytes) return "Unknown size";
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({ 
   notebookId, 
   notebookTitle, 
@@ -41,7 +57,11 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
   onBack, 
   onRenameClick, 
   onShareClick, 
-  onDocumentClick, 
+  onDocumentClick,
+  onAttachDocumentClick,
+  onDetachDocument,
+  detachingDocumentId = null,
+  documentsLoading = false,
   documents = [], 
   quizzes = [], 
   decks = [] 
@@ -395,13 +415,24 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
                 <FileText size={16} className="text-primary shrink-0" /> 
                 <span className="truncate">{viewingDocument ? viewingDocument.title : "Tài liệu notebook"}</span>
               </span>
-              <button
-                onClick={() => setIsLeftCollapsed(true)}
-                className="size-7 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
-                title="Thu gọn"
-              >
-                <PanelLeftClose size={16} />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {!viewingDocument && onAttachDocumentClick && (
+                  <button
+                    onClick={onAttachDocumentClick}
+                    className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 text-[10px] font-bold transition-colors cursor-pointer"
+                    title="Gắn tài liệu có sẵn"
+                  >
+                    <Plus size={12} /> Gắn
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsLeftCollapsed(true)}
+                  className="size-7 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  title="Thu gọn"
+                >
+                  <PanelLeftClose size={16} />
+                </button>
+              </div>
             </div>
             
             {viewingDocument ? (
@@ -417,7 +448,7 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
                   >
                     ← Quay lại
                   </button>
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold">{viewingDocument.type || "PDF"}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">{getDocumentType(viewingDocument)}</span>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3 bg-muted/20 border border-border/50 rounded-xl text-left select-text">
@@ -425,23 +456,36 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
                     {viewingDocument.title}
                   </h4>
                   <div className="text-[11px] text-muted-foreground space-y-2 leading-relaxed">
-                    <p className="font-semibold text-foreground">💡 Nội dung tóm tắt tài liệu:</p>
-                    <p>Trong kiến thức được ghi chép, tài liệu này trình bày các định nghĩa cốt lõi, khái niệm nghiệp vụ và cấu trúc bài học. Hệ thống AI đã kết nối và hỗ trợ tra cứu toàn bộ nội dung văn bản này.</p>
-                    <p className="font-semibold text-foreground">💡 Đặc điểm chính:</p>
+                    <p className="font-semibold text-foreground">Thông tin tài liệu từ backend:</p>
+                    {viewingDocument.description ? (
+                      <p>{viewingDocument.description}</p>
+                    ) : (
+                      <p>Document này chưa có mô tả.</p>
+                    )}
                     <ul className="list-disc pl-4 space-y-1">
-                      <li>Hỗ trợ học tập thông minh qua AI.</li>
-                      <li>Tự động phân tích các thẻ Flashcard và Quiz tương ứng.</li>
-                      <li>Quản lý thông tin tối ưu trong không gian học tập cá nhân.</li>
+                      <li>Loại file: {getDocumentType(viewingDocument)}</li>
+                      <li>Dung lượng: {formatDocumentSize(viewingDocument)}</li>
+                      <li>Trạng thái xử lý: {viewingDocument.processingStatus || "UNKNOWN"}</li>
                     </ul>
-                    <p className="font-semibold text-foreground">💡 Khuyến nghị:</p>
-                    <p>Đặt các câu hỏi trực tiếp cho AI ở ô bên cạnh để giải thích sâu hơn các phần chưa hiểu của tài liệu này.</p>
+                    {viewingDocument.fileUrl && (
+                      <a
+                        href={viewingDocument.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex text-primary font-bold hover:underline"
+                      >
+                        Mở file gốc
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
             ) : (
               // List of documents
               <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2">
-                {documents && documents.length > 0 ? (
+                {documentsLoading ? (
+                  [1, 2, 3].map(i => <div key={i} className="h-14 rounded-xl bg-muted/40 animate-pulse border border-border/30" />)
+                ) : documents && documents.length > 0 ? (
                   documents.map(d => (
                     <div 
                       key={d.id} 
@@ -452,16 +496,39 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
                       className="p-2.5 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/50 cursor-pointer transition-colors flex items-center gap-3 group text-left"
                     >
                       <div className="size-8 shrink-0 rounded-lg bg-background border border-border/50 grid place-items-center text-[10px] font-bold uppercase text-muted-foreground shadow-sm">
-                        {d.type || "PDF"}
+                        {getDocumentType(d)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">{d.title}</div>
-                        <div className="text-[10px] text-muted-foreground">{d.size || "Unknown size"}</div>
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <span>{formatDocumentSize(d)}</span>
+                          {d.processingStatus && <span className="uppercase">• {d.processingStatus}</span>}
+                        </div>
                       </div>
+                      {onDetachDocument && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDetachDocument(Number(d.id));
+                          }}
+                          disabled={detachingDocumentId === Number(d.id)}
+                          className="opacity-0 group-hover:opacity-100 size-7 rounded-lg grid place-items-center text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-all cursor-pointer"
+                          title="Gỡ khỏi notebook"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   ))
                 ) : (
-                  <div className="text-xs text-muted-foreground text-center py-4">Chưa có tài liệu</div>
+                  <div className="text-xs text-muted-foreground text-center py-4">
+                    Chưa có tài liệu
+                    {onAttachDocumentClick && (
+                      <button onClick={onAttachDocumentClick} className="block mx-auto mt-2 text-primary font-bold hover:underline">
+                        Gắn tài liệu có sẵn
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -918,3 +985,6 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
 NotebookChat.displayName = "NotebookChat";
 
 export default NotebookChat;
+
+
+

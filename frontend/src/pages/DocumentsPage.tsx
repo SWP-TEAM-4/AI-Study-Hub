@@ -14,6 +14,7 @@ import {
   useUploadDocument, 
   useDeleteDocument 
 } from "../hooks/useDocuments";
+import { useSubjects } from "../hooks/useSubjects";
 import { motionFadeUp } from "../lib/motion";
 
 // 🎯 BẢNG MÀU CHUẨN THƯƠNG HIỆU CHO TỪNG LOẠI FILE (HỖ TRỢ CẢ DARK MODE)
@@ -40,6 +41,16 @@ const typeStyles: Record<string, { activeBtn: string; badge: string }> = {
   },
 };
 
+const statusBadgeStyles: Record<string, string> = {
+  PENDING: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+  PROCESSING: "bg-blue-500/10 text-blue-700 border-blue-500/20",
+  SUCCESS: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  FAILED: "bg-red-500/10 text-red-700 border-red-500/20",
+  NONE: "bg-muted text-muted-foreground border-border/30",
+  APPROVED: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  REJECTED: "bg-red-500/10 text-red-700 border-red-500/20",
+};
+
 export default function DocumentsPage() {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
@@ -52,24 +63,139 @@ export default function DocumentsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
+  const { subjects, subjectMap } = useSubjects();
+  const subjectFilterOptions = useMemo(
+    () => subjects.map((subject) => ({ label: subject.code, value: String(subject.id) })),
+    [subjects],
+  );
+  const getSubjectLabel = (subjectId: number | null) => {
+    if (!subjectId) return "N/A";
+    const subject = subjectMap[subjectId];
+    return subject ? subject.code : `Môn #${subjectId}`;
+  };
+
+  const documentQueryParams = useMemo(() => {
+    const processingStatuses = ["PENDING", "PROCESSING", "SUCCESS", "FAILED"] as const;
+    const sortMap: Record<string, string> = {
+      newest: "createdAt,desc",
+      oldest: "createdAt,asc",
+      az: "title,asc",
+    };
+
+    return {
+      keyword: q,
+      filters: {
+        subjectId: filterSubject === "all" ? undefined : Number(filterSubject),
+        fileType: type === "all" ? undefined : type,
+        visibility: filterVisibility === "all" ? undefined : filterVisibility as DocumentDTO["visibility"],
+        processingStatus: processingStatuses.includes(filterStatus as any) ? filterStatus as DocumentDTO["processingStatus"] : undefined,
+        sort: sortMap[sortBy] ?? "createdAt,desc",
+      },
+    };
+  }, [q, type, filterSubject, filterVisibility, filterStatus, sortBy]);
+
   // Fetch using Custom Hook
-  const { data: list = [], isLoading } = useDocuments();
+  const { data: list = [], isLoading, refetch } = useDocuments(documentQueryParams);
   const deleteMutation = useDeleteDocument();
 
   // Upload using Custom Hook
   const uploadMutation = useUploadDocument();
   const isUploading = uploadMutation.isPending;
 
-  // Mock functions for missing features
-  const handleEdit = (id: number) => Notify.info("Tính năng Sửa đang được phát triển!");
+  const [editModalDoc, setEditModalDoc] = useState<DocumentDTO | null>(null);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    description: string;
+    subjectId: string;
+    visibility: DocumentDTO["visibility"];
+  }>({ title: "", description: "", subjectId: "", visibility: "PRIVATE" });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [reprocessingId, setReprocessingId] = useState<number | null>(null);
+
+  const handleEdit = (doc: DocumentDTO) => {
+    setEditModalDoc(doc);
+    setEditForm({
+      title: doc.title || "",
+      description: doc.description || "",
+      subjectId: doc.subjectId ? String(doc.subjectId) : "",
+      visibility: doc.visibility || "PRIVATE",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editModalDoc) return;
+    if (!editForm.title.trim()) {
+      Notify.failure("Tên tài liệu không được để trống.");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      await documentService.updateDocument(editModalDoc.id, {
+        title: editForm.title.trim(),
+        description: editForm.description.trim() || null,
+        subjectId: editForm.subjectId ? Number(editForm.subjectId) : null,
+        visibility: editForm.visibility,
+      });
+      Notify.success("Đã cập nhật tài liệu.");
+      setEditModalDoc(null);
+      await refetch();
+    } catch (err: any) {
+      Notify.failure("Cập nhật thất bại: " + (err.message || "Unknown error"));
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const handlePublish = (id: number) => {
     const doc = list.find(x => x.id === id);
     if (doc) setPublishModalDoc(doc);
   };
-  const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
+
+  const handleAddTag = async (id: number) => {
+    const name = window.prompt("Nhập tên tag muốn gắn cho tài liệu:")?.trim();
+    if (!name) return;
+
+    try {
+      const created = await documentService.createTag({ name, type: "CUSTOM", color: "#0f9f7a" });
+      if (created.success && created.data?.id) {
+        await documentService.addTagToDocument(id, created.data.id);
+        Notify.success("Đã tạo và gắn tag cho tài liệu.");
+      }
+    } catch (err: any) {
+      Notify.failure("Không thể gắn tag: " + (err.message || "Unknown error"));
+    }
+  };
   
   const handleDeleteDoc = (id: number) => {
-    deleteMutation.mutate(id);
+    Confirm.show(
+      "Xóa tài liệu",
+      "Bạn chắc chắn muốn xóa tài liệu này? Hành động này sẽ gọi API xóa thật trên backend.",
+      "Xóa",
+      "Hủy",
+      () => deleteMutation.mutate(id),
+    );
+  };
+
+  const handleDownload = (doc: DocumentDTO) => {
+    if (!doc.fileUrl) {
+      Notify.failure("Backend chưa trả fileUrl cho tài liệu này.");
+      return;
+    }
+    window.open(doc.fileUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleReprocess = async (doc: DocumentDTO) => {
+    setReprocessingId(doc.id);
+    try {
+      await documentService.processDocumentChunks(doc.id, { chunkSize: 800, overlap: 120 });
+      Notify.success("Đã gửi lại yêu cầu xử lý AI chunks.");
+      await refetch();
+    } catch (err: any) {
+      Notify.failure("Không thể xử lý lại tài liệu: " + (err.message || "Unknown error"));
+    } finally {
+      setReprocessingId(null);
+    }
   };
 
   // Share Modal State
@@ -133,14 +259,21 @@ export default function DocumentsPage() {
     return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   };
 
+  const getStatusClass = (status: string) => statusBadgeStyles[status] || statusBadgeStyles.NONE;
+
   const filtered = useMemo(
     () => {
       let result = list.filter((x) => {
-        const matchSearch = (x.title || "").toLowerCase().includes((q || "").toLowerCase()) || (x.subjectId || "").toString().includes((q || "").toLowerCase());
+        const keyword = (q || "").toLowerCase();
+        const matchSearch =
+          (x.title || "").toLowerCase().includes(keyword) ||
+          (x.description || "").toLowerCase().includes(keyword) ||
+          (x.subjectId || "").toString().includes(keyword);
+        const matchType = type === "all" || (x.fileType || "").toLowerCase() === type;
         const matchSubject = filterSubject === "all" || x.subjectId === Number(filterSubject);
         const matchVis = filterVisibility === "all" || x.visibility === filterVisibility;
-        const matchStatus = filterStatus === "all" || true;
-        return matchSearch && matchSubject && matchVis && matchStatus;
+        const matchStatus = filterStatus === "all" || x.processingStatus === filterStatus || x.marketStatus === filterStatus;
+        return matchSearch && matchType && matchSubject && matchVis && matchStatus;
       });
 
       if (sortBy === "newest") {
@@ -152,7 +285,7 @@ export default function DocumentsPage() {
       }
       return result;
     },
-    [list, q, filterSubject, filterVisibility, filterStatus, sortBy],
+    [list, q, type, filterSubject, filterVisibility, filterStatus, sortBy],
   );
 
   // ── Share Logic ──
@@ -163,7 +296,7 @@ export default function DocumentsPage() {
     setShareForm({ allowDownload: true, expiresAt: "" });
     try {
       const res = await documentService.getShareLinkStatus(doc.id);
-      if (res.success && res.data && res.data.visibility === "PUBLIC_LINK") {
+      if (res.success && res.data && res.data.isEnabled) {
         setShareInfo(res.data);
         setShareForm({
           allowDownload: res.data.allowDownload,
@@ -198,21 +331,40 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleUpdateShareLink = async (regenerateToken = false) => {
+  const handleUpdateShareLink = async () => {
     if (!shareModalDoc) return;
     setIsShareLoading(true);
     try {
       const res = await documentService.updateShareLink(shareModalDoc.id, {
         allowDownload: shareForm.allowDownload,
         expiresAt: shareForm.expiresAt ? new Date(shareForm.expiresAt).toISOString() : null,
-        regenerateToken
       });
       if (res.success) {
         setShareInfo(res.data);
-        Notify.success(regenerateToken ? "Đã tạo link mới!" : "Đã lưu cấu hình chia sẻ!");
+        Notify.success("Đã lưu cấu hình chia sẻ!");
       }
     } catch (e: any) {
       Notify.failure("Không thể cập nhật link: " + e.message);
+    } finally {
+      setIsShareLoading(false);
+    }
+  };
+
+  const handleRegenerateShareLink = async () => {
+    if (!shareModalDoc) return;
+    setIsShareLoading(true);
+    try {
+      await documentService.revokeShareLink(shareModalDoc.id);
+      const res = await documentService.createShareLink(shareModalDoc.id, {
+        allowDownload: shareForm.allowDownload,
+        expiresAt: shareForm.expiresAt ? new Date(shareForm.expiresAt).toISOString() : null,
+      });
+      if (res.success) {
+        setShareInfo(res.data);
+        Notify.success("Đã tạo link mới.");
+      }
+    } catch (e: any) {
+      Notify.failure("Không thể tạo link mới: " + e.message);
     } finally {
       setIsShareLoading(false);
     }
@@ -295,21 +447,7 @@ export default function DocumentsPage() {
             className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
               { label: t("filters.allSubjects"), value: "all" },
-              {
-                label: "Semester 5",
-                options: [
-                  { label: "SWP391", value: "SWP391" },
-                  { label: "SWT301", value: "SWT301" },
-                  { label: "SWR302", value: "SWR302" }
-                ]
-              },
-              {
-                label: "Semester 4",
-                options: [
-                  { label: "PRN221", value: "PRN221" },
-                  { label: "PRJ301", value: "PRJ301" }
-                ]
-              }
+              { label: "Môn học", options: subjectFilterOptions },
             ]}
           />
           <CustomSelect
@@ -319,7 +457,7 @@ export default function DocumentsPage() {
             data={[
               { label: t("filters.allVisibility"), value: "all" },
               { label: t("filters.private"), value: "PRIVATE" },
-              { label: t("filters.workspace"), value: "WORKSPACE" },
+              { label: "Public link", value: "PUBLIC_LINK" },
               { label: t("filters.marketplace"), value: "MARKETPLACE" }
             ]}
           />
@@ -329,9 +467,12 @@ export default function DocumentsPage() {
             className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
               { label: t("filters.allStatus"), value: "all" },
-              { label: t("filters.pending"), value: "PENDING" },
+              { label: "Chờ xử lý", value: "PENDING" },
+              { label: "Đang xử lý", value: "PROCESSING" },
+              { label: "Xử lý xong", value: "SUCCESS" },
+              { label: "Xử lý lỗi", value: "FAILED" },
               { label: t("filters.approved"), value: "APPROVED" },
-              { label: t("filters.rejected"), value: "REJECTED" }
+              { label: t("filters.rejected"), value: "REJECTED" },
             ]}
           />
           <CustomSelect
@@ -421,16 +562,21 @@ export default function DocumentsPage() {
                 </td>
                 <td className="px-5 py-3 hidden md:table-cell">
                   {d.subjectId ? (
-                    <span className="text-xs px-2.5 py-1 rounded-lg bg-muted/80 border border-border/30 font-medium text-muted-foreground">Môn #{d.subjectId}</span>
+                    <span className="text-xs px-2.5 py-1 rounded-lg bg-muted/80 border border-border/30 font-medium text-muted-foreground">{getSubjectLabel(d.subjectId)}</span>
                   ) : (
                     <span className="text-xs text-muted-foreground font-mono">N/A</span>
                   )}
                 </td>
                 <td className="px-5 py-3 hidden lg:table-cell">
                   <div className="flex gap-1 flex-wrap">
-                    <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md bg-accent text-accent-foreground font-medium border border-border/10">
-                      <Tag size={9} /> SYSTEM
+                    <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.processingStatus)}`}>
+                      {d.processingStatus}
                     </span>
+                    {d.marketStatus !== "NONE" && (
+                      <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.marketStatus)}`}>
+                        {d.marketStatus}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-5 py-3 hidden sm:table-cell text-muted-foreground font-medium">{formatSize(d.fileSize)}</td>
@@ -440,20 +586,22 @@ export default function DocumentsPage() {
                     <button onClick={() => openShareModal(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-primary hover:text-primary transition-colors outline-none" title="Chia sẻ">
                       <Share2 size={14} />
                     </button>
-                    <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
+                    <button onClick={() => handleDownload(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none" title="Tải xuống">
                       <Download size={14} />
                     </button>
-                    {/* Action Dropdown (Mocked) */}
                     <div className="relative group/menu">
                       <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
                         <MoreVertical size={14} />
                       </button>
-                      <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => handleEdit(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                      <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => handleEdit(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                           <FileText size={14} /> {t('pages.documents.table.editDesc')}
                         </button>
                         <button onClick={() => handleAddTag(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                           <Tag size={14} /> {t('pages.documents.table.addTag')}
+                        </button>
+                        <button onClick={() => handleReprocess(d)} disabled={reprocessingId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
+                          <RefreshCw size={14} className={reprocessingId === d.id ? "animate-spin" : ""} /> Xử lý AI chunks
                         </button>
                         <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
                           <Globe size={14} /> {t('pages.documents.table.publish')}
@@ -549,10 +697,10 @@ export default function DocumentsPage() {
                       <Trash2 size={14} /> Gỡ Link
                     </button>
                     <div className="flex gap-2">
-                      <button onClick={() => handleUpdateShareLink(true)} className="size-10 rounded-xl bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors" title="Đổi Link mới (Hủy link cũ)">
+                      <button onClick={handleRegenerateShareLink} className="size-10 rounded-xl bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors" title="Đổi Link mới (Hủy link cũ)">
                         <RefreshCw size={14} />
                       </button>
-                      <button onClick={() => handleUpdateShareLink(false)} className="h-10 px-5 rounded-xl bg-card border border-border text-xs font-bold hover:bg-muted transition-colors">
+                      <button onClick={handleUpdateShareLink} className="h-10 px-5 rounded-xl bg-card border border-border text-xs font-bold hover:bg-muted transition-colors">
                         Lưu Cấu Hình
                       </button>
                     </div>
@@ -575,12 +723,106 @@ export default function DocumentsPage() {
         )}
       </AnimatePresence>
 
+      {/* EDIT DOCUMENT MODAL */}
+      <AnimatePresence>
+        {editModalDoc && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setEditModalDoc(null)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative surface-card w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-border/50"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="font-bold font-display text-lg">Sửa tài liệu</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Cập nhật metadata qua API backend.</p>
+                </div>
+                <button onClick={() => setEditModalDoc(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tên tài liệu</label>
+                  <input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="w-full h-11 rounded-xl bg-muted/50 border border-border px-4 outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Mô tả</label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full min-h-[96px] rounded-xl bg-muted/50 border border-border px-4 py-3 outline-none focus:border-primary resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Môn học</label>
+                    <select
+                      value={editForm.subjectId}
+                      onChange={(e) => setEditForm({ ...editForm, subjectId: e.target.value })}
+                      className="w-full h-11 rounded-xl bg-muted/50 border border-border px-3 outline-none focus:border-primary"
+                    >
+                      <option value="">Không chọn</option>
+                      {subjectFilterOptions.map((subject) => (
+                        <option key={subject.value} value={subject.value}>{subject.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Hiển thị</label>
+                    <select
+                      value={editForm.visibility}
+                      onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as DocumentDTO["visibility"] })}
+                      className="w-full h-11 rounded-xl bg-muted/50 border border-border px-3 outline-none focus:border-primary"
+                    >
+                      <option value="PRIVATE">PRIVATE</option>
+                      <option value="PUBLIC_LINK">PUBLIC_LINK</option>
+                      <option value="MARKETPLACE">MARKETPLACE</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <button onClick={() => setEditModalDoc(null)} className="h-10 px-4 rounded-xl border border-border hover:bg-muted text-sm font-bold transition-colors">
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={isSavingEdit}
+                  className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:brightness-110 disabled:opacity-60 transition-all flex items-center gap-2"
+                >
+                  {isSavingEdit && <div className="size-4 border-2 border-primary-foreground/40 border-t-primary-foreground rounded-full animate-spin" />}
+                  Lưu thay đổi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       {/* PUBLISH TO COMMUNITY MODAL */}
       <PublishModal 
         isOpen={!!publishModalDoc}
         onClose={() => setPublishModalDoc(null)}
         documentTitle={publishModalDoc?.title || ""}
         documentId={publishModalDoc?.id || ""}
+        onPublished={() => refetch()}
       />
 
       {/* AI PROCESSING MODAL */}
@@ -593,3 +835,7 @@ export default function DocumentsPage() {
     </div>
   );
 }
+
+
+
+

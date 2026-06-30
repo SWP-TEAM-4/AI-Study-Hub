@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { FileText, Download, Lock, Clock, User, AlertTriangle, AlertCircle, HardDrive } from "lucide-react";
+import { FileText, Download, Lock, Clock, User, AlertTriangle, HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { documentService, SharedDocumentDTO } from "../services/documentService";
 
@@ -40,8 +40,6 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
     try {
       const res = await documentService.downloadSharedDocument(shareToken);
       if (res.success && res.data.downloadUrl) {
-        // In a real app, this would trigger the actual file download
-        // window.location.href = res.data.downloadUrl;
         const a = document.createElement("a");
         a.href = res.data.downloadUrl;
         a.download = res.data.fileName || "document";
@@ -111,9 +109,9 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
                   <span className="px-2.5 py-1 rounded-md bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/30">
                     {doc?.fileType || "DOCUMENT"}
                   </span>
-                  {doc?.subject && (
+                  {doc?.subjectId && (
                     <span className="px-2.5 py-1 rounded-md bg-muted border border-border/50 text-muted-foreground text-[10px] font-bold uppercase">
-                      {doc.subject.code}
+                      Môn #{doc.subjectId}
                     </span>
                   )}
                 </div>
@@ -121,7 +119,7 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
                   {doc?.title}
                 </h1>
                 <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5"><User size={14} /> {doc?.ownerName}</div>
+                  <div className="flex items-center gap-1.5"><User size={14} /> Tài liệu chia sẻ công khai</div>
                   <div className="flex items-center gap-1.5"><HardDrive size={14} /> {formatSize(doc?.fileSize || 0)}</div>
                 </div>
               </div>
