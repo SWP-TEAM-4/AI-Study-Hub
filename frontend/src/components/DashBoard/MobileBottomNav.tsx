@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, BookMarked, GraduationCap, BookOpen, Menu, FileText, Users, Search, User, Bell, LogOut, X, Globe } from "lucide-react";
+import { Home, BookMarked, GraduationCap, BookOpen, Menu, FileText, Users, Search, User, Bell, LogOut, X, Globe, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
@@ -11,7 +11,8 @@ export function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toggle: toggleSearch } = useCommandPalette();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
+  const userRole = user?.role ?? "STUDENT";
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [langTarget, setLangTarget] = useState("vi");
 
@@ -115,6 +116,17 @@ export function MobileBottomNav() {
                   <Bell size={18} className="text-primary" />
                   <span>Thông báo</span>
                 </button>
+
+                {/* Kiểm duyệt */}
+                {(userRole === "ADMIN" || userRole === "REVIEWER") && (
+                  <button
+                    onClick={() => handleMoreItemClick("/reviewer")}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-sm font-semibold text-foreground transition-colors"
+                  >
+                    <ShieldCheck size={18} className="text-primary" />
+                    <span>{t('appShell.nav.reviewer', 'Kiểm duyệt')}</span>
+                  </button>
+                )}
 
                 {/* Language Switcher */}
                 <button

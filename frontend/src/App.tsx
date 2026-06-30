@@ -24,6 +24,7 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
+const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
 
 export default function App() {
   const { isLoggedIn, login, logout, user } = useAuthStore();
@@ -137,6 +138,13 @@ export default function App() {
               <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
               <Route path="/admin/:tab" element={<AdminPage />} />
             </>
+          )}
+          {(userRole === "REVIEWER" || userRole === "ADMIN") && (
+            <Route path="/reviewer" element={
+              <Suspense fallback={<Loader />}>
+                <ReviewerPage />
+              </Suspense>
+            } />
           )}
         </Route>
 

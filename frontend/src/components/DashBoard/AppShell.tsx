@@ -433,6 +433,41 @@ export function AppShell() {
                   })}
                 </div>
               )}
+
+              {/* Kiểm duyệt */}
+              {(userRole === "ADMIN" || userRole === "REVIEWER") && (
+                <div>
+                  <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                    Kiểm duyệt
+                  </div>
+                  <button
+                    onClick={() => navigate("/reviewer")}
+                    className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
+                  >
+                    {location.pathname === "/reviewer" && (
+                      <motion.span
+                        layoutId="nav-pill"
+                        className="absolute inset-0 rounded-xl bg-white/10"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <ShieldCheck
+                      size={18}
+                      className="relative z-10 transition-colors duration-200 shrink-0"
+                      style={{
+                        color: location.pathname === "/reviewer" ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
+                      }}
+                    />
+                    <span
+                      className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${
+                        location.pathname === "/reviewer" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                      }`}
+                    >
+                      {t("appShell.nav.reviewer", "Kiểm duyệt")}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
           
