@@ -5,6 +5,7 @@ import { ApiResponse, PaginatedResponse } from "./types";
 export interface ChunkDTO {
   id: number;
   documentId: number;
+  documentTitle?: string | null;
   chunkIndex: number;
   textContent: string;
   tokenEstimate: number;
@@ -29,8 +30,10 @@ export interface DocumentDTO {
   reviewCount: number;
   acceptPercentage: number;
   aiVerdictNote: string | null;
+  clonedFromId?: number | null;
   processingStatus: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface MarketplaceDocumentDTO {
@@ -179,7 +182,15 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  try {
+    result = text ? JSON.parse(text) : {};
+  } catch {
+    if (!response.ok) {
+      throw { status: response.status, message: text || "Backend trả về dữ liệu không hợp lệ", errorCode: "INVALID_RESPONSE" };
+    }
+    throw { status: response.status, message: "Backend trả về JSON không hợp lệ", errorCode: "INVALID_RESPONSE" };
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -239,12 +250,15 @@ function normalizePaginatedResponse<T>(
 }
 
 function normalizeShareLink(data: BackendShareLinkResponse): ShareLinkDTO {
+  const frontendShareUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/share/documents/${data.shareToken}`
+    : `/share/documents/${data.shareToken}`;
   return {
     id: data.id,
     documentId: data.documentId,
     ownerUserId: data.ownerUserId,
     shareToken: data.shareToken,
-    shareUrl: data.shareUrl,
+    shareUrl: frontendShareUrl,
     downloadUrl: data.downloadUrl ?? null,
     isEnabled: data.isEnabled ?? true,
     allowPreview: data.allowPreview ?? true,
@@ -255,6 +269,85 @@ function normalizeShareLink(data: BackendShareLinkResponse): ShareLinkDTO {
     createdAt: data.createdAt ?? new Date().toISOString(),
     updatedAt: data.updatedAt ?? null,
     documentVisibility: data.documentVisibility ?? "PRIVATE",
+  };
+}
+
+const DOWNLOAD_MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  txt: "text/plain",
+};
+
+function normalizeDownloadExtension(fileType?: string): string {
+  return (fileType || "").toLowerCase().replace(/^\./, "").trim();
+}
+
+function fallbackDownloadName(title?: string, fileType?: string): string {
+  const extension = normalizeDownloadExtension(fileType);
+  const baseName = (title || "document").trim() || "document";
+  if (!extension || baseName.toLowerCase().endsWith(`.${extension}`)) return baseName;
+  return `${baseName}.${extension}`;
+}
+
+function contentDispositionFileName(disposition: string): string | null {
+  const encodedMatch = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      // Fall through to the regular filename parameter.
+    }
+  }
+  const plainMatch = disposition.match(/filename\s*=\s*"([^"]+)"/i)
+    || disposition.match(/filename\s*=\s*([^;]+)/i);
+  return plainMatch?.[1]?.trim().replace(/^"|"$/g, "") || null;
+}
+
+async function createDownload(
+  response: Response,
+  fallbackTitle?: string,
+  fallbackFileType?: string,
+): Promise<{ blobUrl: string; fileName: string; fileType: string; fileSize: number }> {
+  const extension = normalizeDownloadExtension(fallbackFileType);
+  const contentType = (response.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+  const buffer = await response.arrayBuffer();
+
+  if (buffer.byteLength === 0) {
+    throw { status: response.status, message: "Backend trả về file rỗng", errorCode: "EMPTY_DOCUMENT_FILE" };
+  }
+
+  if (contentType === "application/json" || contentType === "text/html") {
+    const body = new TextDecoder().decode(buffer);
+    let message = "Backend không trả về dữ liệu file hợp lệ";
+    try { message = JSON.parse(body).message || message; } catch { /* Keep the safe message. */ }
+    throw { status: response.status, message, errorCode: "INVALID_DOCUMENT_FILE" };
+  }
+
+  if (extension === "pdf" || contentType === "application/pdf") {
+    const signature = new TextDecoder("ascii").decode(buffer.slice(0, 5));
+    if (signature !== "%PDF-") {
+      throw { status: response.status, message: "Dữ liệu nhận được không phải file PDF hợp lệ", errorCode: "INVALID_PDF_FILE" };
+    }
+  }
+
+  const fallbackName = fallbackDownloadName(fallbackTitle, extension);
+  const headerName = contentDispositionFileName(response.headers.get("Content-Disposition") || "");
+  const fileName = extension && headerName && !headerName.toLowerCase().endsWith(`.${extension}`)
+    ? fallbackName
+    : (headerName || fallbackName);
+  const blobType = contentType || DOWNLOAD_MIME_BY_EXTENSION[extension] || "application/octet-stream";
+  const blob = new Blob([buffer], { type: blobType });
+
+  return {
+    blobUrl: URL.createObjectURL(blob),
+    fileName,
+    fileType: blob.type,
+    fileSize: blob.size,
   };
 }
 
@@ -368,12 +461,17 @@ export const documentService = {
     if (subjectId) formData.append("subjectId", subjectId.toString());
     if (title) formData.append("title", title);
     if (description) formData.append("description", description);
-    if (notebookId) formData.append("notebookId", notebookId.toString());
-
-    return docRequest(`/documents/upload`, {
+    const response = await docRequest<ApiResponse<DocumentDTO>>(`/documents/upload`, {
       method: "POST",
       body: formData,
     });
+
+    // Controller hiện tại chưa nhận notebookId trong multipart; gắn bằng API
+    // NotebookDocument để cùng một luồng vẫn hoạt động đúng contract.
+    if (notebookId && response.data?.id) {
+      await docRequest(`/notebooks/${notebookId}/documents/${response.data.id}`, { method: "POST" });
+    }
+    return response;
   },
 
   async getDocumentDetails(id: number): Promise<ApiResponse<DocumentDTO>> {
@@ -394,6 +492,20 @@ export const documentService = {
       message: res.message,
       data: typeof res.data === "boolean" ? { deleted: res.data } : { deleted: res.data?.deleted ?? true },
     };
+  },
+
+  async downloadDocument(id: number, fallbackTitle?: string, fallbackFileType?: string): Promise<{ blobUrl: string; fileName: string }> {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token.replace(/['\"]+/g, "")}`);
+    const response = await fetch(`${BASE_URL}/documents/${id}/download`, { method: "GET", headers });
+    if (!response.ok) {
+      let result: any = {};
+      try { result = JSON.parse(await response.text()); } catch { /* binary/empty error */ }
+      throw { status: response.status, message: result.message || "Không thể tải tài liệu", errorCode: result.errorCode || "DOCUMENT_DOWNLOAD_ERROR" };
+    }
+    const download = await createDownload(response, fallbackTitle, fallbackFileType);
+    return { blobUrl: download.blobUrl, fileName: download.fileName };
   },
 
   // ─── 4. NOTEBOOK DOCUMENTS ───
@@ -510,7 +622,7 @@ export const documentService = {
     };
   },
 
-  async downloadSharedDocument(shareToken: string): Promise<ApiResponse<{ fileName: string; fileType: string; fileSize: number; downloadUrl: string }>> {
+  async downloadSharedDocument(shareToken: string, fallbackTitle?: string, fallbackFileType?: string): Promise<ApiResponse<{ fileName: string; fileType: string; fileSize: number; downloadUrl: string }>> {
     const response = await fetch(`${BASE_URL}/share/documents/${shareToken}/download`, { method: "GET" });
     if (!response.ok) {
       let message = "Không thể tải tài liệu chia sẻ";
@@ -529,20 +641,16 @@ export const documentService = {
       };
     }
 
-    const blob = await response.blob();
-    const disposition = response.headers.get("Content-Disposition") || "";
-    const fileNameMatch = disposition.match(/filename=\"?([^"]+)\"?/i);
-    const fileName = fileNameMatch?.[1] || "document";
-    const downloadUrl = URL.createObjectURL(blob);
+    const download = await createDownload(response, fallbackTitle, fallbackFileType);
 
     return {
       success: true,
       message: "Download ready",
       data: {
-        fileName,
-        fileType: blob.type,
-        fileSize: blob.size,
-        downloadUrl,
+        fileName: download.fileName,
+        fileType: download.fileType,
+        fileSize: download.fileSize,
+        downloadUrl: download.blobUrl,
       },
     };
   },

@@ -118,54 +118,31 @@ export const academicService = {
   },
 
   // ================= SUBJECTS =================
-  getSubjects: async (subjectId?: number): Promise<ApiResponse<SubjectDTO[]>> => {
-    const response = await academicRequest<ApiResponse<SubjectDTO[]>>(`/subjects`, { method: "GET" });
-
-    if (!subjectId) {
-      return response;
-    }
-
-    return {
-      ...response,
-      data: (response.data || []).filter((subject) => subject.id === subjectId),
-    };
+  getSubjects: async (keyword?: string, standardSemesterNumber?: number): Promise<ApiResponse<SubjectDTO[]>> => {
+    const query = new URLSearchParams();
+    if (keyword?.trim()) query.set("keyword", keyword.trim());
+    if (standardSemesterNumber !== undefined) query.set("standardSemesterNumber", String(standardSemesterNumber));
+    const suffix = query.size ? `?${query.toString()}` : "";
+    return academicRequest<ApiResponse<SubjectDTO[]>>(`/subjects${suffix}`, { method: "GET" });
   },
   getSubjectById: async (id: number): Promise<ApiResponse<SubjectDTO>> => {
-    const response = await academicService.getSubjects(id);
-    const subject = response.data?.[0];
-
-    if (!subject) {
-      throw new Error("Resource not found");
-    }
-
-    return {
-      success: response.success,
-      message: response.message,
-      data: subject,
-    };
+    return academicRequest<ApiResponse<SubjectDTO>>(`/subjects/${id}`, { method: "GET" });
   },
   adminCreateSubject: async (data: Omit<SubjectDTO, "id">): Promise<ApiResponse<SubjectDTO>> => {
-    return new Promise(resolve => setTimeout(() => {
-      const newSubj = { ...data, id: Date.now() };
-      mockSubjects.push(newSubj);
-      resolve({ success: true, message: "Success", data: newSubj });
-    }, 300));
+    return academicRequest<ApiResponse<SubjectDTO>>(`/admin/subjects`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   },
   adminUpdateSubject: async (id: number, data: Omit<SubjectDTO, "id">): Promise<ApiResponse<SubjectDTO>> => {
-    return new Promise((resolve, reject) => setTimeout(() => {
-      const idx = mockSubjects.findIndex(s => s.id === id);
-      if (idx === -1) return reject(new Error("Resource not found"));
-      mockSubjects[idx] = { ...data, id };
-      resolve({ success: true, message: "Success", data: mockSubjects[idx] });
-    }, 300));
+    return academicRequest<ApiResponse<SubjectDTO>>(`/admin/subjects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   },
   adminDeleteSubject: async (id: number): Promise<ApiResponse<{ deleted: boolean }>> => {
-    return new Promise((resolve, reject) => setTimeout(() => {
-      const idx = mockSubjects.findIndex(s => s.id === id);
-      if (idx === -1) return reject(new Error("Resource not found"));
-      mockSubjects.splice(idx, 1);
-      resolve({ success: true, message: "Deleted successfully", data: { deleted: true } });
-    }, 300));
+    const response = await academicRequest<ApiResponse<null>>(`/admin/subjects/${id}`, { method: "DELETE" });
+    return { ...response, data: { deleted: true } };
   },
 
   // ================= COMBOS =================

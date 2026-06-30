@@ -16,6 +16,11 @@ export function useDocuments(params: { keyword?: string; filters?: DocumentSearc
     queryKey: documentKeys.workspace(params),
     queryFn: () => documentService.getWorkspaceDocuments(0, 50, params.keyword ?? "", params.filters ?? {}),
     staleTime: 3 * 60 * 1000,
+    refetchInterval: (query) => {
+      const items = query.state.data?.data?.items ?? [];
+      return items.some((document) => document.processingStatus === "PENDING" || document.processingStatus === "PROCESSING") ? 2000 : false;
+    },
+    refetchIntervalInBackground: true,
     select: (data) => data?.data?.items ?? [],
   });
 }
@@ -30,6 +35,9 @@ export function useUploadDocument(callbacks?: { onSuccess?: (doc: DocumentDTO) =
       if (!uploadRes.success || !uploadRes.data) {
         throw new Error(uploadRes.message || "Upload tài liệu thất bại");
       }
+
+      // Hiển thị document ở trạng thái PENDING/PROCESSING ngay trong danh sách.
+      await queryClient.invalidateQueries({ queryKey: documentKeys.all });
 
       const processRes = await documentService.processDocumentChunks(uploadRes.data.id, {
         chunkSize: 800,

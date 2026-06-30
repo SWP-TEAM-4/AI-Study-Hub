@@ -37,7 +37,16 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  try {
+    result = text ? JSON.parse(text) : {};
+  } catch {
+    throw {
+      status: response.status,
+      message: response.ok ? "Backend trả về JSON không hợp lệ" : (text || "Lỗi giao tiếp API Notebook"),
+      errorCode: "INVALID_RESPONSE",
+    };
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -129,7 +138,7 @@ function toPaginatedNotebooks(
 }
 
 async function hydrateDocumentCounts(items: NotebookDTO[]): Promise<NotebookDTO[]> {
-  return Promise.all(
+  const results = await Promise.allSettled(
     items.map(async (notebook) => {
       if (notebook.documentCount > 0) return notebook;
 
@@ -140,6 +149,7 @@ async function hydrateDocumentCounts(items: NotebookDTO[]): Promise<NotebookDTO[
       };
     }),
   );
+  return results.map((result, index) => result.status === "fulfilled" ? result.value : items[index]);
 }
 
 export const notebookService = {

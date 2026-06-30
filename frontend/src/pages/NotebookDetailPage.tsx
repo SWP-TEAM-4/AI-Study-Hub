@@ -6,6 +6,7 @@ import { documentService, DocumentDTO } from "../services/documentService";
 import { Notify } from "notiflix";
 import NotebookChat, { NotebookChatRef } from "../components/Notebook/NotebookChat";
 import FloatingAIToolbar from "../components/Notebook/FloatingAIToolbar";
+import DocumentViewerPane from "../components/Notebook/DocumentViewerPane";
 
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -80,6 +81,7 @@ export default function NotebookDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notebookDocumentKey(notebookId) });
       queryClient.invalidateQueries({ queryKey: ["documents", "workspace"] });
+      queryClient.invalidateQueries({ queryKey: ["notebooks"] });
       Notify.success("Đã gắn tài liệu vào notebook");
     },
     onError: (e: any) => Notify.failure(e?.message || "Lỗi gắn tài liệu vào notebook"),
@@ -87,8 +89,10 @@ export default function NotebookDetailPage() {
 
   const detachDocumentMutation = useMutation({
     mutationFn: (documentId: number) => documentService.removeDocumentFromNotebook(notebookId, documentId),
-    onSuccess: () => {
+    onSuccess: (_response, documentId) => {
       queryClient.invalidateQueries({ queryKey: notebookDocumentKey(notebookId) });
+      queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+      if (activeDocument?.id === documentId) setActiveDocument(null);
       Notify.success("Đã gỡ tài liệu khỏi notebook");
     },
     onError: (e: any) => Notify.failure(e?.message || "Lỗi gỡ tài liệu khỏi notebook"),
@@ -181,12 +185,17 @@ export default function NotebookDetailPage() {
     <div ref={containerRef} className="flex h-[calc(100vh-7rem)] overflow-hidden relative border border-border/50 rounded-2xl">
       <FloatingAIToolbar containerRef={containerRef} onAction={handleFloatingAction} />
 
-      <div className="flex-1 flex flex-col min-w-0 h-full relative">
+      {activeDocument && (
+        <DocumentViewerPane document={activeDocument} onClose={() => setActiveDocument(null)} />
+      )}
+
+      <div className={`${activeDocument ? "w-[42%] min-w-[360px]" : "flex-1"} flex flex-col min-w-0 h-full relative transition-[width]`}>
         <NotebookChat
           ref={chatRef}
           notebookId={notebook.id}
           notebookTitle={notebook.title}
           notebookSubjectCode={getSubjectLabel(notebook.subjectId)}
+          notebookSubjectId={notebook.subjectId}
           onBack={() => navigate("/notebooks")}
           onRenameClick={() => setIsEditModalOpen(true)}
           onShareClick={handleShareClick}

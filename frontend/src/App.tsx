@@ -116,7 +116,7 @@ export default function App() {
 
         <Route path="/share/documents/:token" element={
           <Suspense fallback={<Loader />}>
-            <SharedDocumentPage shareToken="token-from-url" />
+            <SharedDocumentPage />
           </Suspense>
         } />
 
