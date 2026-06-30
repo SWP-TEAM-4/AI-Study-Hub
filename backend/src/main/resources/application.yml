@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/aistudyhub
     username: postgres
-    password: huyplay
+    password: 
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -77,7 +77,7 @@ app:
       fallback-to-stub-on-error: true
 
     openai:
-      api-key: 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
+      api-key: s
       model: gpt-4o-mini
       base-url: https://api.openai.com/v1
       embedding-model: text-embedding-3-small
@@ -87,7 +87,7 @@ app:
       max-retries: 3
 
     gemini:
-      api-key: AQ.Ab8RN6L4RYNFYQq_atW0sfLSgRTlOGozEpbidcqMQLANYZSC1A
+      api-key: 
       base-url: https://generativelanguage.googleapis.com/v1/models
       model: gemini-3.5-flash
       temperature: 0.1
