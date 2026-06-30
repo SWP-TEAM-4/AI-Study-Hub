@@ -1,5 +1,6 @@
 package com.aistudyhub.repository;
 
+import com.aistudyhub.common.enums.TestStatus;
 import com.aistudyhub.entity.Test;
 
 import org.springframework.data.domain.Page;
@@ -31,4 +32,14 @@ public interface TestRepository extends JpaRepository<Test, Long> {
      * @return Page<Test> chứa danh sách lượt thi phù hợp từ khóa
      */
     Page<Test> findByUserIdAndTitleContainingIgnoreCase(Long userId, String title, Pageable pageable);
+
+    Page<Test> findByUserIdAndQuizId(Long userId, Long quizId, Pageable pageable);
+
+    Page<Test> findByUserIdAndQuizIdAndTitleContainingIgnoreCase(Long userId, Long quizId, String title,
+            Pageable pageable);
+
+    Page<Test> findByUserIdAndQuizIdAndStatus(Long userId, Long quizId, TestStatus status, Pageable pageable);
+
+    Page<Test> findByUserIdAndQuizIdAndTitleContainingIgnoreCaseAndStatus(Long userId, Long quizId, String title,
+            TestStatus status, Pageable pageable);
 }
