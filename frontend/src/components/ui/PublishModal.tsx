@@ -4,15 +4,17 @@ import { X, Share2, Sparkles, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Notify } from "notiflix";
+import { documentService } from "../../services/documentService";
 
 interface PublishModalProps {
   isOpen: boolean;
   onClose: () => void;
   documentTitle: string;
   documentId: number | string;
+  onPublished?: () => void;
 }
 
-export default function PublishModal({ isOpen, onClose, documentTitle, documentId }: PublishModalProps) {
+export default function PublishModal({ isOpen, onClose, documentTitle, documentId, onPublished }: PublishModalProps) {
   const { t } = useTranslation();
   const [semester, setSemester] = useState("S7");
   const [subject, setSubject] = useState("SWP391");
@@ -24,18 +26,18 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) {
-      Notify.failure(t('components.publishModal.errorEmpty', "Vui lòng nhập mô tả ngắn cho tài liệu"));
+      Notify.failure(t("components.publishModal.errorEmpty", "Vui lòng nhập mô tả ngắn cho tài liệu"));
       return;
     }
-    
+
     setIsPublishing(true);
     try {
-      // Mock API delay
-      await new Promise(r => setTimeout(r, 1200));
-      Notify.success(t('components.publishModal.success', "Tài liệu đã được chia sẻ lên Cộng đồng!"));
+      await documentService.submitToMarketplace(Number(documentId), `${semester} - ${subject}: ${description.trim()}`);
+      Notify.success(t("components.publishModal.success", "Tài liệu đã được gửi lên Marketplace để chờ duyệt!"));
+      onPublished?.();
       onClose();
     } catch (err: any) {
-      Notify.failure(t('components.publishModal.error', "Chia sẻ thất bại!"));
+      Notify.failure(err?.message || t("components.publishModal.error", "Chia sẻ thất bại!"));
     } finally {
       setIsPublishing(false);
     }
@@ -57,13 +59,12 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           className="relative w-full max-w-md bg-card border border-border shadow-2xl rounded-2xl overflow-hidden flex flex-col"
         >
-          {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-border/50 bg-muted/20">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 text-primary rounded-xl">
                 <Share2 size={20} />
               </div>
-              <h3 className="font-bold text-lg text-foreground">{t('components.publishModal.title', 'Chia sẻ Cộng đồng')}</h3>
+              <h3 className="font-bold text-lg text-foreground">{t("components.publishModal.title", "Chia sẻ Cộng đồng")}</h3>
             </div>
             <button
               onClick={onClose}
@@ -73,11 +74,10 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
             </button>
           </div>
 
-          {/* Form */}
           <form onSubmit={handlePublish} className="p-5 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                {t('components.publishModal.document', 'Tài liệu')}
+                {t("components.publishModal.document", "Tài liệu")}
               </label>
               <div className="w-full bg-muted/30 border border-border/50 rounded-xl px-4 py-3 flex items-center gap-3 text-foreground">
                 <BookOpen size={16} className="text-primary" />
@@ -88,7 +88,7 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {t('components.publishModal.semester', 'Học kỳ')}
+                  {t("components.publishModal.semester", "Học kỳ")}
                 </label>
                 <select
                   value={semester}
@@ -108,7 +108,7 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {t('components.publishModal.subject', 'Môn học')}
+                  {t("components.publishModal.subject", "Môn học")}
                 </label>
                 <select
                   value={subject}
@@ -126,12 +126,12 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
 
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                {t('components.publishModal.description', 'Mô tả (bắt buộc)')}
+                {t("components.publishModal.description", "Mô tả (bắt buộc)")}
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={t('components.publishModal.placeholder', 'Giới thiệu sơ qua về tài liệu này...')}
+                placeholder={t("components.publishModal.placeholder", "Giới thiệu sơ qua về tài liệu này...")}
                 className="w-full bg-background border border-border focus:border-primary rounded-xl px-4 py-3 outline-none text-sm min-h-[100px] resize-none text-foreground placeholder:text-muted-foreground dark:bg-[#1a1a1a]"
               />
             </div>
@@ -144,12 +144,12 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
               {isPublishing ? (
                 <>
                   <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {t('components.publishModal.processing', 'Đang xử lý...')}
+                  {t("components.publishModal.processing", "Đang xử lý...")}
                 </>
               ) : (
                 <>
                   <Sparkles size={18} />
-                  {t('components.publishModal.publish', 'Chia sẻ ngay')}
+                  {t("components.publishModal.publish", "Chia sẻ ngay")}
                 </>
               )}
             </button>
@@ -157,6 +157,6 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
         </motion.div>
       </div>
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 }

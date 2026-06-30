@@ -58,17 +58,12 @@ export function useUpdateNotebook(callbacks?: {
   });
 }
 
-// ─── DELETE NOTEBOOK (OPTIMISTIC + UNDO TOAST) ───────────────────────────────
+// ─── DELETE NOTEBOOK ─────────────────────────────────────────────────────────
 export function useDeleteNotebook() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      // Simulate network delay to give user time to undo
-      // Realistically this should be handled by a queue or backend undo
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return notebookService.deleteNotebook(id);
-    },
+    mutationFn: (id: number) => notebookService.deleteNotebook(id),
 
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: notebookKeys.list() });
@@ -85,22 +80,11 @@ export function useDeleteNotebook() {
         };
       });
 
-      // Show Undo Toast
-      import("sonner").then(({ toast }) => {
-        toast("Đã xóa sổ tay", {
-          description: "Sổ tay đã được chuyển vào thùng rác.",
-          action: {
-            label: "Hoàn tác",
-            onClick: () => {
-              queryClient.setQueryData(notebookKeys.list(), previousNotebooks);
-              // Note: If API already executed, we would need to call a restore API.
-              // For now, this just restores the UI optimistic state if caught in time.
-            }
-          }
-        });
-      });
-
       return { previousNotebooks };
+    },
+
+    onSuccess: () => {
+      Notify.success("Xóa Notebook thành công");
     },
 
     onError: (err, _id, context) => {

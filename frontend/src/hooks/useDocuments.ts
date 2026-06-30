@@ -1,106 +1,75 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { documentService, DocumentDTO } from "../services/documentService";
+import { documentService, DocumentDTO, DocumentSearchFilters } from "../services/documentService";
 import { handleApiError } from "../utils/errorHandler";
 import { Notify } from "notiflix";
 
 // ─── QUERY KEYS ──────────────────────────────────────────────────────────────
 export const documentKeys = {
   all: ["documents"] as const,
-  workspace: () => [...documentKeys.all, "workspace"] as const,
+  workspace: (params?: { keyword?: string; filters?: DocumentSearchFilters }) => [...documentKeys.all, "workspace", params ?? {}] as const,
   shared: (token: string) => [...documentKeys.all, "shared", token] as const,
 };
 
 // ─── FETCH WORKSPACE DOCUMENTS ───────────────────────────────────────────────
-export function useDocuments() {
+export function useDocuments(params: { keyword?: string; filters?: DocumentSearchFilters } = {}) {
   return useQuery({
-    queryKey: documentKeys.workspace(),
-    queryFn: () => documentService.getWorkspaceDocuments(0, 50),
-    staleTime: 3 * 60 * 1000, // 3 phút cache
+    queryKey: documentKeys.workspace(params),
+    queryFn: () => documentService.getWorkspaceDocuments(0, 50, params.keyword ?? "", params.filters ?? {}),
+    staleTime: 3 * 60 * 1000,
     select: (data) => data?.data?.items ?? [],
   });
 }
 
-// ─── UPLOAD DOCUMENT ─────────────────────────────────────────────────────────
+// ─── UPLOAD DOCUMENT + CHUNKING ──────────────────────────────────────────────
 export function useUploadDocument(callbacks?: { onSuccess?: (doc: DocumentDTO) => void }) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (file: File) => documentService.uploadDocument(file),
+    mutationFn: async (file: File) => {
+      const uploadRes = await documentService.uploadDocument(file);
+      if (!uploadRes.success || !uploadRes.data) {
+        throw new Error(uploadRes.message || "Upload tài liệu thất bại");
+      }
+
+      const processRes = await documentService.processDocumentChunks(uploadRes.data.id, {
+        chunkSize: 800,
+        overlap: 120,
+      });
+      if (!processRes.success) {
+        throw new Error(processRes.message || "Upload thành công nhưng xử lý chunk thất bại");
+      }
+
+      return uploadRes;
+    },
     onSuccess: (res) => {
       if (res.success && res.data) {
-        // Prepend document mới vào list ngay lập tức (Optimistic-style)
-        queryClient.setQueryData(documentKeys.workspace(), (old: any) => {
-          if (!old?.data?.items) return old;
-          return {
-            ...old,
-            data: {
-              ...old.data,
-              items: [res.data, ...old.data.items],
-            },
-          };
-        });
-        Notify.success(`Tải lên thành công!`);
+        Notify.success("Tải lên và xử lý AI chunks thành công!");
         callbacks?.onSuccess?.(res.data);
       }
     },
     onError: (e: any) => {
-      Notify.failure("Tải lên thất bại: " + (e.message || "Unknown error"));
+      Notify.failure("Tải lên/xử lý thất bại: " + (e.message || "Unknown error"));
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.workspace() });
+      queryClient.invalidateQueries({ queryKey: documentKeys.all });
     },
   });
 }
 
-// ─── DELETE DOCUMENT (OPTIMISTIC + RESTORE ON ERROR) ─────────────────────────
+// ─── DELETE DOCUMENT ─────────────────────────────────────────────────────────
 export function useDeleteDocument() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return documentService.deleteDocument(id);
+    mutationFn: (id: number) => documentService.deleteDocument(id),
+    onSuccess: () => {
+      Notify.success("Đã xóa tài liệu.");
     },
-
-    onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: documentKeys.workspace() });
-      const previousDocs = queryClient.getQueryData(documentKeys.workspace());
-
-      queryClient.setQueryData(documentKeys.workspace(), (old: any) => {
-        if (!old?.data?.items) return old;
-        return {
-          ...old,
-          data: {
-            ...old.data,
-            items: old.data.items.filter((d: DocumentDTO) => d.id !== id),
-          },
-        };
-      });
-
-      import("sonner").then(({ toast }) => {
-        toast("Đã xóa tài liệu", {
-          description: "Tài liệu đã được chuyển vào thùng rác.",
-          action: {
-            label: "Hoàn tác",
-            onClick: () => {
-              queryClient.setQueryData(documentKeys.workspace(), previousDocs);
-            }
-          }
-        });
-      });
-
-      return { previousDocs };
-    },
-
-    onError: (err, _id, context) => {
-      if (context?.previousDocs) {
-        queryClient.setQueryData(documentKeys.workspace(), context.previousDocs);
-      }
+    onError: (err) => {
       handleApiError(err, "Lỗi xóa tài liệu");
     },
-
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.workspace() });
+      queryClient.invalidateQueries({ queryKey: documentKeys.all });
     },
   });
 }
