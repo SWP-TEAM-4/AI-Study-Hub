@@ -49,8 +49,10 @@ export function useUpdateNotebook(callbacks?: {
   return useMutation({
     mutationFn: (data: { id: number; subjectId: number; title: string }) =>
       notebookService.updateNotebook(data.id, data.subjectId, data.title),
-    onSuccess: () => {
+    onSuccess: (_response, variables) => {
       queryClient.invalidateQueries({ queryKey: notebookKeys.list() });
+      queryClient.invalidateQueries({ queryKey: notebookKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ["notebook", variables.id] });
       Notify.success("Cập nhật Notebook thành công");
       callbacks?.onSuccess?.();
     },

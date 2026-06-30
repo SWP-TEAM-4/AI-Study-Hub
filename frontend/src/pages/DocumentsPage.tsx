@@ -1,14 +1,13 @@
 "use client";
 
-import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw } from "lucide-react";
-import { useState, useRef, useMemo } from "react";
+import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw, Eye, Layers3, Loader2, AlertCircle } from "lucide-react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { DocumentDTO, ShareLinkDTO, documentService } from "../services/documentService";
+import { ChunkDTO, DocumentDTO, ShareLinkDTO, TagDTO, documentService } from "../services/documentService";
 import { Notify, Confirm } from "notiflix";
 import CustomSelect from "../components/ui/CustomSelect";
 import PublishModal from "../components/ui/PublishModal";
-import AiProcessModal from "../components/ui/AiProcessModal";
 import { 
   useDocuments, 
   useUploadDocument, 
@@ -49,6 +48,13 @@ const statusBadgeStyles: Record<string, string> = {
   NONE: "bg-muted text-muted-foreground border-border/30",
   APPROVED: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
   REJECTED: "bg-red-500/10 text-red-700 border-red-500/20",
+};
+
+const processingStatusLabels: Record<DocumentDTO["processingStatus"], string> = {
+  PENDING: "Chờ chunking",
+  PROCESSING: "Đang tạo chunks",
+  SUCCESS: "Overview sẵn sàng",
+  FAILED: "Chunking thất bại",
 };
 
 export default function DocumentsPage() {
@@ -111,6 +117,18 @@ export default function DocumentsPage() {
   }>({ title: "", description: "", subjectId: "", visibility: "PRIVATE" });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [reprocessingId, setReprocessingId] = useState<number | null>(null);
+  const [deletingChunksId, setDeletingChunksId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [chunkCounts, setChunkCounts] = useState<Record<number, number>>({});
+  const [overviewDoc, setOverviewDoc] = useState<DocumentDTO | null>(null);
+  const [overviewChunks, setOverviewChunks] = useState<ChunkDTO[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState("");
+  const [tagModalDoc, setTagModalDoc] = useState<DocumentDTO | null>(null);
+  const [availableTags, setAvailableTags] = useState<TagDTO[]>([]);
+  const [documentTags, setDocumentTags] = useState<Record<number, TagDTO[]>>({});
+  const [newTagName, setNewTagName] = useState("");
+  const [isTagLoading, setIsTagLoading] = useState(false);
 
   const handleEdit = (doc: DocumentDTO) => {
     setEditModalDoc(doc);
@@ -152,18 +170,60 @@ export default function DocumentsPage() {
     if (doc) setPublishModalDoc(doc);
   };
 
-  const handleAddTag = async (id: number) => {
-    const name = window.prompt("Nhập tên tag muốn gắn cho tài liệu:")?.trim();
-    if (!name) return;
-
+  const openTagModal = async (doc: DocumentDTO) => {
+    setTagModalDoc(doc);
+    setNewTagName("");
+    setIsTagLoading(true);
     try {
-      const created = await documentService.createTag({ name, type: "CUSTOM", color: "#0f9f7a" });
-      if (created.success && created.data?.id) {
-        await documentService.addTagToDocument(id, created.data.id);
-        Notify.success("Đã tạo và gắn tag cho tài liệu.");
-      }
+      const [allResponse, currentResponse] = await Promise.all([
+        documentService.getAllTags(),
+        documentService.getDocumentTags(doc.id),
+      ]);
+      setAvailableTags(allResponse.data.items);
+      setDocumentTags((current) => ({ ...current, [doc.id]: currentResponse.data.items }));
     } catch (err: any) {
-      Notify.failure("Không thể gắn tag: " + (err.message || "Unknown error"));
+      Notify.failure("Không thể tải tag: " + (err.message || "Unknown error"));
+    } finally {
+      setIsTagLoading(false);
+    }
+  };
+
+  const toggleTag = async (tag: TagDTO) => {
+    if (!tagModalDoc) return;
+    const currentTags = documentTags[tagModalDoc.id] ?? [];
+    const isAttached = currentTags.some((item) => item.id === tag.id);
+    setIsTagLoading(true);
+    try {
+      if (isAttached) {
+        await documentService.removeTagFromDocument(tagModalDoc.id, tag.id);
+      } else {
+        await documentService.addTagToDocument(tagModalDoc.id, tag.id);
+      }
+      setDocumentTags((current) => ({
+        ...current,
+        [tagModalDoc.id]: isAttached ? currentTags.filter((item) => item.id !== tag.id) : [...currentTags, tag],
+      }));
+    } catch (err: any) {
+      Notify.failure("Không thể cập nhật tag: " + (err.message || "Unknown error"));
+    } finally {
+      setIsTagLoading(false);
+    }
+  };
+
+  const createAndAttachTag = async () => {
+    if (!tagModalDoc || !newTagName.trim()) return;
+    setIsTagLoading(true);
+    try {
+      const created = await documentService.createTag({ name: newTagName.trim(), type: "CUSTOM", color: "#0f9f7a" });
+      await documentService.addTagToDocument(tagModalDoc.id, created.data.id);
+      setAvailableTags((tags) => [...tags, created.data]);
+      setDocumentTags((current) => ({ ...current, [tagModalDoc.id]: [...(current[tagModalDoc.id] ?? []), created.data] }));
+      setNewTagName("");
+      Notify.success("Đã tạo và gắn tag.");
+    } catch (err: any) {
+      Notify.failure("Không thể tạo tag: " + (err.message || "Unknown error"));
+    } finally {
+      setIsTagLoading(false);
     }
   };
   
@@ -177,18 +237,60 @@ export default function DocumentsPage() {
     );
   };
 
-  const handleDownload = (doc: DocumentDTO) => {
-    if (!doc.fileUrl) {
-      Notify.failure("Backend chưa trả fileUrl cho tài liệu này.");
-      return;
+  const handleDownload = async (doc: DocumentDTO) => {
+    setDownloadingId(doc.id);
+    try {
+      const download = await documentService.downloadDocument(doc.id, doc.title, doc.fileType);
+      const anchor = document.createElement("a");
+      anchor.href = download.blobUrl;
+      anchor.download = download.fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(download.blobUrl), 1000);
+    } catch (err: any) {
+      Notify.failure("Không thể tải tài liệu: " + (err.message || "Unknown error"));
+    } finally {
+      setDownloadingId(null);
     }
-    window.open(doc.fileUrl, "_blank", "noopener,noreferrer");
   };
+
+  const openOverview = async (doc: DocumentDTO) => {
+    setOverviewDoc(doc);
+    setOverviewChunks([]);
+    setOverviewError("");
+    setOverviewLoading(true);
+    try {
+      const [detailResponse, chunksResponse] = await Promise.all([
+        documentService.getDocumentDetails(doc.id),
+        documentService.getDocumentChunks(doc.id),
+      ]);
+      setOverviewDoc(detailResponse.data);
+      setOverviewChunks(chunksResponse.data ?? []);
+      setChunkCounts((counts) => ({ ...counts, [doc.id]: chunksResponse.data?.length ?? 0 }));
+    } catch (err: any) {
+      setOverviewError(err.message || "Không thể tải nội dung chunks");
+    } finally {
+      setOverviewLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!overviewDoc) return;
+    const latest = list.find((document) => document.id === overviewDoc.id);
+    if (!latest || latest.processingStatus === overviewDoc.processingStatus) return;
+    if (latest.processingStatus === "SUCCESS") {
+      openOverview(latest);
+    } else {
+      setOverviewDoc(latest);
+    }
+  }, [list]);
 
   const handleReprocess = async (doc: DocumentDTO) => {
     setReprocessingId(doc.id);
     try {
-      await documentService.processDocumentChunks(doc.id, { chunkSize: 800, overlap: 120 });
+      const response = await documentService.processDocumentChunks(doc.id, { chunkSize: 800, overlap: 120 });
+      setChunkCounts((counts) => ({ ...counts, [doc.id]: response.data.chunkCount }));
       Notify.success("Đã gửi lại yêu cầu xử lý AI chunks.");
       await refetch();
     } catch (err: any) {
@@ -203,28 +305,16 @@ export default function DocumentsPage() {
   const [publishModalDoc, setPublishModalDoc] = useState<DocumentDTO | null>(null);
   const [shareInfo, setShareInfo] = useState<ShareLinkDTO | null>(null);
   const [isShareLoading, setIsShareLoading] = useState(false);
-  const [shareForm, setShareForm] = useState({ allowDownload: true, expiresAt: "" });
+  const [shareForm, setShareForm] = useState({ allowPreview: true, allowDownload: true, expiresAt: "" });
 
-  // AI Process State
-  const [aiProcessFiles, setAiProcessFiles] = useState<FileList | null>(null);
-
-  {/* 🌟 HÀM DÙNG CHUNG: Xử lý vòng lặp upload danh sách File nhận vào */}
+  {/* Xử lý upload thật theo từng file; trạng thái lấy trực tiếp từ mutation/API. */}
   const processFilesUpload = async (files: FileList) => {
     if (files.length === 0) return;
-    setAiProcessFiles(files);
-  };
-
-  const executeActualUpload = async () => {
-    if (!aiProcessFiles) return;
-    const files = aiProcessFiles;
-    setAiProcessFiles(null);
-    
     try {
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        await uploadMutation.mutateAsync(file);
+        await uploadMutation.mutateAsync(files[i]);
       }
-    } catch (err: any) {
+    } catch {
       // Error handled by hook
     } finally {
       if (inputRef.current) inputRef.current.value = "";
@@ -257,6 +347,28 @@ export default function DocumentsPage() {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  };
+
+  const handleDeleteChunks = (doc: DocumentDTO) => {
+    Confirm.show(
+      "Xóa dữ liệu AI",
+      `Xóa toàn bộ chunks đã trích xuất của “${doc.title}”? Bạn có thể xử lý lại sau.`,
+      "Xóa chunks",
+      "Hủy",
+      async () => {
+        setDeletingChunksId(doc.id);
+        try {
+          await documentService.deleteDocumentChunks(doc.id);
+          setChunkCounts((counts) => ({ ...counts, [doc.id]: 0 }));
+          Notify.success("Đã xóa dữ liệu AI chunks.");
+          await refetch();
+        } catch (err: any) {
+          Notify.failure("Không thể xóa chunks: " + (err.message || "Unknown error"));
+        } finally {
+          setDeletingChunksId(null);
+        }
+      },
+    );
   };
 
   const getStatusClass = (status: string) => statusBadgeStyles[status] || statusBadgeStyles.NONE;
@@ -293,18 +405,19 @@ export default function DocumentsPage() {
     setShareModalDoc(doc);
     setShareInfo(null);
     setIsShareLoading(true);
-    setShareForm({ allowDownload: true, expiresAt: "" });
+    setShareForm({ allowPreview: true, allowDownload: true, expiresAt: "" });
     try {
       const res = await documentService.getShareLinkStatus(doc.id);
       if (res.success && res.data && res.data.isEnabled) {
         setShareInfo(res.data);
         setShareForm({
+          allowPreview: res.data.allowPreview,
           allowDownload: res.data.allowDownload,
           expiresAt: res.data.expiresAt ? new Date(res.data.expiresAt).toISOString().slice(0, 16) : ""
         });
       }
     } catch (e: any) {
-      if (e.errorCode !== "SHARE_LINK_NOT_FOUND") {
+      if (e.errorCode !== "SHARE_LINK_NOT_FOUND" && e.errorCode !== "DOCUMENT_SHARE_LINK_NOT_FOUND") {
         Notify.failure("Lỗi tải thông tin chia sẻ.");
       }
     } finally {
@@ -314,9 +427,11 @@ export default function DocumentsPage() {
 
   const handleCreateShareLink = async () => {
     if (!shareModalDoc) return;
+    if (!shareForm.allowPreview && !shareForm.allowDownload) return Notify.warning("Phải bật ít nhất quyền xem trước hoặc tải file.");
     setIsShareLoading(true);
     try {
       const res = await documentService.createShareLink(shareModalDoc.id, {
+        allowPreview: shareForm.allowPreview,
         allowDownload: shareForm.allowDownload,
         expiresAt: shareForm.expiresAt ? new Date(shareForm.expiresAt).toISOString() : null
       });
@@ -333,9 +448,11 @@ export default function DocumentsPage() {
 
   const handleUpdateShareLink = async () => {
     if (!shareModalDoc) return;
+    if (!shareForm.allowPreview && !shareForm.allowDownload) return Notify.warning("Phải bật ít nhất quyền xem trước hoặc tải file.");
     setIsShareLoading(true);
     try {
       const res = await documentService.updateShareLink(shareModalDoc.id, {
+        allowPreview: shareForm.allowPreview,
         allowDownload: shareForm.allowDownload,
         expiresAt: shareForm.expiresAt ? new Date(shareForm.expiresAt).toISOString() : null,
       });
@@ -352,10 +469,12 @@ export default function DocumentsPage() {
 
   const handleRegenerateShareLink = async () => {
     if (!shareModalDoc) return;
+    if (!shareForm.allowPreview && !shareForm.allowDownload) return Notify.warning("Phải bật ít nhất quyền xem trước hoặc tải file.");
     setIsShareLoading(true);
     try {
       await documentService.revokeShareLink(shareModalDoc.id);
       const res = await documentService.createShareLink(shareModalDoc.id, {
+        allowPreview: shareForm.allowPreview,
         allowDownload: shareForm.allowDownload,
         expiresAt: shareForm.expiresAt ? new Date(shareForm.expiresAt).toISOString() : null,
       });
@@ -384,6 +503,20 @@ export default function DocumentsPage() {
     } finally {
       setIsShareLoading(false);
     }
+  };
+
+  const copyShareLink = async () => {
+    if (!shareInfo?.shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareInfo.shareUrl);
+      Notify.success("Đã sao chép link chia sẻ");
+    } catch {
+      Notify.failure("Trình duyệt không cho phép sao chép tự động. Hãy chọn link và copy thủ công.");
+    }
+  };
+
+  const openSharedPage = () => {
+    if (shareInfo?.shareUrl) window.open(shareInfo.shareUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -555,7 +688,7 @@ export default function DocumentsPage() {
                       {d.fileType}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium truncate group-hover:text-primary cursor-pointer transition-colors">{d.title}</div>
+                      <button onClick={() => openOverview(d)} className="font-medium truncate group-hover:text-primary cursor-pointer transition-colors block max-w-full text-left" title="Xem overview tài liệu">{d.title}</button>
                       <div className="text-xs text-muted-foreground mt-0.5">{formatDate(d.createdAt)}</div>
                     </div>
                   </div>
@@ -569,8 +702,14 @@ export default function DocumentsPage() {
                 </td>
                 <td className="px-5 py-3 hidden lg:table-cell">
                   <div className="flex gap-1 flex-wrap">
-                    <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.processingStatus)}`}>
-                      {d.processingStatus}
+                    {(documentTags[d.id] ?? []).map((tag) => (
+                      <span key={tag.id} className="inline-flex text-[10px] px-2 py-0.5 rounded-md font-medium border" style={{ color: tag.color, borderColor: `${tag.color}55`, backgroundColor: `${tag.color}14` }}>
+                        {tag.name}
+                      </span>
+                    ))}
+                    <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(reprocessingId === d.id ? "PROCESSING" : d.processingStatus)}`}>
+                      {(d.processingStatus === "PROCESSING" || d.processingStatus === "PENDING" || reprocessingId === d.id) && <Loader2 size={10} className="animate-spin" />}
+                      {processingStatusLabels[reprocessingId === d.id ? "PROCESSING" : d.processingStatus]}
                     </span>
                     {d.marketStatus !== "NONE" && (
                       <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.marketStatus)}`}>
@@ -578,6 +717,17 @@ export default function DocumentsPage() {
                       </span>
                     )}
                   </div>
+                  {(d.processingStatus === "PENDING" || d.processingStatus === "PROCESSING" || reprocessingId === d.id) && (
+                    <div className="mt-2 h-1 w-24 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
+                    </div>
+                  )}
+                  {d.processingStatus === "SUCCESS" && (
+                    <button onClick={() => openOverview(d)} className="mt-1.5 text-[10px] text-primary font-semibold hover:underline">
+                      {chunkCounts[d.id] !== undefined ? `${chunkCounts[d.id]} chunks · ` : ""}Xem overview
+                    </button>
+                  )}
+                  {d.processingStatus === "FAILED" && <div className="mt-1 text-[10px] text-destructive">Xử lý thất bại · Có thể chạy lại</div>}
                 </td>
                 <td className="px-5 py-3 hidden sm:table-cell text-muted-foreground font-medium">{formatSize(d.fileSize)}</td>
                 <td className="px-5 py-3 hidden lg:table-cell text-muted-foreground font-medium">{d.downloadCount}</td>
@@ -586,8 +736,11 @@ export default function DocumentsPage() {
                     <button onClick={() => openShareModal(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-primary hover:text-primary transition-colors outline-none" title="Chia sẻ">
                       <Share2 size={14} />
                     </button>
-                    <button onClick={() => handleDownload(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none" title="Tải xuống">
-                      <Download size={14} />
+                    <button onClick={() => openOverview(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-primary transition-colors outline-none" title="Xem overview chunks">
+                      <Eye size={14} />
+                    </button>
+                    <button onClick={() => handleDownload(d)} disabled={downloadingId === d.id} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none disabled:opacity-50" title="Tải xuống">
+                      {downloadingId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                     </button>
                     <div className="relative group/menu">
                       <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
@@ -597,11 +750,14 @@ export default function DocumentsPage() {
                         <button onClick={() => handleEdit(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                           <FileText size={14} /> {t('pages.documents.table.editDesc')}
                         </button>
-                        <button onClick={() => handleAddTag(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                        <button onClick={() => openTagModal(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                           <Tag size={14} /> {t('pages.documents.table.addTag')}
                         </button>
                         <button onClick={() => handleReprocess(d)} disabled={reprocessingId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
                           <RefreshCw size={14} className={reprocessingId === d.id ? "animate-spin" : ""} /> Xử lý AI chunks
+                        </button>
+                        <button onClick={() => handleDeleteChunks(d)} disabled={deletingChunksId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
+                          <Trash2 size={14} /> Xóa AI chunks
                         </button>
                         <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
                           <Globe size={14} /> {t('pages.documents.table.publish')}
@@ -668,17 +824,27 @@ export default function DocumentsPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Liên kết chia sẻ</label>
                     <div className="flex gap-2">
-                      <div className="flex-1 h-10 bg-muted/60 rounded-xl border border-border/50 px-3 flex items-center overflow-hidden">
+                      <div className="flex-1 min-w-0 h-10 bg-muted/60 rounded-xl border border-border/50 px-3 flex items-center overflow-hidden">
                         <Link size={14} className="text-muted-foreground mr-2 shrink-0" />
-                        <span className="text-xs font-mono text-foreground truncate select-all">{shareInfo.shareUrl}</span>
+                        <input readOnly value={shareInfo.shareUrl} onFocus={(event) => event.currentTarget.select()} className="w-full bg-transparent text-xs font-mono text-foreground outline-none" aria-label="Liên kết chia sẻ công khai" />
                       </div>
-                      <button onClick={() => { navigator.clipboard.writeText(shareInfo.shareUrl); Notify.success("Đã copy link"); }} className="h-10 px-3 bg-primary text-primary-foreground rounded-xl flex items-center gap-2 text-xs font-bold hover:bg-primary/90 transition-colors shrink-0">
+                      <button onClick={copyShareLink} className="h-10 px-3 bg-primary text-primary-foreground rounded-xl flex items-center gap-2 text-xs font-bold hover:bg-primary/90 transition-colors shrink-0">
                         <Copy size={14} /> Copy
+                      </button>
+                      <button onClick={openSharedPage} className="size-10 rounded-xl border border-border bg-card grid place-items-center text-muted-foreground hover:text-primary shrink-0" title="Mở trang chia sẻ">
+                        <ExternalLink size={14} />
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Cho phép xem trước</label>
+                      <select value={shareForm.allowPreview ? "yes" : "no"} onChange={(e) => setShareForm({ ...shareForm, allowPreview: e.target.value === "yes" })} className="w-full h-10 bg-muted/60 border border-border/50 rounded-xl px-3 text-sm font-medium outline-none focus:border-primary">
+                        <option value="yes">Bật</option>
+                        <option value="no">Tắt</option>
+                      </select>
+                    </div>
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Cho phép tải file</label>
                       <select value={shareForm.allowDownload ? "yes" : "no"} onChange={(e) => setShareForm({ ...shareForm, allowDownload: e.target.value === "yes" })} className="w-full h-10 bg-muted/60 border border-border/50 rounded-xl px-3 text-sm font-medium outline-none focus:border-primary">
@@ -718,6 +884,64 @@ export default function DocumentsPage() {
                   </button>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DOCUMENT CHUNKS OVERVIEW */}
+      <AnimatePresence>
+        {overviewDoc && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={() => setOverviewDoc(null)} />
+            <motion.div initial={{ opacity: 0, scale: 0.97, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: 10 }} className="relative surface-card w-full max-w-5xl max-h-[90vh] rounded-3xl border border-border shadow-2xl flex flex-col overflow-hidden">
+              <header className="p-5 border-b border-border/60 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="size-11 rounded-xl bg-primary/10 text-primary grid place-items-center shrink-0"><Layers3 size={20} /></div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary">Document overview</div>
+                    <h2 className="text-xl font-bold truncate mt-1">{overviewDoc.title}</h2>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span className="uppercase">{overviewDoc.fileType}</span><span>•</span><span>{formatSize(overviewDoc.fileSize)}</span><span>•</span>
+                      <span className={overviewDoc.processingStatus === "SUCCESS" ? "text-emerald-600" : overviewDoc.processingStatus === "FAILED" ? "text-destructive" : "text-primary"}>{overviewDoc.processingStatus}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => handleDownload(overviewDoc)} disabled={downloadingId === overviewDoc.id} className="h-9 px-3 rounded-xl border border-border text-xs font-semibold flex items-center gap-1.5 hover:border-primary disabled:opacity-50">{downloadingId === overviewDoc.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}Tải file</button>
+                  <button onClick={() => setOverviewDoc(null)} className="size-9 rounded-xl hover:bg-muted grid place-items-center"><X size={18} /></button>
+                </div>
+              </header>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+                {overviewLoading ? (
+                  <div className="py-24 flex flex-col items-center text-muted-foreground"><Loader2 size={30} className="animate-spin text-primary mb-3" /><div className="font-semibold text-sm">Đang tải và tổng hợp chunks...</div></div>
+                ) : overviewError ? (
+                  <div className="py-20 text-center"><AlertCircle size={32} className="mx-auto text-destructive mb-3" /><div className="font-semibold">Không thể tải overview</div><p className="text-sm text-muted-foreground mt-1">{overviewError}</p><button onClick={() => openOverview(overviewDoc)} className="mt-4 h-9 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-semibold">Thử lại</button></div>
+                ) : overviewDoc.processingStatus === "PENDING" || overviewDoc.processingStatus === "PROCESSING" ? (
+                  <div className="py-20 max-w-md mx-auto text-center"><Loader2 size={34} className="animate-spin text-primary mx-auto mb-4" /><h3 className="font-bold">Tài liệu đang được chunking</h3><p className="text-sm text-muted-foreground mt-2">Danh sách sẽ tự cập nhật mỗi 2 giây. Overview khả dụng ngay khi backend xử lý xong.</p><div className="h-2 bg-muted rounded-full mt-5 overflow-hidden"><div className="h-full w-1/2 bg-primary rounded-full animate-pulse" /></div></div>
+                ) : overviewChunks.length === 0 ? (
+                  <div className="py-20 text-center"><Layers3 size={34} className="mx-auto text-muted-foreground/40 mb-3" /><h3 className="font-semibold">Chưa có chunks</h3><p className="text-sm text-muted-foreground mt-1">Hãy chạy xử lý AI chunks để tạo overview.</p><button onClick={async () => { await handleReprocess(overviewDoc); await openOverview(overviewDoc); }} className="mt-4 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"><RefreshCw size={14} className="inline mr-2" />Bắt đầu xử lý</button></div>
+                ) : (
+                  <div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                      <div className="rounded-2xl border border-border/60 p-4"><div className="text-[10px] uppercase text-muted-foreground font-bold">Tổng chunks</div><div className="text-2xl font-bold mt-1">{overviewChunks.length}</div></div>
+                      <div className="rounded-2xl border border-border/60 p-4"><div className="text-[10px] uppercase text-muted-foreground font-bold">Token ước tính</div><div className="text-2xl font-bold mt-1">{overviewChunks.reduce((sum, chunk) => sum + (chunk.tokenEstimate || 0), 0).toLocaleString()}</div></div>
+                      <div className="rounded-2xl border border-border/60 p-4"><div className="text-[10px] uppercase text-muted-foreground font-bold">Số trang nguồn</div><div className="text-2xl font-bold mt-1">{new Set(overviewChunks.map((chunk) => chunk.sourcePage).filter(Boolean)).size || "—"}</div></div>
+                      <div className="rounded-2xl border border-border/60 p-4"><div className="text-[10px] uppercase text-muted-foreground font-bold">Ký tự</div><div className="text-2xl font-bold mt-1">{overviewChunks.reduce((sum, chunk) => sum + chunk.textContent.length, 0).toLocaleString()}</div></div>
+                    </div>
+                    {overviewDoc.description && <div className="rounded-2xl bg-muted/30 border border-border/50 p-4 mb-5"><div className="text-[10px] uppercase text-muted-foreground font-bold mb-1">Mô tả</div><p className="text-sm leading-6">{overviewDoc.description}</p></div>}
+                    <div className="space-y-3">
+                      {overviewChunks.map((chunk) => (
+                        <article key={chunk.id} className="rounded-2xl border border-border/60 p-4 hover:border-primary/30 transition-colors">
+                          <div className="flex items-center justify-between gap-3 mb-2"><div className="text-xs font-bold text-primary">Chunk #{chunk.chunkIndex + 1}</div><div className="text-[10px] text-muted-foreground">{chunk.sourcePage ? `Trang ${chunk.sourcePage}` : "Không rõ trang"}{chunk.sourceSection ? ` · ${chunk.sourceSection}` : ""} · {chunk.tokenEstimate || 0} tokens</div></div>
+                          <p className="text-sm leading-7 whitespace-pre-wrap text-foreground/90">{chunk.textContent}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </div>
         )}
@@ -816,6 +1040,39 @@ export default function DocumentsPage() {
           </div>
         )}
       </AnimatePresence>
+      {/* TAG MANAGEMENT MODAL */}
+      <AnimatePresence>
+        {tagModalDoc && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setTagModalDoc(null)} />
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="relative surface-card w-full max-w-md rounded-2xl p-6 shadow-2xl border border-border/50">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-display text-xl font-bold">Quản lý tag</h3>
+                <button onClick={() => setTagModalDoc(null)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+              </div>
+              <p className="text-sm text-muted-foreground truncate mb-5">{tagModalDoc.title}</p>
+              <div className="flex gap-2 mb-4">
+                <input value={newTagName} onChange={(event) => setNewTagName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createAndAttachTag()} placeholder="Tên tag mới" className="flex-1 h-10 px-3 rounded-xl bg-muted/40 border border-border outline-none focus:border-primary text-sm" />
+                <button onClick={createAndAttachTag} disabled={isTagLoading || !newTagName.trim()} className="px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"><Plus size={15} /></button>
+              </div>
+              <div className="min-h-24 max-h-64 overflow-y-auto custom-scrollbar flex flex-wrap content-start gap-2">
+                {isTagLoading && availableTags.length === 0 ? (
+                  <div className="w-full py-8 text-center text-sm text-muted-foreground">Đang tải tag...</div>
+                ) : availableTags.length === 0 ? (
+                  <div className="w-full py-8 text-center text-sm text-muted-foreground">Chưa có tag. Hãy tạo tag đầu tiên.</div>
+                ) : availableTags.map((tag) => {
+                  const attached = (documentTags[tagModalDoc.id] ?? []).some((item) => item.id === tag.id);
+                  return (
+                    <button key={tag.id} onClick={() => toggleTag(tag)} disabled={isTagLoading} className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-xl border text-sm font-medium transition-opacity disabled:opacity-50 ${attached ? "ring-2 ring-primary/30" : "opacity-70 hover:opacity-100"}`} style={{ color: tag.color, borderColor: `${tag.color}66`, backgroundColor: `${tag.color}14` }}>
+                      {attached && <CheckCircle2 size={14} />} {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       {/* PUBLISH TO COMMUNITY MODAL */}
       <PublishModal 
         isOpen={!!publishModalDoc}
@@ -823,13 +1080,6 @@ export default function DocumentsPage() {
         documentTitle={publishModalDoc?.title || ""}
         documentId={publishModalDoc?.id || ""}
         onPublished={() => refetch()}
-      />
-
-      {/* AI PROCESSING MODAL */}
-      <AiProcessModal 
-        isOpen={!!aiProcessFiles}
-        fileName={aiProcessFiles?.length === 1 ? aiProcessFiles[0].name : `${aiProcessFiles?.length} tài liệu`}
-        onComplete={executeActualUpload}
       />
 
     </div>
