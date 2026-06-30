@@ -39,3 +39,5 @@ secrets/
 # Firebase service account key – TUYỆT ĐỐI KHÔNG COMMIT
 src/main/resources/firebase-service-account.json
 src/main/resources/application.yml
+FRONTEND_BACKEND_INTEGRATION_PLAN.md
+INTEGRATION_PLAN.md

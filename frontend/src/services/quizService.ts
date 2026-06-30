@@ -1,22 +1,19 @@
-import { PaginatedResponse } from "./types";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 const BASE_URL = "/api";
 
-interface ApiResponse<T = any> {
-  success: boolean;
-  message?: string;
-  data?: T;
-  errorCode?: string;
-}
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 async function qRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
+
   if (token) {
-    const cleanToken = token.replace(/['"]+/g, '');
-    headers.set("Authorization", `Bearer ${cleanToken}`);
+    headers.set("Authorization", `Bearer ${token.replace(/['"]+/g, "")}`);
   }
-  if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE") {
+
+  const method = (options.method || "GET").toUpperCase() as HttpMethod;
+  if (!headers.has("Content-Type") && method !== "GET" && method !== "DELETE") {
     headers.set("Content-Type", "application/json");
   }
 
@@ -38,30 +35,47 @@ async function qRequest<T>(endpoint: string, options: RequestInit = {}): Promise
     throw {
       status: response.status,
       message: result.message || "Lỗi giao tiếp API Quiz",
-      errorCode: result.errorCode || "QUIZ_ERROR"
+      errorCode: result.errorCode || "QUIZ_ERROR",
     };
   }
+
   return result;
 }
 
-// ─── DTOs ────────────────────────────────────────────────────────────────────
+function toQuery(params: Record<string, string | number | undefined | null>) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+  const qs = query.toString();
+  return qs ? `?${qs}` : "";
+}
 
 export interface QuizDTO {
   id: number;
-  notebookId?: number;
-  subjectId?: number;
+  notebookId?: number | null;
+  notebookTitle?: string | null;
+  subjectId?: number | null;
+  subjectName?: string | null;
+  creatorId?: number;
+  creatorFullName?: string | null;
   title: string;
-  description?: string;
-  academicTermId?: number;
-  examType?: string;
-  visibility?: string;
-  marketStatus?: string;
+  description?: string | null;
+  academicTermId?: number | null;
+  academicTermName?: string | null;
+  examType?: string | null;
+  visibility?: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+  marketStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   downloadCount?: number;
   reviewCount?: number;
   acceptPercentage?: number;
+  aiVerdictNote?: string | null;
+  clonedFromId?: number | null;
   createdAt?: string;
+  updatedAt?: string;
 
-  // Frontend bổ sung
   subject?: string;
   level?: string;
   questions?: number;
@@ -69,9 +83,19 @@ export interface QuizDTO {
   attempts?: number;
 }
 
+export interface QuizPayload {
+  title: string;
+  description?: string | null;
+  notebookId?: number | null;
+  subjectId?: number | null;
+  academicTermId?: number | null;
+  examType?: string | null;
+  visibility?: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+}
+
 export interface OptionDTO {
-  id: number;
-  questionId: number;
+  id?: number;
+  questionId?: number;
   optionText: string;
   isCorrect?: boolean;
 }
@@ -80,326 +104,249 @@ export interface QuestionDTO {
   id: number;
   quizId?: number;
   questionText: string;
-  questionType: string;
-  explanation?: string;
+  questionType: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "FILL_IN_THE_BLANK" | string;
+  explanation?: string | null;
   options: OptionDTO[];
+  userProgress?: {
+    selectedOptionId?: number;
+    userAnswerText?: string;
+  } | null;
+}
+
+export interface QuestionPayload {
+  questionText: string;
+  questionType: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "FILL_IN_THE_BLANK" | string;
+  explanation?: string | null;
+  options: OptionDTO[];
+}
+
+export interface StartTestPayload {
+  title?: string;
+  duration?: number;
+  quizSelectionMode?: "ALL" | "SELECTED" | "RANDOM";
+  selectionMode?: "ALL" | "SELECTED" | "RANDOM";
+  questionIds?: number[];
+  randomCount?: number;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
 }
 
 export interface TestDTO {
   id: number;
   quizId: number;
+  quizTitle?: string;
   userId: number;
   title: string;
   duration: number;
-  selectionMode: string;
+  selectionMode: "ALL" | "SELECTED" | "RANDOM" | string;
   status: "IN_PROGRESS" | "COMPLETED";
   totalQuestions?: number;
   totalScore?: number;
-  questions?: QuestionDTO[]; // Trả về lúc IN_PROGRESS
+  questions?: QuestionDTO[];
   correctAnswers?: number;
-  items?: any[]; // Trả về lúc COMPLETED (result items)
+  items?: TestResultItemDTO[];
   createdAt?: string;
 }
 
-// ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
+export interface TestResultItemDTO {
+  questionId: number;
+  isCorrect: boolean;
+  selectedOptionId?: number | null;
+  userAnswerText?: string | null;
+  explanation?: string | null;
+}
 
-let mockQuizzes: QuizDTO[] = [
-  { id: 801, title: "Kiến trúc ứng dụng web Java", description: "Ôn tập Servlet/JSP", subject: "SWP391", level: "Medium", questions: 10, bestScore: 85, attempts: 2 },
-  { id: 802, title: "Lập trình điều khiển mạch ESP32", description: "Sensor & IoT logic", subject: "SWR302", level: "Hard", questions: 8, bestScore: 0, attempts: 0 }
-];
+export interface UserTestHistoryDTO {
+  id: number;
+  quizId: number;
+  userId: number;
+  title: string;
+  totalScore?: number;
+  duration?: number;
+  status: "IN_PROGRESS" | "COMPLETED";
+  createdAt?: string;
+}
 
-let mockTestResult: TestDTO | null = null;
-let mockQuestions: QuestionDTO[] = [
-  {
-    id: 811,
-    questionText: "Yêu cầu phần mềm tốt cần có đặc điểm nào?",
-    questionType: "SINGLE_CHOICE",
-    explanation: "Yêu cầu nên rõ ràng, đầy đủ, nhất quán và kiểm thử được.",
-    options: [
-      { id: 821, questionId: 811, optionText: "Rõ ràng và kiểm thử được", isCorrect: true },
-      { id: 822, questionId: 811, optionText: "Càng mơ hồ càng tốt", isCorrect: false },
-      { id: 823, questionId: 811, optionText: "Chỉ cần Dev hiểu là đủ", isCorrect: false },
-      { id: 824, questionId: 811, optionText: "Không cần tài liệu", isCorrect: false }
-    ]
-  },
-  {
-    id: 812,
-    questionText: "Mô hình MVC gồm các thành phần nào?",
-    questionType: "SINGLE_CHOICE",
-    explanation: "Model-View-Controller.",
-    options: [
-      { id: 825, questionId: 812, optionText: "Model-View-Controller", isCorrect: true },
-      { id: 826, questionId: 812, optionText: "Micro-View-Component", isCorrect: false },
-      { id: 827, questionId: 812, optionText: "Module-View-Class", isCorrect: false }
-    ]
-  }
-];
+function normalizeQuiz(quiz: QuizDTO): QuizDTO {
+  return {
+    ...quiz,
+    subject: quiz.subjectName || (quiz.subjectId ? `Môn #${quiz.subjectId}` : "Tự do"),
+    level: quiz.examType || "Medium",
+    bestScore: quiz.bestScore ?? 0,
+    attempts: quiz.attempts ?? quiz.reviewCount ?? 0,
+  };
+}
+
+function normalizeTest(test: TestDTO): TestDTO {
+  return {
+    ...test,
+    selectionMode: test.selectionMode,
+    questions: test.questions?.map((question) => ({
+      ...question,
+      options: question.options?.map((option) => ({ ...option, questionId: question.id })) ?? [],
+    })),
+  };
+}
+
+function normalizeStartPayload(payload: StartTestPayload): Omit<StartTestPayload, "selectionMode"> {
+  const quizSelectionMode = payload.quizSelectionMode || payload.selectionMode || "ALL";
+  return {
+    title: payload.title,
+    duration: payload.duration,
+    quizSelectionMode,
+    questionIds: payload.questionIds,
+    randomCount: payload.randomCount,
+    shuffleQuestions: payload.shuffleQuestions ?? true,
+    shuffleOptions: payload.shuffleOptions ?? true,
+  };
+}
 
 export const quizService = {
-
-  // ─── 1. MARKETPLACE & ADMIN QUIZ ──────────────────────────────────────────
-
-  async reviewQuiz(id: number, voteResult: string, reviewNote: string) {
-    try {
-      return await qRequest(`/admin/marketplace/quizzes/${id}/review`, {
-        method: "POST", body: JSON.stringify({ voteResult, reviewNote })
-      });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, message: "Success" }), 300));
-    }
+  async getQuizzes(params: {
+    page?: number;
+    size?: number;
+    keyword?: string;
+    subjectId?: number;
+    notebookId?: number;
+    academicTermId?: number;
+    examType?: string;
+    visibility?: string;
+    marketStatus?: string;
+    sort?: string;
+  } = {}): Promise<ApiResponse<PaginatedResponse<QuizDTO>>> {
+    const res = await qRequest<ApiResponse<PaginatedResponse<QuizDTO>>>(
+      `/quizzes${toQuery({ page: 0, size: 50, sort: "createdAt,desc", ...params })}`,
+    );
+    return {
+      ...res,
+      data: {
+        ...res.data,
+        items: res.data.items.map(normalizeQuiz),
+      },
+    };
   },
 
-  async getMarketplaceQuizzes() {
-    try {
-      return await qRequest(`/marketplace/quizzes`);
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { items: mockQuizzes } }), 300));
-    }
+  async createQuiz(payload: QuizPayload): Promise<ApiResponse<QuizDTO>> {
+    const res = await qRequest<ApiResponse<QuizDTO>>("/quizzes", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return { ...res, data: normalizeQuiz(res.data) };
   },
 
-  async cloneQuiz(id: number, targetNotebookId: number) {
-    try {
-      return await qRequest(`/marketplace/quizzes/${id}/clone`, {
-        method: "POST", body: JSON.stringify({ targetNotebookId })
-      });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, message: "Cloned successfully" }), 300));
-    }
+  async generateAiQuiz(payload: any): Promise<ApiResponse<QuizDTO>> {
+    const res = await qRequest<ApiResponse<QuizDTO>>("/quizzes/generate", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return { ...res, data: normalizeQuiz(res.data) };
   },
 
-  async submitQuizToMarketplace(id: number) {
-    try {
-      return await qRequest(`/marketplace/quizzes/${id}/submit`, { method: "POST" });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, message: "Success" }), 300));
-    }
+  async getQuizDetails(id: number): Promise<ApiResponse<QuizDTO>> {
+    const res = await qRequest<ApiResponse<QuizDTO>>(`/quizzes/${id}`);
+    return { ...res, data: normalizeQuiz(res.data) };
   },
 
-  // ─── 2. QUIZ MANAGEMENT (CRUD QUIZ) ────────────────────────────────────────
-
-  async getQuizzes(): Promise<ApiResponse<PaginatedResponse<QuizDTO>>> {
-    try {
-      const res = await qRequest<ApiResponse<PaginatedResponse<QuizDTO>>>(`/quizzes`);
-      if (!res.data || !res.data.items || res.data.items.length === 0) {
-        return {
-          success: true,
-          message: "Success (Mock)",
-          data: { items: mockQuizzes, page: 0, size: 10, totalElements: mockQuizzes.length, totalPages: 1 }
-        };
-      }
-      return res;
-    } catch {
-      return new Promise((res) => setTimeout(() => {
-        res({
-          success: true,
-          message: "Success",
-          data: { items: mockQuizzes, page: 0, size: 10, totalElements: mockQuizzes.length, totalPages: 1 }
-        });
-      }, 400));
-    }
+  async updateQuiz(id: number, payload: QuizPayload): Promise<ApiResponse<QuizDTO>> {
+    const res = await qRequest<ApiResponse<QuizDTO>>(`/quizzes/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    return { ...res, data: normalizeQuiz(res.data) };
   },
 
-  async createQuiz(payload: any) {
-    try {
-      return await qRequest(`/quizzes`, { method: "POST", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { id: Date.now(), ...payload } }), 300));
-    }
+  async deleteQuiz(id: number): Promise<ApiResponse<void>> {
+    return qRequest<ApiResponse<void>>(`/quizzes/${id}`, { method: "DELETE" });
   },
 
-  async generateAiQuiz(payload: any) {
-    try {
-      return await qRequest(`/quizzes/generate`, { method: "POST", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { id: Date.now(), ...payload } }), 1000));
-    }
+  async getQuizQuestions(quizId: number): Promise<ApiResponse<QuestionDTO[]>> {
+    const res = await qRequest<ApiResponse<QuestionDTO[]>>(`/quizzes/${quizId}/questions`);
+    return {
+      ...res,
+      data: res.data.map((question) => ({
+        ...question,
+        options: question.options?.map((option) => ({ ...option, questionId: question.id })) ?? [],
+      })),
+    };
   },
 
-  async getQuizDetails(id: number) {
-    try {
-      return await qRequest(`/quizzes/${id}`);
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: mockQuizzes.find(q => q.id === id) || mockQuizzes[0] }), 200));
-    }
+  async addQuestionToQuiz(quizId: number, payload: QuestionPayload): Promise<ApiResponse<QuestionDTO>> {
+    return qRequest<ApiResponse<QuestionDTO>>(`/quizzes/${quizId}/questions`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
-  async updateQuiz(id: number, payload: any) {
-    try {
-      return await qRequest(`/quizzes/${id}`, { method: "PUT", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { id, ...payload } }), 300));
-    }
+  async updateQuestion(questionId: number, payload: QuestionPayload): Promise<ApiResponse<QuestionDTO>> {
+    return qRequest<ApiResponse<QuestionDTO>>(`/questions/${questionId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
   },
 
-  async deleteQuiz(id: number) {
-    try {
-      return await qRequest(`/quizzes/${id}`, { method: "DELETE" });
-    } catch {
-      return new Promise((res) => setTimeout(() => {
-        mockQuizzes = mockQuizzes.filter(q => q.id !== id);
-        res({ success: true });
-      }, 300));
-    }
+  async deleteQuestion(questionId: number): Promise<ApiResponse<void>> {
+    return qRequest<ApiResponse<void>>(`/questions/${questionId}`, { method: "DELETE" });
   },
 
-  // ─── 3. QUESTIONS & OPTIONS MANAGEMENT ─────────────────────────────────────
-
-  async getQuizQuestions(quizId: number) {
-    try {
-      return await qRequest(`/quizzes/${quizId}/questions`);
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: mockQuestions }), 200));
-    }
+  async startTest(quizId: number, payload: StartTestPayload): Promise<ApiResponse<TestDTO>> {
+    const res = await qRequest<ApiResponse<TestDTO>>(`/quizzes/${quizId}/tests`, {
+      method: "POST",
+      body: JSON.stringify(normalizeStartPayload(payload)),
+    });
+    return { ...res, data: normalizeTest(res.data) };
   },
 
-  async addQuestionToQuiz(quizId: number, payload: any) {
-    try {
-      return await qRequest(`/quizzes/${quizId}/questions`, { method: "POST", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { id: Date.now(), quizId, ...payload } }), 300));
-    }
+  async getTestDetails(testId: number): Promise<ApiResponse<TestDTO>> {
+    const res = await qRequest<ApiResponse<TestDTO>>(`/tests/${testId}`);
+    return { ...res, data: normalizeTest(res.data) };
   },
 
-  async updateQuestion(questionId: number, payload: any) {
-    try {
-      return await qRequest(`/questions/${questionId}`, { method: "PUT", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { id: questionId, ...payload } }), 300));
-    }
-  },
-
-  async deleteQuestion(questionId: number) {
-    try {
-      return await qRequest(`/questions/${questionId}`, { method: "DELETE" });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true }), 300));
-    }
-  },
-
-  async addOptionToQuestion(questionId: number, payload: any) {
-    try {
-      return await qRequest(`/questions/${questionId}/options`, { method: "POST", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { id: Date.now(), questionId, ...payload } }), 300));
-    }
-  },
-
-  async updateOption(optionId: number, payload: any) {
-    try {
-      return await qRequest(`/options/${optionId}`, { method: "PUT", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: { id: optionId, ...payload } }), 300));
-    }
-  },
-
-  async deleteOption(optionId: number) {
-    try {
-      return await qRequest(`/options/${optionId}`, { method: "DELETE" });
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true }), 300));
-    }
-  },
-
-  // ─── 4. TEST EXECUTION (LUỒNG LÀM BÀI) ─────────────────────────────────────
-
-  async startTest(quizId: number, payload: any): Promise<ApiResponse<TestDTO>> {
-    try {
-      return await qRequest(`/quizzes/${quizId}/tests`, { method: "POST", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => {
-        const testObj: TestDTO = {
-          id: Date.now(),
-          quizId,
-          userId: 1,
-          title: "Attempt - " + quizId,
-          duration: payload.duration || 30,
-          selectionMode: payload.selectionMode || "ALL",
-          status: "IN_PROGRESS",
-          totalQuestions: mockQuestions.length,
-          questions: mockQuestions.map(q => ({
-            ...q,
-            options: q.options.map(o => ({ id: o.id, questionId: o.questionId, optionText: o.optionText })) // Hide isCorrect
-          }))
-        };
-        mockTestResult = testObj;
-        res({ success: true, message: "Test created", data: testObj });
-      }, 500));
-    }
-  },
-
-  async getTestDetails(testId: number) {
-    try {
-      return await qRequest(`/tests/${testId}`);
-    } catch {
-      return new Promise((res) => setTimeout(() => res({ success: true, data: mockTestResult }), 200));
-    }
-  },
-
-  async saveTestAnswer(testId: number, payload: { questionId: number; selectedOptionId: number; userAnswerText?: string }) {
-    try {
-      return await qRequest(`/tests/${testId}/answers`, { method: "POST", body: JSON.stringify(payload) });
-    } catch {
-      // Logic mock không thực sự lưu db, chỉ trả về OK
-      return new Promise((res) => setTimeout(() => res({
-        success: true,
-        data: { testId, questionId: payload.questionId, isCorrect: Math.random() > 0.5, answeredAt: new Date().toISOString() }
-      }), 100));
-    }
+  async saveTestAnswer(
+    testId: number,
+    payload: { questionId: number; selectedOptionId?: number; userAnswerText?: string },
+  ) {
+    return qRequest(`/tests/${testId}/answers`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   async submitTest(testId: number, payload: { confirmSubmit: boolean }): Promise<ApiResponse<TestDTO>> {
-    try {
-      return await qRequest(`/tests/${testId}/submit`, { method: "POST", body: JSON.stringify(payload) });
-    } catch {
-      return new Promise((res) => setTimeout(() => {
-        if (mockTestResult) {
-          mockTestResult.status = "COMPLETED";
-          mockTestResult.totalScore = 8.5;
-          mockTestResult.correctAnswers = 1;
-        }
-        res({
-          success: true, message: "Test submitted", data: {
-            testId,
-            quizId: mockTestResult?.quizId || 801,
-            totalScore: 8.5,
-            correctAnswers: 1,
-            totalQuestions: mockQuestions.length,
-            status: "COMPLETED"
-          } as unknown as TestDTO
-        });
-      }, 600));
-    }
+    return qRequest<ApiResponse<TestDTO>>(`/tests/${testId}/submit`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   async getTestResult(testId: number): Promise<ApiResponse<TestDTO>> {
-    try {
-      return await qRequest(`/tests/${testId}/result`);
-    } catch {
-      return new Promise((res) => setTimeout(() => {
-        res({
-          success: true,
-          message: "Success",
-          data: {
-            testId,
-            quizId: mockTestResult?.quizId || 801,
-            userId: 1,
-            title: "Result",
-            duration: 30,
-            selectionMode: "ALL",
-            totalScore: 8.5,
-            correctAnswers: 1,
-            totalQuestions: mockQuestions.length,
-            status: "COMPLETED",
-            items: mockQuestions.map((q, idx) => ({
-              questionId: q.id,
-              isCorrect: idx === 0, // Mock câu 1 đúng, câu 2 sai
-              selectedOptionId: q.options[0].id,
-              explanation: q.explanation
-            }))
-          } as unknown as TestDTO
-        });
-      }, 300));
-    }
-  }
+    return qRequest<ApiResponse<TestDTO>>(`/tests/${testId}/result`);
+  },
 
+  async getQuizTestHistory(
+    quizId: number,
+    params: { page?: number; size?: number; keyword?: string; status?: string; sort?: string } = {},
+  ): Promise<ApiResponse<PaginatedResponse<UserTestHistoryDTO>>> {
+    return qRequest<ApiResponse<PaginatedResponse<UserTestHistoryDTO>>>(
+      `/quizzes/${quizId}/tests${toQuery({ page: 0, size: 10, sort: "newest", ...params })}`,
+    );
+  },
+
+  async submitQuizToMarketplace(id: number, note = "Submit for marketplace review"): Promise<ApiResponse<QuizDTO>> {
+    const res = await qRequest<ApiResponse<QuizDTO>>(`/marketplace/quizzes/${id}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    });
+    return { ...res, data: normalizeQuiz(res.data) };
+  },
+
+  async getMarketplaceQuizzes(params: { page?: number; size?: number; keyword?: string; subjectId?: number } = {}) {
+    return qRequest(`/marketplace/quizzes${toQuery({ page: 0, size: 20, ...params })}`);
+  },
+
+  async cloneQuiz(id: number, targetNotebookId?: number) {
+    return qRequest(`/marketplace/quizzes/${id}/clone`, {
+      method: "POST",
+      body: JSON.stringify({ targetNotebookId }),
+    });
+  },
 };

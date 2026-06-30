@@ -1,8 +1,8 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { BookMarked, Plus, Search, Trash2, X, MoreHorizontal, Edit, Globe, Tag } from "lucide-react";
-import { useMemo, useState } from "react";
+import { BookMarked, Plus, Search, Trash2, X, MoreHorizontal, Edit } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NotebookDTO } from "../services/notebookService";
 import { 
@@ -12,12 +12,11 @@ import {
   useDeleteNotebook 
 } from "../hooks/useNotebooks";
 import CustomSelect from "../components/ui/CustomSelect";
-import { Notify, Confirm } from "notiflix";
+import { Confirm } from "notiflix";
 import EmptyState from "../components/ui/EmptyState";
 import { SkeletonCard } from "../components/ui/SkeletonCard";
 import { motionFadeUp } from "../lib/motion";
-
-const subjects = ["Tất cả", "SWP391", "SWT301", "SWR302", "PRN221", "PRJ301"];
+import { useSubjects } from "../hooks/useSubjects";
 
 import { useNavigate } from "react-router-dom";
 
@@ -25,27 +24,37 @@ export default function NotebooksPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [filterSubject, setFilterSubject] = useState("all");
-  const [filterVisibility, setFilterVisibility] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const { t } = useTranslation();
+  const { subjects, subjectMap } = useSubjects();
 
   // Create Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newSubjectId, setNewSubjectId] = useState("12"); // Default to SWR302
+  const [newSubjectId, setNewSubjectId] = useState("");
 
   // Edit Modal State
-  const [editModal, setEditModal] = useState({ isOpen: false, id: 0, title: "", subjectId: "12" });
+  const [editModal, setEditModal] = useState({ isOpen: false, id: 0, title: "", subjectId: "" });
 
-  // Mock Actions
+  const subjectOptions = useMemo(
+    () => subjects.map((subject) => ({ label: subject.code, value: String(subject.id) })),
+    [subjects],
+  );
+
+  useEffect(() => {
+    if (subjectOptions.length > 0 && !subjectOptions.some((subject) => subject.value === newSubjectId)) {
+      setNewSubjectId(subjectOptions[0].value);
+    }
+  }, [newSubjectId, subjectOptions]);
+
+  const getSubjectLabel = (subjectId: number) => {
+    const subject = subjectMap[subjectId];
+    return subject ? subject.code : `Môn #${subjectId}`;
+  };
+
   const handleEdit = (nb: NotebookDTO) => {
     setEditModal({ isOpen: true, id: nb.id, title: nb.title, subjectId: String(nb.subjectId) });
   };
-  const handlePublish = (id: number) => {
-    Notify.success("Đã gửi lên cộng đồng! Trạng thái: Chờ duyệt.");
-  };
-  const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
   // 1. Fetch Notebooks using Custom Hook
   const { data: notebooksList = [], isLoading } = useNotebooks();
@@ -53,11 +62,10 @@ export default function NotebooksPage() {
   const filtered = useMemo(
     () => {
       let result = notebooksList.filter((x: any) => {
-        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subjectCode || "").toLowerCase().includes(q.toLowerCase());
-        const matchSubject = filterSubject === "all" || x.subjectCode === filterSubject;
-        const matchVis = filterVisibility === "all" || x.visibility === filterVisibility;
-        const matchStatus = filterStatus === "all" || x.status === filterStatus;
-        return matchSearch && matchSubject && matchVis && matchStatus;
+        const subjectLabel = getSubjectLabel(x.subjectId).toLowerCase();
+        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || subjectLabel.includes(q.toLowerCase());
+        const matchSubject = filterSubject === "all" || String(x.subjectId) === filterSubject;
+        return matchSearch && matchSubject;
       });
 
       if (sortBy === "newest") {
@@ -69,7 +77,7 @@ export default function NotebooksPage() {
       }
       return result;
     },
-    [notebooksList, q, filterSubject, filterVisibility, filterStatus, sortBy],
+    [notebooksList, q, filterSubject, sortBy, subjectMap],
   );
 
   // 2. Create Mutation using Custom Hook
@@ -88,7 +96,7 @@ export default function NotebooksPage() {
   // 3. Update Mutation using Custom Hook
   const updateMutation = useUpdateNotebook({
     onSuccess: () => {
-      setEditModal({ isOpen: false, id: 0, title: "", subjectId: "12" });
+      setEditModal({ isOpen: false, id: 0, title: "", subjectId: "" });
     }
   });
 
@@ -102,7 +110,13 @@ export default function NotebooksPage() {
 
   const handleDelete = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteMutation.mutate(id);
+    Confirm.show(
+      "Xóa Notebook",
+      "Bạn chắc chắn muốn xóa Notebook này? Hành động này sẽ gọi API xóa thật trên backend.",
+      "Xóa",
+      "Hủy",
+      () => deleteMutation.mutate(id),
+    );
   };
 
 
@@ -141,42 +155,9 @@ export default function NotebooksPage() {
             data={[
               { label: t("filters.allSubjects"), value: "all" },
               {
-                label: "Semester 5",
-                options: [
-                  { label: "SWP391", value: "SWP391" },
-                  { label: "SWT301", value: "SWT301" },
-                  { label: "SWR302", value: "SWR302" }
-                ]
-              },
-              {
-                label: "Semester 4",
-                options: [
-                  { label: "PRN221", value: "PRN221" },
-                  { label: "PRJ301", value: "PRJ301" }
-                ]
+                label: "Môn học",
+                options: subjectOptions,
               }
-            ]}
-          />
-          <CustomSelect
-            value={filterVisibility}
-            onChange={setFilterVisibility}
-            className="flex-1 md:flex-none w-full md:w-[170px]"
-            data={[
-              { label: t("filters.allVisibility"), value: "all" },
-              { label: t("filters.private"), value: "PRIVATE" },
-              { label: t("filters.workspace"), value: "WORKSPACE" },
-              { label: t("filters.marketplace"), value: "MARKETPLACE" }
-            ]}
-          />
-          <CustomSelect
-            value={filterStatus}
-            onChange={setFilterStatus}
-            className="flex-1 md:flex-none w-full md:w-[170px]"
-            data={[
-              { label: t("filters.allStatus"), value: "all" },
-              { label: t("filters.pending"), value: "PENDING" },
-              { label: t("filters.approved"), value: "APPROVED" },
-              { label: t("filters.rejected"), value: "REJECTED" }
             ]}
           />
           <CustomSelect
@@ -232,7 +213,7 @@ export default function NotebooksPage() {
                         <BookMarked size={18} />
                       </div>
                       
-                      {/* Action Dropdown (Mocked) */}
+                      {/* Action Dropdown */}
                       <div className="relative group/menu">
                         <button className="text-muted-foreground hover:text-foreground p-1.5 rounded hover:bg-muted/50 opacity-0 group-hover:opacity-100 transition-opacity">
                           <MoreHorizontal size={16} />
@@ -240,12 +221,6 @@ export default function NotebooksPage() {
                         <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(nb); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                             <Edit size={14} /> {t('pages.notebooks.edit')}
-                          </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleAddTag(nb.id); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                            <Tag size={14} /> {t('pages.notebooks.addTag')}
-                          </button>
-                          <button onClick={(e) => { e.stopPropagation(); handlePublish(nb.id); }} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                            <Globe size={14} /> {t('pages.notebooks.publish')}
                           </button>
                           <button onClick={(e) => handleDelete(nb.id, e)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
                             <Trash2 size={14} /> {t('pages.notebooks.delete')}
@@ -257,10 +232,10 @@ export default function NotebooksPage() {
                     {/* Hàng 2: Cụm Tags Phân Loại Song Song */}
                     <div className="flex items-center justify-between mb-3 text-[11px] font-semibold tracking-wide">
                       <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary uppercase">
-                        {nb.id % 3 === 0 ? "Quiz" : nb.id % 3 === 1 ? "Documents" : "Flashcards"}
+                        Notebook
                       </span>
                       <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase">
-                        {nb.subjectCode}
+                        {getSubjectLabel(nb.subjectId)}
                       </span>
                     </div>
                     
@@ -315,11 +290,9 @@ export default function NotebooksPage() {
                   onChange={(e) => setNewSubjectId(e.target.value)}
                   className="w-full h-10 px-3 rounded-xl bg-card border border-border outline-none focus:border-primary text-sm"
                 >
-                  <option value="12">SWR302</option>
-                  <option value="5">PRN221</option>
-                  <option value="1">SWP391</option>
-                  <option value="2">SWT301</option>
-                  <option value="3">PRJ301</option>
+                  {subjectOptions.map((subject) => (
+                    <option key={subject.value} value={subject.value}>{subject.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -374,13 +347,9 @@ export default function NotebooksPage() {
                   className="w-full h-11 px-3 rounded-xl bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all cursor-pointer"
                 >
                   <optgroup label="Semester 5">
-                    <option value="1">SWP391</option>
-                    <option value="2">SWT301</option>
-                    <option value="12">SWR302</option>
-                  </optgroup>
-                  <optgroup label="Semester 4">
-                    <option value="5">PRN221</option>
-                    <option value="3">PRJ301</option>
+                    {subjectOptions.map((subject) => (
+                      <option key={subject.value} value={subject.value}>{subject.label}</option>
+                    ))}
                   </optgroup>
                 </select>
               </div>

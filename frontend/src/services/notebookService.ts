@@ -1,37 +1,52 @@
 import { ApiResponse, PaginatedResponse } from "./types";
 
-// ─── DTOs ────────────────────────────────────────────────────────────────────
-
 export interface NotebookDTO {
   id: number;
-  userId: number;
+  userId?: number;
   subjectId: number;
-  subjectCode: string;
+  subjectCode?: string;
   title: string;
   documentCount: number;
   createdAt: string;
-  // Bổ sung cho giao diện
   color?: string;
 }
 
-// ─── BASE REQUEST ────────────────────────────────────────────────────────────
-
 const BASE_URL = "/api";
+
+type BackendNotebookResponse = {
+  id: number;
+  title: string;
+  subjectId: number;
+  subjectCode?: string;
+  documentCount?: number;
+  createdAt: string;
+};
 
 async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
+
   if (token) {
-    const cleanToken = token.replace(/['"]+/g, '');
+    const cleanToken = token.replace(/[\'"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
+
   if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE") {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  try {
+    result = text ? JSON.parse(text) : {};
+  } catch {
+    throw {
+      status: response.status,
+      message: response.ok ? "Backend trả về JSON không hợp lệ" : (text || "Lỗi giao tiếp API Notebook"),
+      errorCode: "INVALID_RESPONSE",
+    };
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -40,164 +55,152 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
       localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
-    throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
+    throw { status: 401, message: "Phien dang nhap da het han, vui long dang nhap lai." };
   }
 
   if (!response.ok) {
     throw {
       status: response.status,
-      message: result.message || "Lỗi giao tiếp API Notebook",
-      errorCode: result.errorCode || "NOTEBOOK_ERROR"
+      message: result.message || "Loi giao tiep API Notebook",
+      errorCode: result.errorCode || "NOTEBOOK_ERROR",
     };
   }
+
   return result;
 }
-
-// ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
-
-let mockNotebooks: NotebookDTO[] = [
-  {
-    id: 101,
-    userId: 1,
-    subjectId: 12,
-    subjectCode: "SWR302",
-    title: "SWR302 - Requirements Engineering",
-    documentCount: 3,
-    createdAt: "2026-06-12T21:40:00",
-    color: "250"
-  },
-  {
-    id: 102,
-    userId: 1,
-    subjectId: 5,
-    subjectCode: "PRN221",
-    title: "C# Advanced Techniques",
-    documentCount: 5,
-    createdAt: "2026-06-10T09:15:00",
-    color: "330"
-  }
-];
-
-// Mảng môn học ảo dùng để mock
-const MOCK_SUBJECTS = {
-  12: "SWR302",
-  5: "PRN221",
-  1: "SWP391",
-  2: "SWT301",
-  3: "PRJ301"
-};
-
-// ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
 
 function getUserId(): number {
   try {
     const userStr = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
     if (userStr && userStr !== "undefined") {
       const user = JSON.parse(userStr);
-      return user.id || user.userId || 1;
+      const userId = Number(user.userId ?? user.id);
+      if (Number.isFinite(userId) && userId > 0) return userId;
+    }
+
+    const persistedAuth = typeof window !== "undefined" ? localStorage.getItem("auth-storage") : null;
+    if (persistedAuth && persistedAuth !== "undefined") {
+      const parsed = JSON.parse(persistedAuth);
+      const user = parsed?.state?.user;
+      const userId = Number(user?.userId ?? user?.id);
+      if (Number.isFinite(userId) && userId > 0) return userId;
     }
   } catch (e) {
     console.error("Error parsing auth_user in getUserId:", e);
   }
-  return 1;
+
+  throw {
+    status: 401,
+    message: "Không xác định được userId hiện tại. Vui lòng đăng nhập lại trước khi dùng Notebook.",
+    errorCode: "AUTH_USER_NOT_FOUND",
+  };
+}
+
+function normalizeNotebook(item: BackendNotebookResponse): NotebookDTO {
+  return {
+    ...item,
+    subjectCode: item.subjectCode,
+    documentCount: item.documentCount ?? 0,
+    color: String((Number(item.id) * 47) % 360),
+  };
+}
+
+function toPaginatedNotebooks(
+  response: ApiResponse<BackendNotebookResponse[] | PaginatedResponse<BackendNotebookResponse>>,
+  page: number,
+  size: number,
+): ApiResponse<PaginatedResponse<NotebookDTO>> {
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+    const items = data.map(normalizeNotebook);
+    return {
+      success: response.success,
+      message: response.message,
+      data: {
+        items,
+        page,
+        size,
+        totalElements: items.length,
+        totalPages: Math.max(1, Math.ceil(items.length / size)),
+      },
+    };
+  }
+
+  return {
+    success: response.success,
+    message: response.message,
+    data: {
+      ...data,
+      items: data.items.map(normalizeNotebook),
+    },
+  };
+}
+
+async function hydrateDocumentCounts(items: NotebookDTO[]): Promise<NotebookDTO[]> {
+  const results = await Promise.allSettled(
+    items.map(async (notebook) => {
+      if (notebook.documentCount > 0) return notebook;
+
+      const res = await nbRequest<ApiResponse<PaginatedResponse<unknown>>>(`/notebooks/${notebook.id}/documents?page=0&size=1`, { method: "GET" });
+      return {
+        ...notebook,
+        documentCount: res.data?.totalElements ?? notebook.documentCount,
+      };
+    }),
+  );
+  return results.map((result, index) => result.status === "fulfilled" ? result.value : items[index]);
 }
 
 export const notebookService = {
   async getNotebooks(page = 0, size = 10): Promise<ApiResponse<PaginatedResponse<NotebookDTO>>> {
-    try {
-      const userId = getUserId();
-      const res = await nbRequest<ApiResponse<PaginatedResponse<NotebookDTO>>>(`/notebooks?page=${page}&size=${size}&userId=${userId}`, { method: "GET" });
-      if (!res.data || !res.data.items || res.data.items.length === 0) {
-        return {
-          success: true,
-          message: "Success (Mock)",
-          data: { items: mockNotebooks, page, size, totalElements: mockNotebooks.length, totalPages: 1 }
-        };
-      }
-      return res;
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        res({
-          success: true,
-          message: "Success",
-          data: {
-            items: mockNotebooks,
-            page, size, totalElements: mockNotebooks.length, totalPages: 1
-          }
-        });
-      }, 300));
-    }
+    const userId = getUserId();
+    const res = await nbRequest<ApiResponse<BackendNotebookResponse[] | PaginatedResponse<BackendNotebookResponse>>>(
+      `/notebooks?userId=${userId}`,
+      { method: "GET" },
+    );
+    const normalized = toPaginatedNotebooks(res, page, size);
+    const items = await hydrateDocumentCounts(normalized.data.items);
+    return {
+      ...normalized,
+      data: {
+        ...normalized.data,
+        items,
+      },
+    };
   },
 
   async getNotebookDetails(id: number): Promise<ApiResponse<NotebookDTO>> {
-    try {
-      const userId = getUserId();
-      return await nbRequest(`/notebooks/${id}?userId=${userId}`, { method: "GET" });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const item = mockNotebooks.find(n => n.id === id);
-        if (item) res({ success: true, message: "Success", data: item });
-        else rej({ message: "Not found" });
-      }, 200));
-    }
+    const userId = getUserId();
+    const res = await nbRequest<ApiResponse<BackendNotebookResponse>>(`/notebooks/${id}?userId=${userId}`, { method: "GET" });
+    return { ...res, data: normalizeNotebook(res.data) };
   },
 
   async createNotebook(subjectId: number, title: string): Promise<ApiResponse<NotebookDTO>> {
-    try {
-      const userId = getUserId();
-      return await nbRequest(`/notebooks?userId=${userId}`, {
-        method: "POST",
-        body: JSON.stringify({ subjectId, title })
-      });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        const newNb: NotebookDTO = {
-          id: Date.now(),
-          userId: 1,
-          subjectId,
-          subjectCode: MOCK_SUBJECTS[subjectId as keyof typeof MOCK_SUBJECTS] || "UNKNOWN",
-          title,
-          documentCount: 0,
-          createdAt: new Date().toISOString(),
-          color: Math.floor(Math.random() * 360).toString()
-        };
-        mockNotebooks.push(newNb);
-        res({ success: true, message: "Success", data: newNb });
-      }, 400));
-    }
+    const userId = getUserId();
+    const res = await nbRequest<ApiResponse<BackendNotebookResponse>>(`/notebooks?userId=${userId}`, {
+      method: "POST",
+      body: JSON.stringify({ subjectId, title }),
+    });
+    return { ...res, data: normalizeNotebook(res.data) };
   },
 
   async updateNotebook(id: number, subjectId: number, title: string): Promise<ApiResponse<NotebookDTO>> {
-    try {
-      const userId = getUserId();
-      return await nbRequest(`/notebooks/${id}?userId=${userId}`, {
-        method: "PUT",
-        body: JSON.stringify({ subjectId, title })
-      });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const idx = mockNotebooks.findIndex(n => n.id === id);
-        if (idx === -1) return rej({ message: "Not found" });
-        mockNotebooks[idx] = {
-          ...mockNotebooks[idx],
-          subjectId,
-          subjectCode: MOCK_SUBJECTS[subjectId as keyof typeof MOCK_SUBJECTS] || mockNotebooks[idx].subjectCode,
-          title
-        };
-        res({ success: true, message: "Success", data: mockNotebooks[idx] });
-      }, 300));
-    }
+    const userId = getUserId();
+    const res = await nbRequest<ApiResponse<BackendNotebookResponse>>(`/notebooks/${id}?userId=${userId}`, {
+      method: "PUT",
+      body: JSON.stringify({ subjectId, title }),
+    });
+    return { ...res, data: normalizeNotebook(res.data) };
   },
 
   async deleteNotebook(id: number): Promise<ApiResponse<{ deleted: boolean }>> {
-    try {
-      const userId = getUserId();
-      return await nbRequest(`/notebooks/${id}?userId=${userId}`, { method: "DELETE" });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        mockNotebooks = mockNotebooks.filter(n => n.id !== id);
-        res({ success: true, message: "Deleted successfully", data: { deleted: true } });
-      }, 300));
-    }
-  }
+    const userId = getUserId();
+    const res = await nbRequest<ApiResponse<void | { deleted: boolean }>>(`/notebooks/${id}?userId=${userId}`, { method: "DELETE" });
+    return {
+      success: res.success,
+      message: res.message,
+      data: res.data ?? { deleted: true },
+    };
+  },
 };

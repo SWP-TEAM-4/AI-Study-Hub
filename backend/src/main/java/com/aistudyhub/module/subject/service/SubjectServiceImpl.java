@@ -42,7 +42,20 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     public List<SubjectResponse> searchSubjects(String keyword, Integer standardSemesterNumber) {
-        return subjectRepository.searchSubjects(keyword, standardSemesterNumber).stream()
+        String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
+        List<Subject> subjects;
+
+        if (normalizedKeyword == null && standardSemesterNumber == null) {
+            subjects = subjectRepository.findAllByOrderByCodeAsc();
+        } else if (normalizedKeyword == null) {
+            subjects = subjectRepository.findByStandardSemesterNumberOrderByCodeAsc(standardSemesterNumber);
+        } else if (standardSemesterNumber == null) {
+            subjects = subjectRepository.searchByKeyword(normalizedKeyword);
+        } else {
+            subjects = subjectRepository.searchByKeywordAndSemester(normalizedKeyword, standardSemesterNumber);
+        }
+
+        return subjects.stream()
                 .map(subject -> SubjectResponse.builder()
                         .id(subject.getId())
                         .code(subject.getCode())

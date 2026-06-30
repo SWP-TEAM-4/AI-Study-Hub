@@ -22,6 +22,46 @@ export interface ComboDTO {
   description: string;
 }
 
+const BASE_URL = "/api";
+
+async function academicRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const headers = new Headers(options.headers);
+
+  if (token) {
+    const cleanToken = token.replace(/[\'\"]+/g, "");
+    headers.set("Authorization", `Bearer ${cleanToken}`);
+  }
+
+  if (!headers.has("Content-Type") && options.method && options.method !== "GET" && options.method !== "DELETE") {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+  const text = await response.text();
+  const result = text ? JSON.parse(text) : {};
+
+  if (response.status === 401) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      localStorage.removeItem("auth-storage");
+      window.location.href = "/";
+    }
+    throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
+  }
+
+  if (!response.ok) {
+    throw {
+      status: response.status,
+      message: result.message || "Lỗi giao tiếp Academic API",
+      errorCode: result.errorCode || "ACADEMIC_ERROR",
+    };
+  }
+
+  return result;
+}
+
 // --- Mock Data ---
 let mockSemesters: SemesterDTO[] = [
   { id: 1, code: "FA25", name: "Fall 2025" },
@@ -51,7 +91,7 @@ let mockComboSubjects: Record<number, number[]> = {
 export const academicService = {
   // ================= SEMESTERS =================
   getSemesters: async (): Promise<ApiResponse<SemesterDTO[]>> => {
-    return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Success", data: [...mockSemesters] }), 300));
+    return academicRequest<ApiResponse<SemesterDTO[]>>(`/semesters`, { method: "GET" });
   },
   adminCreateSemester: async (data: Omit<SemesterDTO, "id">): Promise<ApiResponse<SemesterDTO>> => {
     return new Promise(resolve => setTimeout(() => {
@@ -78,42 +118,31 @@ export const academicService = {
   },
 
   // ================= SUBJECTS =================
-  getSubjects: async (subjectId?: number): Promise<ApiResponse<SubjectDTO[]>> => {
-    return new Promise(resolve => setTimeout(() => {
-      let result = [...mockSubjects];
-      if (subjectId) result = result.filter(s => s.id === subjectId);
-      resolve({ success: true, message: "Success", data: result });
-    }, 300));
+  getSubjects: async (keyword?: string, standardSemesterNumber?: number): Promise<ApiResponse<SubjectDTO[]>> => {
+    const query = new URLSearchParams();
+    if (keyword?.trim()) query.set("keyword", keyword.trim());
+    if (standardSemesterNumber !== undefined) query.set("standardSemesterNumber", String(standardSemesterNumber));
+    const suffix = query.size ? `?${query.toString()}` : "";
+    return academicRequest<ApiResponse<SubjectDTO[]>>(`/subjects${suffix}`, { method: "GET" });
   },
   getSubjectById: async (id: number): Promise<ApiResponse<SubjectDTO>> => {
-    return new Promise((resolve, reject) => setTimeout(() => {
-      const subj = mockSubjects.find(s => s.id === id);
-      if (!subj) return reject(new Error("Resource not found"));
-      resolve({ success: true, message: "Success", data: subj });
-    }, 300));
+    return academicRequest<ApiResponse<SubjectDTO>>(`/subjects/${id}`, { method: "GET" });
   },
   adminCreateSubject: async (data: Omit<SubjectDTO, "id">): Promise<ApiResponse<SubjectDTO>> => {
-    return new Promise(resolve => setTimeout(() => {
-      const newSubj = { ...data, id: Date.now() };
-      mockSubjects.push(newSubj);
-      resolve({ success: true, message: "Success", data: newSubj });
-    }, 300));
+    return academicRequest<ApiResponse<SubjectDTO>>(`/admin/subjects`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   },
   adminUpdateSubject: async (id: number, data: Omit<SubjectDTO, "id">): Promise<ApiResponse<SubjectDTO>> => {
-    return new Promise((resolve, reject) => setTimeout(() => {
-      const idx = mockSubjects.findIndex(s => s.id === id);
-      if (idx === -1) return reject(new Error("Resource not found"));
-      mockSubjects[idx] = { ...data, id };
-      resolve({ success: true, message: "Success", data: mockSubjects[idx] });
-    }, 300));
+    return academicRequest<ApiResponse<SubjectDTO>>(`/admin/subjects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   },
   adminDeleteSubject: async (id: number): Promise<ApiResponse<{ deleted: boolean }>> => {
-    return new Promise((resolve, reject) => setTimeout(() => {
-      const idx = mockSubjects.findIndex(s => s.id === id);
-      if (idx === -1) return reject(new Error("Resource not found"));
-      mockSubjects.splice(idx, 1);
-      resolve({ success: true, message: "Deleted successfully", data: { deleted: true } });
-    }, 300));
+    const response = await academicRequest<ApiResponse<null>>(`/admin/subjects/${id}`, { method: "DELETE" });
+    return { ...response, data: { deleted: true } };
   },
 
   // ================= COMBOS =================
