@@ -190,6 +190,8 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
 
         if (response.success) {
           Notify.success("Xác thực thông tin tài khoản thành công! ");
+          // response.data là PHẲNG (không nested user), đã được authService lưu vào localStorage
+          // Chuyển sang màn hình combo sau khi đăng nhập thành công
           setTimeout(() => setShowCombo(true), 600);
         }
       } else {
@@ -269,7 +271,16 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   const handleFinishCombo = () => {
     const token = localStorage.getItem("auth_token") || "";
     const userStr = localStorage.getItem("auth_user");
-    let user = { email: "anhkhoa@fpt.edu.vn", role: "STUDENT" };
+    // Cấu trúc PHẲNG từ backend: { userId, email, fullName, role, ... }
+    let user: any = {
+      userId: 0,
+      email: email || "user@fpt.edu.vn",
+      fullName: "User",
+      avatarUrl: null,
+      role: "STUDENT",
+      reputationPoints: 0,
+      createdAt: new Date().toISOString()
+    };
     if (userStr && userStr !== "undefined") {
       try {
         user = JSON.parse(userStr);

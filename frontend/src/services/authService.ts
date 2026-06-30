@@ -2,24 +2,36 @@
 
 // ─── 1. SYSTEM INTERFACES & DTOS (MAPPED FROM ERD & CONTRACT) ─────────────────
 
+/**
+ * Thông tin user được trả về trực tiếp trong data (FLAT, không nested).
+ * Map theo AuthResponse.java của backend.
+ */
 export interface AuthUser {
-  id: number;
+  userId: number;         // Backend: Long userId
   email: string;
   fullName: string;
   avatarUrl: string | null;
-  currentSemesterId: number | null;
-  comboId: number | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
-  isActive: boolean;
   createdAt: string;
+  // Các field legacy (fallback khi parse từ localStorage cũ)
+  id?: number;
 }
 
+/**
+ * Cấu trúc `data` bên trong ApiResponse khi login/register thành công.
+ * Backend: AuthResponse.java – PHẲNG (không có nested "user" object).
+ */
 export interface LoginResponseData {
   accessToken: string;
-  tokenType: string;
-  expiresIn: number;
-  user: AuthUser;
+  tokenType: string;      // Luôn là "Bearer"
+  userId: number;
+  email: string;
+  fullName: string;
+  avatarUrl: string | null;
+  role: "STUDENT" | "REVIEWER" | "ADMIN";
+  reputationPoints: number;
+  createdAt: string;
 }
 
 export interface ForgotPasswordResponseData {
@@ -69,25 +81,20 @@ export async function authRequest<T>(endpoint: string, bodyPayload: any): Promis
     // 🛡️ NẾU BACKEND CHƯA SẴN SÀNG (LỖI KẾT NỐI/NETWORK ERROR), TỰ ĐỘNG CUNG CẤP FALLBACK
     if (endpoint === "/auth/login") {
       const email = bodyPayload.email;
+      // Mock data khớp cấu trúc PHẲNG của backend (AuthResponse.java)
       return {
         success: true,
-        message: "Success",
+        message: "Login successful",
         data: {
           accessToken: "eyJhbGciOiJIUzI1NiJ9.mock-token",
           tokenType: "Bearer",
-          expiresIn: 3600,
-          user: {
-            id: 1,
-            email: email,
-            fullName: email.includes("khoa") ? "Lê Trần Anh Khoa" : "Nguyen Van A",
-            avatarUrl: null,
-            currentSemesterId: 3,
-            comboId: 1,
-            role: email.includes("admin") ? "ADMIN" : (email.includes("reviewer") ? "REVIEWER" : "STUDENT"),
-            reputationPoints: 120,
-            isActive: true,
-            createdAt: "2026-06-12T21:30:00"
-          }
+          userId: 1,
+          email: email,
+          fullName: email.includes("khoa") ? "Lê Trần Anh Khoa" : "Nguyen Van A",
+          avatarUrl: null,
+          role: email.includes("admin") ? "ADMIN" : (email.includes("reviewer") ? "REVIEWER" : "STUDENT"),
+          reputationPoints: 120,
+          createdAt: "2026-06-12T21:30:00"
         }
       } as unknown as T;
     }
@@ -149,10 +156,13 @@ export const authService = {
       { email, password }
     );
 
-    // 🎯 TỰ ĐỘNG LƯU PHIÊN: Ghi nhận Token & Thông tin bảo mật vào Client Storage khi thành công
+    // 🎯 TỰ ĐỘNG LƯU PHIÊN: Ghi nhận Token & Thông tin bảo mật vào Client Storage khi thành công.
+    // Backend trả data PHẲNG (flat), không có nested user object.
     if (res.success && typeof window !== "undefined") {
       localStorage.setItem("auth_token", res.data.accessToken);
-      localStorage.setItem("auth_user", JSON.stringify(res.data.user));
+      // Lưu toàn bộ data (trừ accessToken) làm auth_user để dùng trong app
+      const { accessToken, tokenType, ...userInfo } = res.data;
+      localStorage.setItem("auth_user", JSON.stringify(userInfo));
     }
 
     return res;

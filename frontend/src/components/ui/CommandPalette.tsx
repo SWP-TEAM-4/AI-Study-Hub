@@ -47,7 +47,7 @@ export function CommandPalette() {
     : routes;
 
   const handleSelect = (path: string) => {
-    navigate({ to: path });
+    navigate(path);
     close();
   };
 

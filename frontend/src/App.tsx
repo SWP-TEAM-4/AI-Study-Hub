@@ -26,38 +26,40 @@ const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
 
 export default function App() {
-  const { isLoggedIn, login, logout } = useAuthStore();
+  const { isLoggedIn, login, logout, user } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
 
   // Handle fake login loading
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
-  const authUserStr = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
-  let userRole = "STUDENT";
-  if (authUserStr && authUserStr !== "undefined") {
-    try {
-      const parsed = JSON.parse(authUserStr);
-      if (parsed && parsed.role) {
-        userRole = parsed.role;
-      }
-    } catch (e) {
-      console.error("Failed to parse auth_user:", e);
-    }
-  }
+  // Lấy role từ store (đã được persist, không cần parse localStorage thủ công)
+  const userRole = user?.role ?? "STUDENT";
 
-  const handleLoginSuccess = (emailFromForm?: string) => {
+  const handleLoginSuccess = (token?: string, userData?: any) => {
     setIsLoginLoading(true);
-    const finalEmail = emailFromForm || "anhkhoa@fpt.edu.vn";
-    setTimeout(() => {
-      login(finalEmail);
-      setIsLoginLoading(false);
-      navigate("/dashboard", { replace: true });
-    }, 2500);
+
+    // Lưu vào zustand store – user data là cấu trúc PHẲNG từ backend
+    const authToken = token || localStorage.getItem("auth_token") || "";
+    const storedUser = userData || (
+      (() => {
+        try {
+          const s = localStorage.getItem("auth_user");
+          return s && s !== "undefined" ? JSON.parse(s) : null;
+        } catch { return null; }
+      })()
+    );
+
+    if (storedUser) {
+      login(authToken, storedUser);
+    }
+
+    setIsLoginLoading(false);
+    navigate("/dashboard", { replace: true });
   };
 
   const handleLogout = () => {
-    logout();
+    logout(); // store.logout() đã xóa localStorage
     navigate("/", { replace: true });
   };
 
@@ -103,7 +105,7 @@ export default function App() {
                   className="w-full h-full flex items-center justify-center relative"
                 >
                   <LoginPanel
-                    onLoginSuccess={(_, user) => handleLoginSuccess(user.email)}
+                    onLoginSuccess={(token, user) => handleLoginSuccess(token, user)}
                     onClose={() => navigate("/")}
                   />
                 </motion.div>
