@@ -13,6 +13,12 @@ export interface AuthUser {
   avatarUrl: string | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
+  currentSemesterId?: number | null;
+  currentSemesterCode?: string | null;
+  currentSemesterName?: string | null;
+  comboId?: number | null;
+  comboCode?: string | null;
+  comboName?: string | null;
   createdAt: string;
   // Các field legacy (fallback khi parse từ localStorage cũ)
   id?: number;
@@ -31,12 +37,18 @@ export interface LoginResponseData {
   avatarUrl: string | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
+  currentSemesterId?: number | null;
+  currentSemesterCode?: string | null;
+  currentSemesterName?: string | null;
+  comboId?: number | null;
+  comboCode?: string | null;
+  comboName?: string | null;
   createdAt: string;
 }
 
 export interface ForgotPasswordResponseData {
-  resetTokenPreview: string;
-  expiredAt: string;
+  resetTokenPreview?: string;
+  expiredAt?: string;
 }
 
 export interface ResetPasswordResponseData {
@@ -78,69 +90,19 @@ export async function authRequest<T>(endpoint: string, bodyPayload: any): Promis
       throw error;
     }
 
-    // 🛡️ NẾU BACKEND CHƯA SẴN SÀNG (LỖI KẾT NỐI/NETWORK ERROR), TỰ ĐỘNG CUNG CẤP FALLBACK
-    if (endpoint === "/auth/login") {
-      const email = bodyPayload.email;
-      // Mock data khớp cấu trúc PHẲNG của backend (AuthResponse.java)
-      return {
-        success: true,
-        message: "Login successful",
-        data: {
-          accessToken: "eyJhbGciOiJIUzI1NiJ9.mock-token",
-          tokenType: "Bearer",
-          userId: 1,
-          email: email,
-          fullName: email.includes("khoa") ? "Lê Trần Anh Khoa" : "Nguyen Van A",
-          avatarUrl: null,
-          role: email.includes("admin") ? "ADMIN" : (email.includes("reviewer") ? "REVIEWER" : "STUDENT"),
-          reputationPoints: 120,
-          createdAt: "2026-06-12T21:30:00"
-        }
-      } as unknown as T;
-    }
-
-    if (endpoint === "/auth/register") {
-      return {
-        success: true,
-        message: "Register successfully",
-        data: {
-          id: 1,
-          email: bodyPayload.email,
-          fullName: bodyPayload.fullName || "Nguyen Van A",
-          avatarUrl: "https://cdn.example.com/avatar/a.png",
-          currentSemesterId: bodyPayload.currentSemesterId || 3,
-          comboId: bodyPayload.comboId || 2,
-          role: "STUDENT",
-          reputationPoints: 120,
-          isActive: true,
-          createdAt: "2026-06-12T21:30:00"
-        }
-      } as unknown as T;
-    }
-
-    if (endpoint === "/auth/forgot-password") {
-      return {
-        success: true,
-        message: "Reset token generated. In production, token is sent by email.",
-        data: {
-          resetTokenPreview: "mock-reset-token-123",
-          expiredAt: "2026-06-12T23:30:00"
-        }
-      } as unknown as T;
-    }
-
-    if (endpoint === "/auth/reset-password") {
-      return {
-        success: true,
-        message: "Password reset successfully",
-        data: {
-          passwordChanged: true
-        }
-      } as unknown as T;
-    }
-
-    throw error;
+    throw {
+      status: 0,
+      message: "Không kết nối được backend xác thực. Vui lòng kiểm tra server API.",
+      errorCode: "NETWORK_ERROR",
+    };
   }
+}
+
+function persistAuthSession(data: LoginResponseData) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("auth_token", data.accessToken);
+  const { accessToken, tokenType, ...userInfo } = data;
+  localStorage.setItem("auth_user", JSON.stringify(userInfo));
 }
 
 // ─── 3. INTERACTION AUTHENTICATION METHODS ─────────────────────────────────────
@@ -158,11 +120,8 @@ export const authService = {
 
     // 🎯 TỰ ĐỘNG LƯU PHIÊN: Ghi nhận Token & Thông tin bảo mật vào Client Storage khi thành công.
     // Backend trả data PHẲNG (flat), không có nested user object.
-    if (res.success && typeof window !== "undefined") {
-      localStorage.setItem("auth_token", res.data.accessToken);
-      // Lưu toàn bộ data (trừ accessToken) làm auth_user để dùng trong app
-      const { accessToken, tokenType, ...userInfo } = res.data;
-      localStorage.setItem("auth_user", JSON.stringify(userInfo));
+    if (res.success) {
+      persistAuthSession(res.data);
     }
 
     return res;
@@ -175,20 +134,26 @@ export const authService = {
     email: string;
     password: string;
     fullName: string;
-    currentSemesterId: number;
-    comboId: number;
+    currentSemesterId?: number | null;
+    comboId?: number | null;
   }) {
-    return authRequest<{ success: boolean; message: string; data: AuthUser }>(
+    const res = await authRequest<{ success: boolean; message: string; data: LoginResponseData }>(
       "/auth/register",
       registerData
     );
+
+    if (res.success) {
+      persistAuthSession(res.data);
+    }
+
+    return res;
   },
 
   /**
    * 3. POST /api/auth/forgot-password - Tạo token đặt lại mật khẩu khi sinh viên quên thông tin truy cập
    */
   async forgotPassword(email: string) {
-    return authRequest<{ success: boolean; message: string; data: ForgotPasswordResponseData }>(
+    return authRequest<{ success: boolean; message: string; data?: ForgotPasswordResponseData | null }>(
       "/auth/forgot-password",
       { email }
     );
@@ -200,7 +165,7 @@ export const authService = {
   async resetPassword(resetToken: string, newPassword: string) {
     return authRequest<{ success: boolean; message: string; data: ResetPasswordResponseData }>(
       "/auth/reset-password",
-      { resetToken, newPassword }
+      { token: resetToken, newPassword }
     );
   },
 

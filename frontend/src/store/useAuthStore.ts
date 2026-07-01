@@ -12,6 +12,12 @@ export interface StoredUser {
   avatarUrl: string | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
+  currentSemesterId?: number | null;
+  currentSemesterCode?: string | null;
+  currentSemesterName?: string | null;
+  comboId?: number | null;
+  comboCode?: string | null;
+  comboName?: string | null;
   createdAt: string;
 }
 
