@@ -1077,8 +1077,8 @@ export default function DocumentsPage() {
       <PublishModal 
         isOpen={!!publishModalDoc}
         onClose={() => setPublishModalDoc(null)}
-        documentTitle={publishModalDoc?.title || ""}
-        documentId={publishModalDoc?.id || ""}
+        document={publishModalDoc}
+        subjects={subjects}
         onPublished={() => refetch()}
       />
 

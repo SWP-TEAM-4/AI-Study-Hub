@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.Visibility;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -45,9 +44,6 @@ public class MarketplaceItemResponse {
     // Marketplace)
     private MarketStatus marketStatus;
     private Visibility visibility;
-    // Thời gian tạo tài nguyên.
-    // Sử dụng @JsonIgnore để không serialize trường này ra JSON trả về cho
-    // Frontend,
-    @JsonIgnore
     private LocalDateTime createdAt;
+    private Long clonedFromId;
 }

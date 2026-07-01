@@ -43,6 +43,7 @@ public final class MarketplaceItemResponseMapper {
                 .marketStatus(doc.getMarketStatus())
                 .visibility(doc.getVisibility())
                 .createdAt(doc.getCreatedAt())
+                .clonedFromId(doc.getClonedFrom() != null ? doc.getClonedFrom().getId() : null)
                 .build();
     }
 
@@ -69,6 +70,7 @@ public final class MarketplaceItemResponseMapper {
                 .marketStatus(quiz.getMarketStatus())
                 .visibility(quiz.getVisibility())
                 .createdAt(quiz.getCreatedAt())
+                .clonedFromId(quiz.getClonedFrom() != null ? quiz.getClonedFrom().getId() : null)
                 .build();
     }
 
@@ -96,6 +98,7 @@ public final class MarketplaceItemResponseMapper {
                 .marketStatus(deck.getMarketStatus())
                 .visibility(deck.getVisibility())
                 .createdAt(deck.getCreatedAt())
+                .clonedFromId(deck.getClonedFrom() != null ? deck.getClonedFrom().getId() : null)
                 .build();
     }
 }
