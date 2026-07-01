@@ -52,7 +52,7 @@ async function notifRequest<T>(endpoint: string, options: RequestInit = {}): Pro
   return result;
 }
 
-// ─── SERVICE IMPLEMENTATION WITH MOCK FALLBACK ────────────────────────────────
+// ─── SERVICE IMPLEMENTATION ───────────────────────────────────────────────────
 
 export const notificationService = {
   
@@ -60,35 +60,15 @@ export const notificationService = {
    * 1. GET /api/notifications - Lấy danh sách thông báo phân trang của người dùng hiện tại
    */
   async getMyNotifications(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
-    try {
-      const query = new URLSearchParams();
-      if (params?.page !== undefined) query.append("page", params.page.toString());
-      if (params?.size !== undefined) query.append("size", params.size.toString());
-      if (params?.keyword) query.append("keyword", params.keyword);
-      if (params?.sort) query.append("sort", params.sort);
+    const query = new URLSearchParams();
+    if (params?.page !== undefined) query.append("page", params.page.toString());
+    if (params?.size !== undefined) query.append("size", params.size.toString());
+    if (params?.keyword) query.append("keyword", params.keyword);
+    if (params?.sort) query.append("sort", params.sort);
 
-      return await notifRequest<{ success: boolean; message: string; data: PaginatedResponse<NotificationDTO> }>(
-        `/notifications?${query.toString()}`
-      );
-    } catch (err) {
-      // Fallback khi sập mạng / 404 Backend
-      console.warn(" Fallback: Bơm thông báo dự phòng.");
-      return {
-        success: true,
-        message: "Success",
-        data: {
-          items: [
-            { id: 1601, userId: 1, title: "Tài liệu đã được duyệt ", content: "Chapter 10 Đề cương nhúng ESP32 đã được approve lên marketplace.", isRead: false, createdAt: "2026-06-12T22:40:00" },
-            { id: 1602, userId: 1, title: "Huy hiệu mới đạt được ", content: "Chúc mừng Khoa đã đạt huy hiệu 'Chăm Chỉ' sau 7 ngày học liên tiếp.", isRead: false, createdAt: "2026-06-11T09:15:00" },
-            { id: 1603, userId: 1, title: "Hệ thống bảo trì", content: "AI Gateway sẽ bảo trì nâng cấp model RAG vào 24h đêm nay.", isRead: true, createdAt: "2026-06-10T14:00:00" }
-          ],
-          page: params?.page || 0,
-          size: params?.size || 10,
-          totalElements: 3,
-          totalPages: 1
-        }
-      };
-    }
+    return notifRequest<{ success: boolean; message: string; data: PaginatedResponse<NotificationDTO> }>(
+      `/notifications?${query.toString()}`
+    );
   },
 
   /**

@@ -112,12 +112,30 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 // ─── 3. INTERACTION UTILS TO CONSTRUCT PARAMS ───────────────────────────────────
 
-function buildQueryString(params?: { page?: number; size?: number; keyword?: string; sort?: string }): string {
+export interface AdminUserQuery {
+  page?: number;
+  size?: number;
+  keyword?: string;
+  sort?: "newest" | "oldest";
+  role?: "STUDENT" | "REVIEWER" | "ADMIN";
+  isActive?: boolean;
+}
+
+function buildQueryString(params?: {
+  page?: number;
+  size?: number;
+  keyword?: string;
+  sort?: string;
+  role?: UserDTO["role"];
+  isActive?: boolean;
+}): string {
   const query = new URLSearchParams();
   if (params?.page !== undefined) query.append("page", params.page.toString());
   if (params?.size !== undefined) query.append("size", params.size.toString());
   if (params?.keyword) query.append("keyword", params.keyword);
   if (params?.sort) query.append("sort", params.sort);
+  if (params?.role) query.append("role", params.role);
+  if (params?.isActive !== undefined) query.append("isActive", String(params.isActive));
   const str = query.toString();
   return str ? `?${str}` : "";
 }
@@ -133,7 +151,7 @@ export const userService = {
   /**
    * 1. GET /api/admin/users - Admin lấy danh sách người dùng phân trang
    */
-  async adminGetUsers(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
+  async adminGetUsers(params?: AdminUserQuery) {
     return request<{ success: boolean; message: string; data: PaginatedResponse<UserDTO> }>(
       `/admin/users${buildQueryString(params)}`
     );
@@ -217,6 +235,11 @@ export const userService = {
       method: "PATCH",
       body: JSON.stringify(contractPayload)
     });
+  },
+
+  /** GET /api/badges - Danh sách badge thật để admin lựa chọn khi gán. */
+  async getAvailableBadges() {
+    return request<{ success: boolean; message: string; data: BadgeDTO[] }>("/badges");
   },
 
   /**

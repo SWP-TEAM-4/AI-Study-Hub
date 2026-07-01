@@ -2,35 +2,45 @@
 
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { ArrowUpRight, BookOpen, Flame, GraduationCap, Radio, Satellite, Target, Users, Zap } from "lucide-react";
+import { ArrowUpRight, Award, BookOpen, GraduationCap, Radio, Satellite, Target, Users, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { userService } from "../../services/userService";
 import { motion } from "framer-motion";
-
-const stats = [
-  { label: "Orbit streak", value: "7", icon: Flame, tone: "from-amber-300/24 to-orange-500/10", text: "text-amber-200" },
-  { label: "Missions cleared", value: "24", icon: Target, tone: "from-cyan-300/22 to-blue-500/10", text: "text-cyan-200" },
-  { label: "Weekly XP", value: "1,240", icon: Zap, tone: "from-violet-300/22 to-fuchsia-500/10", text: "text-violet-200" },
-];
-
-const telemetry = ["AI uplink stable", "Crew network online", "Research bay synced"];
 
 export function DashboardHero() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const { data: profileRes, isLoading } = useQuery({
-    queryKey: ["userProfile"],
-    queryFn: () => userService.getMyProfile(),
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ["dashboardHero"],
+    queryFn: async () => {
+      const [profile, aiUsage, tests] = await Promise.all([
+        userService.getMyProfile(),
+        userService.getMyAIUsage(),
+        userService.getMyTestHistory({ page: 0, size: 1, sort: "newest" }),
+      ]);
+      return { profile: profile.data, aiUsage: aiUsage.data, testCount: tests.data.totalElements };
+    },
     staleTime: 5 * 60 * 1000,
   });
 
-  const userName = profileRes?.data?.fullName?.split(" ")?.pop() || "bạn";
-  const fullName = profileRes?.data?.fullName || "";
-  const avatarUrl = profileRes?.data?.avatarUrl || null;
+  const profile = dashboardData?.profile;
+  const userName = profile?.fullName?.split(" ")?.pop() || "bạn";
+  const fullName = profile?.fullName || "";
+  const avatarUrl = profile?.avatarUrl || null;
   const initials = fullName
     ? fullName.trim().split(" ").filter(Boolean).map((word: string) => word[0]).slice(-2).join("").toUpperCase()
     : "U";
+  const stats = [
+    { label: t("dashboard.hero.reputation", "Reputation"), value: profile?.reputationPoints ?? 0, icon: Award, tone: "from-amber-300/24 to-orange-500/10", text: "text-amber-200" },
+    { label: t("dashboard.hero.testAttempts", "Test attempts"), value: dashboardData?.testCount ?? 0, icon: Target, tone: "from-cyan-300/22 to-blue-500/10", text: "text-cyan-200" },
+    { label: t("dashboard.hero.aiRequests", "AI requests"), value: dashboardData?.aiUsage.totalRequests ?? 0, icon: Zap, tone: "from-violet-300/22 to-fuchsia-500/10", text: "text-violet-200" },
+  ];
+  const telemetry = [
+    profile?.currentSemesterName || profile?.currentSemesterCode,
+    profile?.comboName || profile?.comboCode,
+    profile?.role,
+  ].filter((item): item is string => Boolean(item));
 
   return (
     <section
@@ -51,7 +61,7 @@ export function DashboardHero() {
               className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-200/20 bg-amber-200/8 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_32px_rgba(251,191,36,0.10)]"
             >
               <Radio size={13} className="text-amber-200" aria-hidden="true" />
-              {t("dashboard.hero.streak", "7-day learning orbit")}
+              {profile?.currentSemesterCode || t("dashboard.hero.learningProfile", "Learning profile")}
             </motion.div>
 
             <h1 className="max-w-4xl text-balance text-4xl font-semibold leading-[0.98] tracking-tight text-white sm:text-5xl xl:text-7xl">
@@ -146,7 +156,11 @@ export function DashboardHero() {
             </div>
 
             <div className="grid gap-2">
-              {telemetry.map((item) => (
+              {telemetry.length === 0 ? (
+                <div className="rounded-2xl border border-white/8 bg-white/6 px-3 py-2 text-xs text-slate-400">
+                  {t("dashboard.hero.noAcademicInfo", "Academic information has not been updated")}
+                </div>
+              ) : telemetry.map((item) => (
                 <div key={item} className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/6 px-3 py-2 text-xs text-slate-200">
                   <span>{item}</span>
                   <span className="size-2 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.8)]" />
@@ -171,7 +185,7 @@ export function DashboardHero() {
                 <div className={"mb-4 grid size-10 place-items-center rounded-2xl bg-gradient-to-br " + stat.tone} aria-hidden="true">
                   <Icon size={17} className={stat.text} />
                 </div>
-                <div className="text-2xl font-semibold tabular-nums text-white">{stat.value}</div>
+                <div className="text-2xl font-semibold tabular-nums text-white">{Number(stat.value).toLocaleString()}</div>
                 <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{stat.label}</div>
               </div>
             );

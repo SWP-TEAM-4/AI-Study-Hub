@@ -14,9 +14,7 @@ import {
   User,
   Search,
   Plus,
-  Flame,
   X,
-  Calendar,
   Shield,
   LayoutDashboard,
   MessageSquare,
@@ -42,15 +40,6 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useRive } from "@rive-app/react-canvas";
-
-function RiveFireIcon() {
-  const { RiveComponent } = useRive({
-    src: '/fire.riv',
-    autoplay: true,
-  });
-  return <RiveComponent style={{ width: 24, height: 24 }} />;
-}
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
 const Spline = lazy(() => import("@splinetool/react-spline"));
@@ -95,8 +84,6 @@ export function AppShell() {
   const [isSplineReady, setIsSplineReady] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayInitials, setDisplayInitials] = useState("AK");
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isFlameAnimated, setIsFlameAnimated] = useState(true);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   // Lấy user info từ zustand store (không parse localStorage thủ công)
@@ -168,12 +155,6 @@ export function AppShell() {
     navigate(`/admin/${id}`);
     setIsMobileMenuOpen(false); // Close mobile drawer when navigating
   };
-
-  const juneDays = Array.from({ length: 30 }, (_, i) => {
-    const dayNum = i + 1;
-    const attended = dayNum >= 9 && dayNum <= 15;
-    return { day: dayNum, attended };
-  });
 
   const syncProfileData = () => {
     if (typeof window !== "undefined") {
@@ -549,72 +530,6 @@ export function AppShell() {
                   <span>{i18n.language === 'vi' ? 'EN' : 'VI'}</span>
                 </button>
               </div>
-
-              {/* CỤM 2: Streak (Gamification) */}
-              <div className="hidden md:block">
-                <button
-                  onClick={() => {
-                    setIsCalendarOpen(!isCalendarOpen);
-                    if (isFlameAnimated) setIsFlameAnimated(false);
-                  }}
-                  className="flex items-center gap-2 px-3.5 h-9 rounded-full bg-orange-500/10 text-orange-500 text-sm font-bold border border-orange-500/20 hover:bg-orange-500/20 active:scale-95 transition-all outline-none cursor-pointer shadow-sm shadow-orange-500/5"
-                >
-                <div className="inline-flex origin-bottom items-center justify-center w-5 h-5">
-                  <RiveFireIcon />
-                </div>
-                <span>{t("appShell.streak")}</span>
-                </button>
-              </div>
-
-              <AnimatePresence>
-                {isCalendarOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="surface-card absolute -right-12 sm:right-32 top-14 w-[calc(100vw-3rem)] sm:w-80 p-4 z-50 pointer-events-auto bg-card shadow-2xl border border-border/50 rounded-2xl"
-                  >
-                    <div className="flex items-center justify-between pb-2 border-b border-border mb-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                        <Calendar size={14} className="text-primary" />
-                        <span>{t("appShell.month")}</span>
-                      </div>
-                      <button
-                        onClick={() => setIsCalendarOpen(false)}
-                        className="size-6 rounded-md hover:bg-muted grid place-items-center text-muted-foreground cursor-pointer"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-muted-foreground mb-1">
-                      <div>{t("appShell.days.mon")}</div><div>{t("appShell.days.tue")}</div><div>{t("appShell.days.wed")}</div><div>{t("appShell.days.thu")}</div><div>{t("appShell.days.fri")}</div><div>{t("appShell.days.sat")}</div><div>{t("appShell.days.sun")}</div>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1">
-                      {juneDays.map((item) => (
-                        <div
-                          key={item.day}
-                          className={`h-8 rounded-lg flex flex-col items-center justify-center relative font-medium text-xs transition-all ${item.attended
-                            ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted"
-                            }`}
-                        >
-                          <span>{item.day}</span>
-                          {item.attended && (
-                            <span className="absolute bottom-1 size-1 rounded-full bg-white animate-pulse" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                      <span>{t("appShell.today")}</span>
-                      <span className="text-primary font-bold">{t("appShell.keepItUp")}</span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
               {/* CỤM 3: Action & Profile */}
               <div className="flex items-center gap-3 sm:gap-4 pl-1 sm:pl-2 md:border-l md:border-border/50">
