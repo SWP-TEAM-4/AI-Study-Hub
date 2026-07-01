@@ -1,0 +1,2 @@
+# Ignore XML files in backend resources
+backend/src/main/resources/*.xml

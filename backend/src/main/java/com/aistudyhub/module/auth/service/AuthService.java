@@ -194,6 +194,12 @@ public class AuthService {
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
                 .reputationPoints(user.getReputationPoints())
+                .currentSemesterId(user.getCurrentSemester() != null ? user.getCurrentSemester().getId() : null)
+                .currentSemesterCode(user.getCurrentSemester() != null ? user.getCurrentSemester().getCode() : null)
+                .currentSemesterName(user.getCurrentSemester() != null ? user.getCurrentSemester().getName() : null)
+                .comboId(user.getCombo() != null ? user.getCombo().getId() : null)
+                .comboCode(user.getCombo() != null ? user.getCombo().getCode() : null)
+                .comboName(user.getCombo() != null ? user.getCombo().getName() : null)
                 .createdAt(user.getCreatedAt())
                 .build();
     }

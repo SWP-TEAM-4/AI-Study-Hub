@@ -7,6 +7,7 @@ import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
 import { authService, type AuthUser } from "../../services/authService";
 import { cn } from "../../lib/utils";
+import type { UserDTO } from "../../services/userService";
 
 // 1. IMPORT CÁC COMPONENT LIÊN QUAN
 import './LoginPanel.css';
@@ -66,6 +67,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   });
 
   const [showCombo, setShowCombo] = useState(false);
+  const [onboardingUser, setOnboardingUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -190,23 +192,22 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
 
         if (response.success) {
           Notify.success("Xác thực thông tin tài khoản thành công! ");
-          // response.data là PHẲNG (không nested user), đã được authService lưu vào localStorage
-          // Chuyển sang màn hình combo sau khi đăng nhập thành công
-          setTimeout(() => setShowCombo(true), 600);
+          const { accessToken, tokenType, ...user } = response.data;
+          onLoginSuccess(accessToken, user as AuthUser);
         }
       } else {
         const response = await authService.register({
           email: cleanEmail,
           password: password,
           fullName: fullName,
-          currentSemesterId: 3,
-          comboId: 1
         });
 
         if (response.success) {
-          Notify.success("Tạo tài khoản học viên mới thành công! Hãy tiến hành đăng nhập.");
-          setMode("login");
-          setPassword(""); setConfirmPassword(""); setFullName("");
+          Notify.success("Tạo tài khoản học viên mới thành công!");
+          const { accessToken, tokenType, ...user } = response.data;
+          setOnboardingUser(user as AuthUser);
+          setPassword(""); setConfirmPassword("");
+          setTimeout(() => setShowCombo(true), 450);
         }
       }
     } catch (err: any) {
@@ -257,7 +258,8 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
     try {
       const response = await authService.forgotPassword(cleanEmail);
       if (response.success) {
-        setResetMessage(`Yêu cầu thành công. Mã Reset Token Preview: ${response.data.resetTokenPreview}`);
+        const tokenPreview = response.data?.resetTokenPreview;
+        setResetMessage(tokenPreview ? `Yêu cầu thành công. Mã Reset Token Preview: ${tokenPreview}` : response.message);
         Notify.success("Đã khởi tạo lệnh cấp lại mật khẩu!");
         setTimeout(() => { setMode("login"); setResetMessage(""); setEmail(""); }, 4000);
       }
@@ -268,27 +270,43 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
     }
   };
 
-  const handleFinishCombo = () => {
-    const token = localStorage.getItem("auth_token") || "";
+  const toAuthUser = (profile: UserDTO, fallback?: AuthUser | null): AuthUser => ({
+    userId: profile.id ?? fallback?.userId ?? 0,
+    email: profile.email ?? fallback?.email ?? "",
+    fullName: profile.fullName ?? fallback?.fullName ?? "",
+    avatarUrl: profile.avatarUrl ?? fallback?.avatarUrl ?? null,
+    role: profile.role ?? fallback?.role ?? "STUDENT",
+    reputationPoints: profile.reputationPoints ?? fallback?.reputationPoints ?? 0,
+    currentSemesterId: profile.currentSemesterId ?? null,
+    currentSemesterCode: profile.currentSemesterCode ?? null,
+    currentSemesterName: profile.currentSemesterName ?? null,
+    comboId: profile.comboId ?? null,
+    comboCode: profile.comboCode ?? null,
+    comboName: profile.comboName ?? null,
+    createdAt: profile.createdAt ?? fallback?.createdAt ?? new Date().toISOString(),
+  });
+
+  const readStoredUser = (): AuthUser | null => {
     const userStr = localStorage.getItem("auth_user");
-    // Cấu trúc PHẲNG từ backend: { userId, email, fullName, role, ... }
-    let user: any = {
-      userId: 0,
-      email: email || "user@fpt.edu.vn",
-      fullName: "User",
-      avatarUrl: null,
-      role: "STUDENT",
-      reputationPoints: 0,
-      createdAt: new Date().toISOString()
-    };
-    if (userStr && userStr !== "undefined") {
-      try {
-        user = JSON.parse(userStr);
-      } catch (e) {
-        console.error("Error parsing user from localStorage", e);
-      }
+    if (!userStr || userStr === "undefined") return null;
+    try {
+      return JSON.parse(userStr) as AuthUser;
+    } catch (e) {
+      console.error("Error parsing user from localStorage", e);
+      return null;
     }
-    onLoginSuccess(token, user as any);
+  };
+
+  const handleFinishCombo = (updatedProfile?: UserDTO) => {
+    const token = localStorage.getItem("auth_token") || "";
+    const storedUser = readStoredUser();
+    const user = updatedProfile ? toAuthUser(updatedProfile, storedUser ?? onboardingUser) : (storedUser ?? onboardingUser);
+
+    if (user) {
+      localStorage.setItem("auth_user", JSON.stringify(user));
+    }
+
+    onLoginSuccess(token, user as AuthUser);
   };
 
   return (
@@ -345,19 +363,11 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
               className="w-full max-w-xl mx-auto p-4"
             >
               <FPTComboForm
-                onClose={handleFinishCombo}
-                onLoginSuccess={(email: string) => {
-                  const token = localStorage.getItem("auth_token") || "";
-                  const userStr = localStorage.getItem("auth_user");
-                  let user = { email: email || "anhkhoa@fpt.edu.vn", role: "STUDENT" };
-                  if (userStr && userStr !== "undefined") {
-                    try {
-                      user = JSON.parse(userStr);
-                    } catch (e) {
-                      console.error("Error parsing user from localStorage", e);
-                    }
-                  }
-                  onLoginSuccess(token, user as any);
+                initialUser={onboardingUser ?? readStoredUser()}
+                onSkip={() => handleFinishCombo()}
+                onCompleted={(updatedUser) => {
+                  Notify.success("Đã cập nhật hồ sơ học tập!");
+                  handleFinishCombo(updatedUser);
                 }}
               />
             </motion.div>

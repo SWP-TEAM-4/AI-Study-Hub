@@ -24,5 +24,11 @@ public class AuthResponse {
     private String avatarUrl;
     private Role role;
     private Integer reputationPoints;
+    private Long currentSemesterId;
+    private String currentSemesterCode;
+    private String currentSemesterName;
+    private Long comboId;
+    private String comboCode;
+    private String comboName;
     private LocalDateTime createdAt;
 }
