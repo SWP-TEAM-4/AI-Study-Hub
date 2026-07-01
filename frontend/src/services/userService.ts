@@ -121,6 +121,12 @@ export interface AdminUserQuery {
   isActive?: boolean;
 }
 
+export interface UserCapabilitiesDTO {
+  admin: boolean;
+  canReviewMarketplace: boolean;
+  canModerateReports: boolean;
+}
+
 function buildQueryString(params?: {
   page?: number;
   size?: number;
@@ -235,6 +241,10 @@ export const userService = {
       method: "PATCH",
       body: JSON.stringify(contractPayload)
     });
+  },
+
+  async getMyCapabilities() {
+    return request<{ success: boolean; message: string; data: UserCapabilitiesDTO }>("/users/me/capabilities");
   },
 
   /** GET /api/badges - Danh sách badge thật để admin lựa chọn khi gán. */

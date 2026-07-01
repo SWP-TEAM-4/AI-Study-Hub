@@ -4,8 +4,8 @@ import com.aistudyhub.common.enums.*;
 import com.aistudyhub.entity.*;
 import com.aistudyhub.repository.*;
 import com.aistudyhub.security.CustomUserDetails;
+import com.aistudyhub.security.CustomUserDetailsService;
 import com.aistudyhub.module.marketplace.dto.MarketReviewRequest;
-import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,10 +66,13 @@ class BE046Test {
     private CommunityRoleRepository communityRoleRepository;
 
     @Autowired
-    private SystemConfigRepository systemConfigRepository;
+    private SubjectReviewPolicyRepository subjectReviewPolicyRepository;
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private CustomUserDetailsService customUserDetailsService;
 
     private User adminUser;
     private User reviewer1;
@@ -95,22 +98,7 @@ class BE046Test {
         communityRoleRepository.deleteAll();
         userRepository.deleteAll();
         subjectRepository.deleteAll();
-        systemConfigRepository.deleteAll();
-
-        // 1. Setup threshold configuration
-        systemConfigRepository.save(SystemConfig.builder()
-                .configKey(SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS)
-                .configValue("3")
-                .isPublic(false)
-                .build());
-
-        systemConfigRepository.save(SystemConfig.builder()
-                .configKey(SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE)
-                .configValue("70")
-                .isPublic(false)
-                .build());
-
-        // 2. Create users
+        // 1. Create users
         adminUser = userRepository.save(User.builder()
                 .email("admin@aistudyhub.com")
                 .fullName("System Admin")
@@ -153,7 +141,7 @@ class BE046Test {
                 .isActive(true)
                 .build());
 
-        // 3. Create subjects
+        // 2. Create subjects
         subjectMath = subjectRepository.save(Subject.builder()
                 .code("MATH101")
                 .name("Calculus I")
@@ -164,7 +152,25 @@ class BE046Test {
                 .name("Literature Introduction")
                 .build());
 
-        // 4. Create pending items
+        // These legacy BE-046 scenarios explicitly exercise multi-reviewer voting.
+        // The production default is now SINGLE_REVIEWER; subjects only use the old
+        // quorum behavior when an admin enables it.
+        subjectReviewPolicyRepository.save(SubjectReviewPolicy.builder()
+                .subject(subjectMath)
+                .mode(ReviewPolicyMode.QUORUM)
+                .requiredVotes(3)
+                .approvalPercentage(70)
+                .updatedBy(adminUser)
+                .build());
+        subjectReviewPolicyRepository.save(SubjectReviewPolicy.builder()
+                .subject(subjectLiterature)
+                .mode(ReviewPolicyMode.QUORUM)
+                .requiredVotes(3)
+                .approvalPercentage(70)
+                .updatedBy(adminUser)
+                .build());
+
+        // 3. Create pending items
         pendingDoc = documentRepository.save(Document.builder()
                 .user(creatorUser)
                 .subject(subjectMath)
@@ -311,7 +317,7 @@ class BE046Test {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.voteResult").value("APPROVED"));
 
-        // Verify document is still PENDING because minReviews = 3
+        // Verify document is still PENDING because this subject uses a 3-vote quorum.
         Document docInDb = documentRepository.findById(pendingDoc.getId()).orElseThrow();
         assertEquals(MarketStatus.PENDING, docInDb.getMarketStatus());
         assertEquals(1, docInDb.getReviewCount());
@@ -434,6 +440,104 @@ class BE046Test {
         boolean hasRejectedNotification = notifications.stream()
                 .anyMatch(n -> n.getUser().getId().equals(creatorUser.getId()) && n.getTitle().contains("rejected"));
         assertTrue(hasRejectedNotification);
+    }
+
+    @Test
+    void defaultPolicy_OneScopedReviewerApprovesImmediately() throws Exception {
+        Subject defaultSubject = subjectRepository.save(Subject.builder()
+                .code("PHY101")
+                .name("Physics I")
+                .build());
+        Document document = documentRepository.save(Document.builder()
+                .user(creatorUser)
+                .subject(defaultSubject)
+                .title("Physics summary")
+                .visibility(Visibility.PRIVATE)
+                .marketStatus(MarketStatus.PENDING)
+                .downloadCount(0)
+                .reviewCount(0)
+                .acceptPercentage(BigDecimal.ZERO)
+                .build());
+        assignRole(reviewer1, CommunityRoleType.MARKETPLACE_REVIEWER,
+                CommunityScopeType.SUBJECT, defaultSubject.getId());
+
+        MarketReviewRequest request = MarketReviewRequest.builder().voteResult("APPROVED").build();
+        mockMvc.perform(post("/api/reviewer/marketplace/DOCUMENT/" + document.getId() + "/vote")
+                // The real user-details loader derives ROLE_REVIEWER from the active community role.
+                .with(SecurityMockMvcRequestPostProcessors.user(
+                        customUserDetailsService.loadUserById(reviewer1.getId())))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requiredVotes").value(1))
+                .andExpect(jsonPath("$.data.decisionReached").value(true))
+                .andExpect(jsonPath("$.data.submissionStatus").value("APPROVED"));
+
+        Document saved = documentRepository.findById(document.getId()).orElseThrow();
+        assertEquals(MarketStatus.APPROVED, saved.getMarketStatus());
+        assertEquals(Visibility.MARKETPLACE, saved.getVisibility());
+    }
+
+    @Test
+    void reviewerCannotSelfApprove_ButAnotherSubjectReviewerCan() throws Exception {
+        Subject defaultSubject = subjectRepository.save(Subject.builder()
+                .code("CHEM101")
+                .name("Chemistry I")
+                .build());
+        Document selfOwned = documentRepository.save(Document.builder()
+                .user(reviewer1)
+                .subject(defaultSubject)
+                .title("Chemistry summary")
+                .visibility(Visibility.PRIVATE)
+                .marketStatus(MarketStatus.PENDING)
+                .downloadCount(0)
+                .reviewCount(0)
+                .acceptPercentage(BigDecimal.ZERO)
+                .build());
+        assignRole(reviewer1, CommunityRoleType.MARKETPLACE_REVIEWER,
+                CommunityScopeType.SUBJECT, defaultSubject.getId());
+        assignRole(reviewer2, CommunityRoleType.MARKETPLACE_REVIEWER,
+                CommunityScopeType.SUBJECT, defaultSubject.getId());
+        MarketReviewRequest request = MarketReviewRequest.builder().voteResult("APPROVED").build();
+
+        mockMvc.perform(post("/api/reviewer/marketplace/DOCUMENT/" + selfOwned.getId() + "/vote")
+                .with(SecurityMockMvcRequestPostProcessors.user(
+                        customUserDetailsService.loadUserById(reviewer1.getId())))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+
+        mockMvc.perform(post("/api/reviewer/marketplace/DOCUMENT/" + selfOwned.getId() + "/vote")
+                .with(SecurityMockMvcRequestPostProcessors.user(
+                        customUserDetailsService.loadUserById(reviewer2.getId())))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.submissionStatus").value("APPROVED"));
+    }
+
+    @Test
+    void adminCanSwitchSubjectFromDefaultToQuorumPolicy() throws Exception {
+        Subject subject = subjectRepository.save(Subject.builder().code("BIO101").name("Biology I").build());
+        CustomUserDetails admin = new CustomUserDetails(adminUser,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        mockMvc.perform(get("/api/admin/marketplace/review-policies/" + subject.getId())
+                .with(SecurityMockMvcRequestPostProcessors.user(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mode").value("SINGLE_REVIEWER"))
+                .andExpect(jsonPath("$.data.subjectOverride").value(false));
+
+        mockMvc.perform(put("/api/admin/marketplace/review-policies/" + subject.getId())
+                .with(SecurityMockMvcRequestPostProcessors.user(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"mode\":\"QUORUM\",\"requiredVotes\":3,\"approvalPercentage\":70}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mode").value("QUORUM"))
+                .andExpect(jsonPath("$.data.requiredVotes").value(3))
+                .andExpect(jsonPath("$.data.approvalPercentage").value(70))
+                .andExpect(jsonPath("$.data.subjectOverride").value(true));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -107,4 +107,22 @@ public interface CommunityRoleRepository extends JpaRepository<CommunityRole, Lo
             @Param("scopeId") Long scopeId,
             @Param("status") CommunityRoleStatus status,
             @Param("now") LocalDateTime now);
+
+    @Query("""
+            SELECT COUNT(DISTINCT cr.user.id)
+            FROM CommunityRole cr
+            WHERE cr.user.id <> :ownerId
+              AND cr.user.isActive = true
+              AND cr.roleType IN :roleTypes
+              AND cr.status = :status
+              AND (cr.startAt IS NULL OR cr.startAt <= :now)
+              AND (cr.endAt IS NULL OR cr.endAt >= :now)
+              AND (cr.scopeType IS NULL OR cr.scopeType = com.aistudyhub.common.enums.CommunityScopeType.GLOBAL
+                   OR (cr.scopeType = com.aistudyhub.common.enums.CommunityScopeType.SUBJECT AND cr.scopeId = :subjectId))
+            """)
+    long countEligibleSubjectReviewers(@Param("subjectId") Long subjectId,
+            @Param("ownerId") Long ownerId,
+            @Param("roleTypes") Collection<CommunityRoleType> roleTypes,
+            @Param("status") CommunityRoleStatus status,
+            @Param("now") LocalDateTime now);
 }

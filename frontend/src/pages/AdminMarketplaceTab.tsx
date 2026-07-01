@@ -3,12 +3,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, XCircle, Clock, Eye, Trash2, Globe, Lock, Search } from "lucide-react";
 import { marketplaceService, AdminContentDTO } from "../services/marketplaceService";
 import { Notify } from "notiflix";
+import { useSubjects } from "../hooks/useSubjects";
 
 export default function AdminMarketplaceTab() {
   const [activeTab, setActiveTab] = useState<"pending" | "all">("pending");
   const [contents, setContents] = useState<AdminContentDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [keyword, setKeyword] = useState("");
+  const [policy, setPolicy] = useState({ subjectId: "", mode: "SINGLE_REVIEWER", requiredVotes: 1, approvalPercentage: 100 });
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const { subjects } = useSubjects();
 
   useEffect(() => {
     loadData();
@@ -81,6 +85,41 @@ export default function AdminMarketplaceTab() {
     }
   };
 
+  const handleSavePolicy = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const subjectId = Number(policy.subjectId);
+    if (!Number.isInteger(subjectId) || subjectId <= 0) return Notify.failure("Subject ID không hợp lệ");
+    setSavingPolicy(true);
+    try {
+      await marketplaceService.updateReviewPolicy(subjectId, {
+        mode: policy.mode as "SINGLE_REVIEWER" | "QUORUM",
+        requiredVotes: policy.mode === "SINGLE_REVIEWER" ? 1 : policy.requiredVotes,
+        approvalPercentage: policy.mode === "SINGLE_REVIEWER" ? 100 : policy.approvalPercentage,
+      });
+      Notify.success("Đã cập nhật rule duyệt cho môn học");
+    } catch (error: any) {
+      Notify.failure(error.message || "Không thể cập nhật rule duyệt");
+    } finally { setSavingPolicy(false); }
+  };
+
+  const handleLoadPolicy = async () => {
+    const subjectId = Number(policy.subjectId);
+    if (!Number.isInteger(subjectId) || subjectId <= 0) return Notify.failure("Subject ID không hợp lệ");
+    setSavingPolicy(true);
+    try {
+      const response = await marketplaceService.getReviewPolicy(subjectId);
+      setPolicy({
+        subjectId: String(subjectId),
+        mode: response.data.mode,
+        requiredVotes: response.data.requiredVotes,
+        approvalPercentage: response.data.approvalPercentage,
+      });
+      Notify.success(response.data.subjectOverride ? "Đã tải rule riêng của môn" : "Môn đang dùng rule mặc định");
+    } catch (error: any) {
+      Notify.failure(error.message || "Không thể tải rule duyệt");
+    } finally { setSavingPolicy(false); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -113,6 +152,15 @@ export default function AdminMarketplaceTab() {
           className="w-full pl-10 pr-3 h-10 rounded-xl bg-muted/60 border border-transparent focus:bg-card focus:border-primary outline-none text-sm"
         />
       </div>
+
+      <form onSubmit={handleSavePolicy} className="surface-card grid gap-3 p-4 md:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] md:items-end">
+        <label className="text-xs font-semibold text-muted-foreground">Môn học<select required value={policy.subjectId} onChange={(e) => setPolicy({ ...policy, subjectId: e.target.value })} className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"><option value="">Chọn môn</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} — {subject.name}</option>)}</select></label>
+        <label className="text-xs font-semibold text-muted-foreground">Cơ chế<select value={policy.mode} onChange={(e) => setPolicy({ ...policy, mode: e.target.value })} className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"><option value="SINGLE_REVIEWER">1 reviewer</option><option value="QUORUM">Vote quorum</option></select></label>
+        <label className="text-xs font-semibold text-muted-foreground">Số vote<input type="number" min="2" disabled={policy.mode === "SINGLE_REVIEWER"} value={policy.requiredVotes} onChange={(e) => setPolicy({ ...policy, requiredVotes: Number(e.target.value) })} className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-40" /></label>
+        <label className="text-xs font-semibold text-muted-foreground">Tỷ lệ approve %<input type="number" min="1" max="100" disabled={policy.mode === "SINGLE_REVIEWER"} value={policy.approvalPercentage} onChange={(e) => setPolicy({ ...policy, approvalPercentage: Number(e.target.value) })} className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-40" /></label>
+        <button type="button" onClick={handleLoadPolicy} disabled={savingPolicy} className="h-10 rounded-xl border border-border px-4 text-sm font-bold disabled:opacity-50">Đọc rule</button>
+        <button disabled={savingPolicy} className="h-10 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">Lưu rule</button>
+      </form>
 
       <div className="surface-card rounded-2xl overflow-hidden border border-border/50">
         <div className="overflow-x-auto">
