@@ -8,6 +8,10 @@ export interface ContributorDTO {
   fullName: string;
   reputationPoints: number;
   approvedContents: number;
+  avatarUrl?: string | null;
+  downloadCount?: number;
+  reviewCount?: number;
+  acceptPercentage?: number;
 }
 
 export interface ReferralDTO {
@@ -80,18 +84,7 @@ let mockMyReferral: ReferralDTO = {
 export const communityService = {
   // 1. GET /api/community/leaderboard/contributors
   async getLeaderboardContributors(page: number = 0, size: number = 10): Promise<ApiResponse<PaginatedResponse<ContributorDTO>>> {
-    try {
-      return await communityRequest(`/community/leaderboard/contributors?page=${page}&size=${size}`, { method: "GET" });
-    } catch (err) {
-      console.warn("Fallback: Get Leaderboard Contributors", err);
-      return new Promise(resolve => setTimeout(() => {
-        resolve({
-          success: true,
-          message: "Success",
-          data: { items: mockContributors, page, size, totalElements: mockContributors.length, totalPages: 1 }
-        });
-      }, 400));
-    }
+    return communityRequest(`/community/leaderboard/contributors?page=${page}&size=${size}`, { method: "GET" });
   },
 
   // 2. GET /api/referrals/me

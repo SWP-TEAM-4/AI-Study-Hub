@@ -1,12 +1,16 @@
-import { PaginatedResponse } from "./types";
+export interface AdminAiUsageDTO {
+  totalRequests: number;
+  totalTokens: number;
+  estimatedCost: number;
+  actionCounts: Record<string, number>;
+}
 
-export interface AiUsageDTO {
-  userId: number;
-  period: string;
-  chatRequests: number;
-  quizGenerations: number;
-  flashcardGenerations: number;
-  estimatedTokens: number;
+export interface AdminContentSummaryItem {
+  id: number;
+  targetType: "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK" | string;
+  title: string;
+  visibility: string;
+  marketStatus: string;
 }
 
 const BASE_URL = "/api";
@@ -43,18 +47,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return result as T;
 }
 
-function buildQueryString(params?: { page?: number; size?: number }): string {
-  const query = new URLSearchParams();
-  if (params?.page !== undefined) query.append("page", params.page.toString());
-  if (params?.size !== undefined) query.append("size", params.size.toString());
-  const str = query.toString();
-  return str ? `?${str}` : "";
-}
-
 export const analyticsService = {
-  adminGetAiUsage: async (params?: { page?: number; size?: number }) => {
-    return request<{ success: boolean; message: string; data: PaginatedResponse<AiUsageDTO> }>(
-      `/admin/analytics/ai-usage${buildQueryString(params)}`
+  adminGetAiUsage: async () => {
+    return request<{ success: boolean; message: string; data: AdminAiUsageDTO }>(
+      "/admin/analytics/ai-usage"
     );
-  }
+  },
+
+  adminGetContents: async () => {
+    return request<{ success: boolean; message: string; data: AdminContentSummaryItem[] }>(
+      "/admin/contents"
+    );
+  },
 };
