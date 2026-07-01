@@ -24,6 +24,7 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
+const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
 
 export default function App() {
   const { isLoggedIn, login, logout, user } = useAuthStore();
@@ -143,6 +144,7 @@ export default function App() {
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {/* {userRole === "ADMIN" && ( */}
             <>
