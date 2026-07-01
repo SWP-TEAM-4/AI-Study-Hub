@@ -119,14 +119,25 @@ export function MobileBottomNav() {
                   <span>Thông báo</span>
                 </button>
 
-                {/* Kiểm duyệt */}
+                {/* Kiểm duyệt marketplace */}
                 {(userRole === "ADMIN" || capabilities?.canReviewMarketplace) && (
                   <button
                     onClick={() => handleMoreItemClick("/reviewer")}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-sm font-semibold text-foreground transition-colors"
                   >
                     <ShieldCheck size={18} className="text-primary" />
-                    <span>{t('appShell.nav.reviewer', 'Kiểm duyệt')}</span>
+                    <span>{t('appShell.nav.reviewer', 'Kiểm duyệt marketplace')}</span>
+                  </button>
+                )}
+
+                {/* Kiểm duyệt report cộng đồng */}
+                {capabilities?.canModerateReports && (
+                  <button
+                    onClick={() => handleMoreItemClick("/admin/reports")}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-sm font-semibold text-foreground transition-colors"
+                  >
+                    <ShieldCheck size={18} className="text-primary" />
+                    <span>Báo cáo vi phạm</span>
                   </button>
                 )}
 

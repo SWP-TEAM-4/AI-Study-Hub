@@ -3,11 +3,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, ShieldCheck, XCircle, Clock, CheckCircle2, EyeOff, Eye } from "lucide-react";
 import { governanceService, ReportDTO } from "../services/governanceService";
 import { Notify } from "notiflix";
+import { useAuthStore } from "../store/useAuthStore";
 
 export default function AdminReportsTab() {
   const [reports, setReports] = useState<ReportDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => {
     loadReports();
@@ -27,10 +30,10 @@ export default function AdminReportsTab() {
 
   const handleResolve = async (id: number) => {
     try {
-      const res = await governanceService.resolveReport(id, "Admin đã giải quyết.");
+      const res = await governanceService.resolveReport(id, "Báo cáo đã được kiểm duyệt và xử lý.");
       if (res.success) {
         Notify.success("Đã duyệt báo cáo (Resolve).");
-        setReports(prev => prev.map(r => r.id === id ? res.data : r));
+        await loadReports();
       }
     } catch (e: any) {
       Notify.failure(e.message || "Lỗi xử lý báo cáo");
@@ -39,10 +42,10 @@ export default function AdminReportsTab() {
 
   const handleReject = async (id: number) => {
     try {
-      const res = await governanceService.rejectReport(id, "Admin từ chối báo cáo này.");
+      const res = await governanceService.rejectReport(id, "Báo cáo đã được kiểm duyệt và từ chối.");
       if (res.success) {
         Notify.success("Đã từ chối báo cáo (Reject).");
-        setReports(prev => prev.map(r => r.id === id ? res.data : r));
+        await loadReports();
       }
     } catch (e: any) {
       Notify.failure(e.message || "Lỗi xử lý báo cáo");
@@ -152,20 +155,24 @@ export default function AdminReportsTab() {
                             </button>
                           </>
                         )}
-                        <button 
-                          onClick={() => handleHideContent(report.targetType, report.targetId)}
-                          className="size-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-warning hover:text-warning-foreground transition-colors"
-                          title="Ẩn nội dung này"
-                        >
-                          <EyeOff size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleRestoreContent(report.targetType, report.targetId)}
-                          className="size-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
-                          title="Khôi phục nội dung"
-                        >
-                          <Eye size={16} />
-                        </button>
+                        {isAdmin && (
+                          <>
+                            <button
+                              onClick={() => handleHideContent(report.targetType, report.targetId)}
+                              className="size-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-warning hover:text-warning-foreground transition-colors"
+                              title="Ẩn nội dung này"
+                            >
+                              <EyeOff size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleRestoreContent(report.targetType, report.targetId)}
+                              className="size-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                              title="Khôi phục nội dung"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

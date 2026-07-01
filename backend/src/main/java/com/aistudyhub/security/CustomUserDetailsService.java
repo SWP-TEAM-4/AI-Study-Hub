@@ -31,6 +31,10 @@ public class CustomUserDetailsService implements UserDetailsService {
             CommunityRoleType.REVIEWER,
             CommunityRoleType.MARKETPLACE_REVIEWER);
 
+    private static final Set<CommunityRoleType> MODERATOR_AUTHORITY_ROLE_TYPES = Set.of(
+            CommunityRoleType.CONTENT_MODERATOR,
+            CommunityRoleType.SUBJECT_MODERATOR);
+
     private final UserRepository userRepository;
     private final CommunityRoleRepository communityRoleRepository;
 
@@ -67,6 +71,16 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         if (hasReviewerPermission) {
             authorities.add(new SimpleGrantedAuthority("ROLE_REVIEWER"));
+        }
+
+        boolean hasModeratorPermission = communityRoleRepository.existsAnyActiveRoleByUserIdAndRoleTypes(
+                user.getId(),
+                MODERATOR_AUTHORITY_ROLE_TYPES,
+                CommunityRoleStatus.ACTIVE,
+                LocalDateTime.now());
+
+        if (hasModeratorPermission) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_MODERATOR"));
         }
 
         return authorities;

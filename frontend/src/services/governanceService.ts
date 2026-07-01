@@ -104,14 +104,14 @@ export const governanceService = {
     return govRequest(`/admin/reports/${id}`, { method: "GET" });
   },
 
-  rejectReport(id: number, adminNote: string): Promise<ApiResponse<ReportDTO>> {
+  rejectReport(id: number, adminNote: string): Promise<ApiResponse<PaginatedResponse<ReportDTO>>> {
     return govRequest(`/admin/reports/${id}/reject`, {
       method: "PATCH",
       body: JSON.stringify({ adminNote }),
     });
   },
 
-  resolveReport(id: number, adminNote: string): Promise<ApiResponse<ReportDTO>> {
+  resolveReport(id: number, adminNote: string): Promise<ApiResponse<PaginatedResponse<ReportDTO>>> {
     return govRequest(`/admin/reports/${id}/resolve`, {
       method: "PATCH",
       body: JSON.stringify({ adminNote }),

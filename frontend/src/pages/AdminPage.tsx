@@ -15,12 +15,26 @@ import AdminReportsTab from "./AdminReportsTab";
 import AdminMarketplaceTab from "./AdminMarketplaceTab";
 import AdminBadgesTab from "./AdminBadgesTab";
 import AdminSystemConfigTab from "./AdminSystemConfigTab";
+import { useAuthStore } from "../store/useAuthStore";
+import { useCapabilities } from "../hooks/useCapabilities";
 
 export default function AdminPage() {
   const { t } = useTranslation();
   const { tab } = useParams<{ tab: string }>();
+  const { user } = useAuthStore();
+  const userRole = user?.role ?? "STUDENT";
+  const { data: capabilities } = useCapabilities();
+  const isAdmin = userRole === "ADMIN";
+  const canModerateReports = Boolean(capabilities?.canModerateReports);
 
   const renderTabContent = () => {
+    if (!isAdmin && canModerateReports && tab !== "reports") {
+      return <Navigate to="/admin/reports" replace />;
+    }
+    if (!isAdmin && !canModerateReports) {
+      return <Navigate to="/dashboard" replace />;
+    }
+
     switch (tab) {
       case "overview": return <AdminOverview />;
       case "users": return <AdminUsers />;

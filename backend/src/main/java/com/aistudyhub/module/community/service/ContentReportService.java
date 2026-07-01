@@ -256,8 +256,13 @@ public class ContentReportService {
         // Bước 3: Nếu không phải admin, lọc thêm theo quyền moderator
         if (!isAdmin) {
             Long userId = currentUser.getId();
-            // Lọc chỉ giữ lại các report mà moderator có quyền xem
-            List<ContentReportResponse> filteredItems = reportPage.getContent().stream()
+            List<ContentReport> scopedReports = contentReportRepository.findAll(
+                    spec,
+                    "oldest".equalsIgnoreCase(sort)
+                            ? Sort.by(Sort.Direction.ASC, "createdAt")
+                            : Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            List<ContentReportResponse> filteredItems = scopedReports.stream()
                     .filter(report -> {
                         ContentTarget target = resolveContentTarget(report);
                         return communityPermissionService.canModerateReport(userId, target);
@@ -265,8 +270,15 @@ public class ContentReportService {
                     .map(this::toResponse)
                     .toList();
 
-            // Trả về kết quả đã lọc (số lượng có thể ít hơn page size)
-            return PaginationResponse.of(filteredItems, page, size, filteredItems.size());
+            int safePage = Math.max(page, 0);
+            int safeSize = Math.max(size, 1);
+            int fromIndex = Math.min(safePage * safeSize, filteredItems.size());
+            int toIndex = Math.min(fromIndex + safeSize, filteredItems.size());
+            return PaginationResponse.of(
+                    filteredItems.subList(fromIndex, toIndex),
+                    safePage,
+                    safeSize,
+                    filteredItems.size());
         }
 
         // Admin: trả về toàn bộ kết quả

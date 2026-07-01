@@ -519,6 +519,49 @@ class BE044Test {
         }
 
         @Test
+        void getAdminReports_Success_ForScopedModerator() throws Exception {
+                communityRoleRepository.save(CommunityRole.builder()
+                                .user(moderator)
+                                .grantedBy(admin)
+                                .roleType(CommunityRoleType.CONTENT_MODERATOR)
+                                .scopeType(CommunityScopeType.SUBJECT)
+                                .scopeId(subjectA.getId())
+                                .startAt(LocalDateTime.now().minusDays(1))
+                                .endAt(LocalDateTime.now().plusDays(10))
+                                .status(CommunityRoleStatus.ACTIVE)
+                                .build());
+
+                contentReportRepository.save(ContentReport.builder()
+                                .reporter(student)
+                                .document(doc2)
+                                .reasonType("COPYRIGHT")
+                                .reportDetails("Bản quyền SWP391")
+                                .severityLevel("HIGH")
+                                .status(ReportStatus.PENDING_ADMIN)
+                                .build());
+
+                contentReportRepository.save(ContentReport.builder()
+                                .reporter(student)
+                                .document(doc1)
+                                .reasonType("SPAM")
+                                .reportDetails("Spam SWR302")
+                                .severityLevel("LOW")
+                                .status(ReportStatus.PENDING_ADMIN)
+                                .build());
+
+                CustomUserDetails moderatorDetails = new CustomUserDetails(moderator, java.util.List.of(
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_STUDENT"),
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_MODERATOR")));
+
+                mockMvc.perform(get("/api/admin/reports")
+                                .with(SecurityMockMvcRequestPostProcessors.user(moderatorDetails)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.items.length()").value(1))
+                                .andExpect(jsonPath("$.data.items[0].reportDetails").value("Spam SWR302"));
+        }
+
+        @Test
         void getAdminReports_FilterByModeratorScope() throws Exception {
                 // 1. Tạo vai trò SUBJECT_MODERATOR cho moderator đối với môn học subjectA
                 // (SWR302)

@@ -130,9 +130,9 @@ export default function App() {
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          {userRole === "ADMIN" && (
+          {(userRole === "ADMIN" || capabilities?.canModerateReports) && (
             <>
-              <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
+              <Route path="/admin" element={<Navigate to={userRole === "ADMIN" ? "/admin/overview" : "/admin/reports"} replace />} />
               <Route path="/admin/:tab" element={<AdminPage />} />
             </>
           )}
