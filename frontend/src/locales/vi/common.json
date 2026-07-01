@@ -10,7 +10,8 @@
       "community": "Cộng đồng",
       "notifications": "Thông báo",
       "profile": "Hồ sơ",
-      "admin": "Admin"
+      "admin": "Admin",
+      "reviewer": "Kiểm duyệt"
     },
     "adminNav": {
       "overview": "Tổng quan",

@@ -10,7 +10,8 @@
       "community": "Community",
       "notifications": "Notifications",
       "profile": "Profile",
-      "admin": "Admin"
+      "admin": "Admin",
+      "reviewer": "Reviewer"
     },
     "adminNav": {
       "overview": "Overview",
