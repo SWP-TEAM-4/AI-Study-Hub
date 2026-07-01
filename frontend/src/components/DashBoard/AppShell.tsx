@@ -91,6 +91,8 @@ export function AppShell() {
   const { user: authUser } = useAuthStore();
   const userRole = authUser?.role ?? "STUDENT";
   const { data: capabilities } = useCapabilities();
+  const canModerateReports = Boolean(capabilities?.canModerateReports);
+  const visibleAdminNav = userRole === "ADMIN" ? adminNav : adminNav.filter(item => item.id === "reports");
 
   // Mobile Drawer & Sidebar Toggle State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -263,7 +265,7 @@ export function AppShell() {
                 <ArrowLeft size={18} /> {t("appShell.backToDashboard")}
               </button>
               <div className="h-px bg-white/10 my-3 mx-2" />
-              {adminNav.map((item) => {
+              {visibleAdminNav.map((item) => {
                 const active = activeAdminTab === item.id;
                 const Icon = item.icon;
                 return (
@@ -418,37 +420,67 @@ export function AppShell() {
               )}
 
               {/* Kiểm duyệt */}
-              {(userRole === "ADMIN" || capabilities?.canReviewMarketplace) && (
+              {(userRole === "ADMIN" || capabilities?.canReviewMarketplace || canModerateReports) && (
                 <div>
                   <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
                     Kiểm duyệt
                   </div>
-                  <button
-                    onClick={() => navigate("/reviewer")}
-                    className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                  >
-                    {location.pathname === "/reviewer" && (
-                      <motion.span
-                        layoutId="nav-pill"
-                        className="absolute inset-0 rounded-xl bg-white/10"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
-                    <ShieldCheck
-                      size={18}
-                      className="relative z-10 transition-colors duration-200 shrink-0"
-                      style={{
-                        color: location.pathname === "/reviewer" ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                      }}
-                    />
-                    <span
-                      className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${
-                        location.pathname === "/reviewer" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                      }`}
+                  {(userRole === "ADMIN" || capabilities?.canReviewMarketplace) && (
+                    <button
+                      onClick={() => navigate("/reviewer")}
+                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
                     >
-                      {t("appShell.nav.reviewer", "Kiểm duyệt")}
-                    </span>
-                  </button>
+                      {location.pathname === "/reviewer" && (
+                        <motion.span
+                          layoutId="nav-pill"
+                          className="absolute inset-0 rounded-xl bg-white/10"
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <ShieldCheck
+                        size={18}
+                        className="relative z-10 transition-colors duration-200 shrink-0"
+                        style={{
+                          color: location.pathname === "/reviewer" ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
+                        }}
+                      />
+                      <span
+                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${
+                          location.pathname === "/reviewer" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                        }`}
+                      >
+                        {t("appShell.nav.reviewer", "Kiểm duyệt marketplace")}
+                      </span>
+                    </button>
+                  )}
+                  {canModerateReports && (
+                    <button
+                      onClick={() => navigate("/admin/reports")}
+                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
+                    >
+                      {location.pathname === "/admin/reports" && (
+                        <motion.span
+                          layoutId="nav-pill"
+                          className="absolute inset-0 rounded-xl bg-white/10"
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <AlertTriangle
+                        size={18}
+                        className="relative z-10 transition-colors duration-200 shrink-0"
+                        style={{
+                          color: location.pathname === "/admin/reports" ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
+                        }}
+                      />
+                      <span
+                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${
+                          location.pathname === "/admin/reports" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                        }`}
+                      >
+                        Báo cáo vi phạm
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

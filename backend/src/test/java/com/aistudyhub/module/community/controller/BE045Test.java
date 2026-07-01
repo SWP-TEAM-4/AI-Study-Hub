@@ -284,6 +284,39 @@ class BE045Test {
         }
 
         @Test
+        void resolveReportEndpoint_Success_ByScopedModerator() throws Exception {
+                communityRoleRepository.save(CommunityRole.builder()
+                                .user(moderator)
+                                .grantedBy(admin)
+                                .roleType(CommunityRoleType.CONTENT_MODERATOR)
+                                .scopeType(CommunityScopeType.SUBJECT)
+                                .scopeId(subjectA.getId())
+                                .startAt(LocalDateTime.now().minusDays(1))
+                                .endAt(LocalDateTime.now().plusDays(10))
+                                .status(CommunityRoleStatus.ACTIVE)
+                                .build());
+
+                ContentReport report = contentReportRepository.save(ContentReport.builder()
+                                .reporter(student)
+                                .document(doc1)
+                                .reasonType("SPAM")
+                                .status(ReportStatus.PENDING_ADMIN)
+                                .build());
+
+                CustomUserDetails moderatorDetails = new CustomUserDetails(moderator, java.util.List.of(
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_STUDENT"),
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_MODERATOR")));
+
+                mockMvc.perform(patch("/api/admin/reports/{id}/resolve", report.getId())
+                                .with(SecurityMockMvcRequestPostProcessors.user(moderatorDetails))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adminNote\":\"Approved by Moderator\"}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.items[0].status").value("RESOLVED"));
+        }
+
+        @Test
         void resolveReport_Forbidden_ByScopedModerator_WhenOutOfScope() throws Exception {
                 // Cấp quyền Moderator môn subjectA
                 communityRoleRepository.save(CommunityRole.builder()
