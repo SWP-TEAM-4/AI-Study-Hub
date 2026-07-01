@@ -1,30 +1,59 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Share2, Sparkles, BookOpen } from "lucide-react";
+import { X, Share2, Sparkles, BookOpen, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Notify } from "notiflix";
-import { documentService } from "../../services/documentService";
+import { documentService, type DocumentDTO } from "../../services/documentService";
+import type { SubjectDTO } from "../../services/academicService";
 
 interface PublishModalProps {
   isOpen: boolean;
   onClose: () => void;
-  documentTitle: string;
-  documentId: number | string;
+  document: DocumentDTO | null;
+  subjects: SubjectDTO[];
   onPublished?: () => void;
 }
 
-export default function PublishModal({ isOpen, onClose, documentTitle, documentId, onPublished }: PublishModalProps) {
+export default function PublishModal({ isOpen, onClose, document: targetDocument, subjects, onPublished }: PublishModalProps) {
   const { t } = useTranslation();
-  const [semester, setSemester] = useState("S7");
-  const [subject, setSubject] = useState("SWP391");
+  const [subjectId, setSubjectId] = useState("");
   const [description, setDescription] = useState("");
+  const [publishNote, setPublishNote] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSubjectId(targetDocument?.subjectId ? String(targetDocument.subjectId) : "");
+    setDescription(targetDocument?.description || "");
+    setPublishNote("");
+  }, [targetDocument?.id, targetDocument?.subjectId, targetDocument?.description, isOpen]);
+
+  const selectedSubject = useMemo(
+    () => subjects.find((subject) => String(subject.id) === subjectId),
+    [subjectId, subjects],
+  );
 
   if (!isOpen) return null;
 
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!targetDocument?.id) {
+      Notify.failure("Không tìm thấy tài liệu cần chia sẻ.");
+      return;
+    }
+    if (targetDocument.clonedFromId) {
+      Notify.failure("Tài liệu clone từ cộng đồng không thể chia sẻ ngược lại Marketplace.");
+      return;
+    }
+    if (targetDocument.processingStatus !== "SUCCESS") {
+      Notify.failure("Tài liệu cần xử lý AI chunks thành công trước khi chia sẻ cộng đồng.");
+      return;
+    }
+    if (!subjectId) {
+      Notify.failure("Vui lòng chọn môn học cho tài liệu trước khi chia sẻ.");
+      return;
+    }
     if (!description.trim()) {
       Notify.failure(t("components.publishModal.errorEmpty", "Vui lòng nhập mô tả ngắn cho tài liệu"));
       return;
@@ -32,7 +61,17 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
 
     setIsPublishing(true);
     try {
-      await documentService.submitToMarketplace(Number(documentId), `${semester} - ${subject}: ${description.trim()}`);
+      const normalizedDescription = description.trim();
+      if (targetDocument.subjectId !== Number(subjectId) || (targetDocument.description || "") !== normalizedDescription) {
+        await documentService.updateDocument(targetDocument.id, {
+          subjectId: Number(subjectId),
+          description: normalizedDescription,
+        });
+      }
+      const note = publishNote.trim()
+        ? publishNote.trim()
+        : `${selectedSubject?.code || `Subject #${subjectId}`}: ${normalizedDescription}`;
+      await documentService.submitToMarketplace(targetDocument.id, note);
       Notify.success(t("components.publishModal.success", "Tài liệu đã được gửi lên Marketplace để chờ duyệt!"));
       onPublished?.();
       onClose();
@@ -81,52 +120,42 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
               </label>
               <div className="w-full bg-muted/30 border border-border/50 rounded-xl px-4 py-3 flex items-center gap-3 text-foreground">
                 <BookOpen size={16} className="text-primary" />
-                <span className="font-medium text-sm truncate">{documentTitle}</span>
+                <span className="font-medium text-sm truncate">{targetDocument?.title || ""}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {t("components.publishModal.semester", "Học kỳ")}
-                </label>
-                <select
-                  value={semester}
-                  onChange={(e) => setSemester(e.target.value)}
-                  className="w-full bg-background border border-border focus:border-primary rounded-xl px-3 py-2.5 outline-none text-sm font-medium text-foreground dark:bg-[#1a1a1a]"
-                >
-                  <option value="S1">{t("filters.semester1")}</option>
-                  <option value="S2">{t("filters.semester2")}</option>
-                  <option value="S3">{t("filters.semester3")}</option>
-                  <option value="S4">{t("filters.semester4")}</option>
-                  <option value="S5">{t("filters.semester5")}</option>
-                  <option value="S6">{t("filters.semester6")}</option>
-                  <option value="S7">{t("filters.semester7")}</option>
-                  <option value="S8">{t("filters.semester8")}</option>
-                  <option value="S9">{t("filters.semester9")}</option>
-                </select>
+            {(targetDocument?.clonedFromId || targetDocument?.processingStatus !== "SUCCESS") && (
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 flex gap-2">
+                <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                <span>
+                  {targetDocument?.clonedFromId
+                    ? "Tài liệu clone từ Marketplace không được publish lại."
+                    : "Tài liệu cần xử lý AI chunks thành công trước khi publish."}
+                </span>
               </div>
-              <div>
+            )}
+
+            <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   {t("components.publishModal.subject", "Môn học")}
                 </label>
                 <select
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  value={subjectId}
+                  onChange={(e) => setSubjectId(e.target.value)}
                   className="w-full bg-background border border-border focus:border-primary rounded-xl px-3 py-2.5 outline-none text-sm font-medium text-foreground dark:bg-[#1a1a1a]"
                 >
-                  <option value="SWP391">SWP391</option>
-                  <option value="PRN212">PRN212</option>
-                  <option value="MAD101">MAD101</option>
-                  <option value="PRO192">PRO192</option>
-                  <option value="DBI202">DBI202</option>
+                  <option value="">Chọn môn học</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.code} - {subject.name}
+                    </option>
+                  ))}
                 </select>
-              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                {t("components.publishModal.description", "Mô tả (bắt buộc)")}
+                {t("components.publishModal.description", "Mô tả tài liệu (bắt buộc)")}
               </label>
               <textarea
                 value={description}
@@ -136,9 +165,21 @@ export default function PublishModal({ isOpen, onClose, documentTitle, documentI
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Ghi chú gửi kiểm duyệt viên
+              </label>
+              <textarea
+                value={publishNote}
+                onChange={(e) => setPublishNote(e.target.value)}
+                placeholder="Có thể bỏ trống. Hệ thống sẽ tự dùng mô tả tài liệu làm ghi chú."
+                className="w-full bg-background border border-border focus:border-primary rounded-xl px-4 py-3 outline-none text-sm min-h-[72px] resize-none text-foreground placeholder:text-muted-foreground dark:bg-[#1a1a1a]"
+              />
+            </div>
+
             <button
               type="submit"
-              disabled={isPublishing}
+              disabled={isPublishing || !targetDocument?.id || !!targetDocument?.clonedFromId || targetDocument?.processingStatus !== "SUCCESS"}
               className="w-full mt-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-50"
             >
               {isPublishing ? (

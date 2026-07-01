@@ -1,15 +1,16 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Flag, Send, ShieldAlert, ThumbsUp, Star, Share2, Eye, Trash2, Edit2, CornerDownRight } from "lucide-react";
-import { useState, useEffect } from "react";
-import { governanceService, CommentDTO, ReviewDTO } from "../services/governanceService";
+import { AnimatePresence, motion } from "framer-motion";
+import { AlertTriangle, Download, Eye, Flag, Send, Star, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Notify } from "notiflix";
+import { governanceService, type ReviewDTO } from "../services/governanceService";
+import type { MarketplaceItemDTO } from "../services/communityMarketplaceService";
 
 interface CommunityItemModalProps {
   isOpen: boolean;
   onClose: () => void;
-  targetType: "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK";
-  targetId: number;
-  title: string;
+  item: MarketplaceItemDTO;
+  subjectLabel?: string;
+  onClone: (item: MarketplaceItemDTO) => void;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -18,171 +19,117 @@ const TYPE_LABEL: Record<string, string> = {
   FLASHCARD_DECK: "Flashcards",
 };
 
-export default function CommunityItemModal({ isOpen, onClose, targetType, targetId, title }: CommunityItemModalProps) {
-  const [activeTab, setActiveTab] = useState<"details" | "comments" | "reviews">("details");
-  const [comments, setComments] = useState<CommentDTO[]>([]);
+const REPORT_REASONS = [
+  { label: "Nội dung không phù hợp", value: "INAPPROPRIATE" },
+  { label: "Vi phạm bản quyền", value: "COPYRIGHT" },
+  { label: "Spam hoặc gây hiểu lầm", value: "SPAM" },
+  { label: "Khác", value: "OTHER" },
+];
+
+function formatNumber(value?: number | null) {
+  return Number(value ?? 0).toLocaleString("vi-VN");
+}
+
+function ratingFromAcceptPercentage(value?: number | string | null) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  return Math.min(5, numeric / 20);
+}
+
+export default function CommunityItemModal({
+  isOpen,
+  onClose,
+  item,
+  subjectLabel,
+  onClone,
+}: CommunityItemModalProps) {
+  const [activeTab, setActiveTab] = useState<"overview" | "reviews" | "report">("overview");
   const [reviews, setReviews] = useState<ReviewDTO[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // State Input
-  const [commentText, setCommentText] = useState("");
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // States nâng cao quản lý Bình luận / Đánh giá (UC-95, UC-97, UC-99)
-  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
-  const [editingCommentText, setEditingCommentText] = useState("");
-  const [replyingCommentId, setReplyingCommentId] = useState<number | null>(null);
-  const [replyCommentText, setReplyCommentText] = useState("");
-  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
-  const [editingReviewText, setEditingReviewText] = useState("");
-
-  // Report State
-  const [isReporting, setIsReporting] = useState(false);
   const [reportReason, setReportReason] = useState("INAPPROPRIATE");
   const [reportDetails, setReportDetails] = useState("");
 
+  const rating = useMemo(() => ratingFromAcceptPercentage(item.acceptPercentage), [item.acceptPercentage]);
+  const reviewAverage = reviews.length
+    ? reviews.reduce((sum, review) => sum + Number(review.rating ?? 0), 0) / reviews.length
+    : rating;
+
   useEffect(() => {
-    if (isOpen) {
-      loadData();
-    }
-  }, [isOpen, activeTab, targetId, targetType]);
+    if (!isOpen) return;
+    setActiveTab("overview");
+  }, [isOpen, item.targetType, item.targetId]);
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      if (activeTab === "comments") {
-        const res = await governanceService.getComments(targetType, targetId);
-        if (res.success) setComments(res.data.items);
-      } else {
-        const res = await governanceService.getReviews(targetType, targetId);
-        if (res.success) setReviews(res.data.items);
+  useEffect(() => {
+    if (!isOpen || activeTab !== "reviews") return;
+
+    let mounted = true;
+    async function loadReviews() {
+      setIsLoadingReviews(true);
+      try {
+        const response = await governanceService.getReviews(item.targetType, item.targetId, 0, 20);
+        if (mounted) setReviews(response.data.items ?? []);
+      } catch (err: any) {
+        Notify.failure(err?.message || "Không tải được đánh giá.");
+      } finally {
+        if (mounted) setIsLoadingReviews(false);
       }
-    } catch (e) {
-      console.error(e);
-      // Fallback mock reviews/comments if backend requires initial seed
-    } finally {
-      setIsLoading(false);
     }
-  };
 
-  // UC-91 Tải link chia sẻ tài liệu công khai
-  const handleShareLink = () => {
-    const shareUrl = `${window.location.origin}/community/preview/${targetType.toLowerCase()}/${targetId}`;
-    navigator.clipboard.writeText(shareUrl);
-    Notify.success("Đã sao chép liên kết chia sẻ cộng đồng vào bộ nhớ tạm!");
-  };
+    loadReviews();
+    return () => {
+      mounted = false;
+    };
+  }, [activeTab, isOpen, item.targetType, item.targetId]);
 
-  const handlePostComment = async () => {
-    if (!commentText.trim()) return;
-    setIsSubmitting(true);
-    try {
-      const res = await governanceService.createComment(targetType, targetId, commentText);
-      if (res.success) {
-        setComments((prev) => [res.data, ...prev]);
-        setCommentText("");
-        Notify.success("Đã đăng bình luận");
-      }
-    } catch (e: any) {
-      Notify.failure(e.message || "Lỗi khi đăng bình luận");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // UC-97 Chỉnh sửa bình luận công khai
-  const handleUpdateComment = (id: number) => {
-    if (!editingCommentText.trim()) return;
-    setComments(prev => prev.map(c => c.id === id ? { ...c, content: editingCommentText } : c));
-    setEditingCommentId(null);
-    Notify.success("Đã cập nhật chỉnh sửa bình luận!");
-  };
-
-  const handleDeleteComment = async (id: number) => {
-    try {
-      const res = await governanceService.deleteComment(id);
-      if (res.success) {
-        setComments((prev) => prev.filter((c) => c.id !== id));
-        Notify.success("Đã xóa bình luận");
-      }
-    } catch (e: any) {
-      // Mock UI delete logic 
-      setComments((prev) => prev.filter((c) => c.id !== id));
-      Notify.success("Đã xóa bình luận thành công!");
-    }
-  };
-
-  // UC-99 Trả lời bình luận (Reply Thread)
-  const handleReplyComment = (commentId: number) => {
-    if (!replyCommentText.trim()) return;
-    Notify.success("Đã gửi phản hồi bình luận thành công!");
-    setReplyingCommentId(null);
-    setReplyCommentText("");
-  };
-
-  const handlePostReview = async () => {
+  const submitReview = async () => {
     if (!reviewText.trim()) return;
     setIsSubmitting(true);
     try {
-      const res = await governanceService.createReview(targetType, targetId, reviewRating, reviewText);
-      if (res.success) {
-        setReviews((prev) => [res.data, ...prev]);
-        setReviewText("");
-        setReviewRating(5);
-        Notify.success("Đã đăng đánh giá");
-      }
-    } catch (e: any) {
-      // Mock fallback object
-      const mockNewReview: ReviewDTO = {
-        id: Date.now(),
-        authorName: "You (Lê Trần Anh Khoa)",
-        content: reviewText,
-        rating: reviewRating,
-        createdAt: new Date().toISOString(),
-        targetType: targetType,
-        targetId: targetId
-      };
-      setReviews((prev) => [mockNewReview, ...prev]);
+      const response = await governanceService.createReview(item.targetType, item.targetId, reviewRating, reviewText.trim());
+      setReviews((current) => [response.data, ...current]);
       setReviewText("");
-      Notify.success("Đã đăng đánh giá thành công!");
+      setReviewRating(5);
+      Notify.success("Đã đăng đánh giá.");
+    } catch (err: any) {
+      Notify.failure(err?.message || "Đăng đánh giá thất bại.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // UC-95 Chỉnh sửa đánh giá sao + content
-  const handleUpdateReview = (id: number) => {
-    if (!editingReviewText.trim()) return;
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, content: editingReviewText } : r));
-    setEditingReviewId(null);
-    Notify.success("Đã sửa đánh giá!");
+  const deleteReview = async (reviewId: number) => {
+    setIsSubmitting(true);
+    try {
+      await governanceService.deleteReview(reviewId);
+      setReviews((current) => current.filter((review) => review.id !== reviewId));
+      Notify.success("Đã xóa đánh giá.");
+    } catch (err: any) {
+      Notify.failure(err?.message || "Xóa đánh giá thất bại.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // UC-96 Xóa đánh giá
-  const handleDeleteReview = (id: number) => {
-    setReviews(prev => prev.filter(r => r.id !== id));
-    Notify.success("Đã gỡ bài đánh giá này.");
-  };
-
-  const handleSubmitReport = async () => {
+  const submitReport = async () => {
     if (!reportDetails.trim()) return;
     setIsSubmitting(true);
     try {
-      const res = await governanceService.createReport({
-        targetType,
-        targetId,
+      await governanceService.createReport({
+        targetType: item.targetType,
+        targetId: item.targetId,
         reasonType: reportReason,
-        reportDetails,
+        reportDetails: reportDetails.trim(),
         severityLevel: reportReason === "COPYRIGHT" ? "HIGH" : "MEDIUM",
       });
-      if (res.success) {
-        Notify.success("Đã gửi báo cáo. Cảm ơn bạn đã giúp cộng đồng an toàn hơn!");
-        setIsReporting(false);
-        setReportDetails("");
-      }
-    } catch (e: any) {
-      Notify.failure(e.message || "Lỗi khi gửi báo cáo");
+      setReportDetails("");
+      setReportReason("INAPPROPRIATE");
+      Notify.success("Đã gửi báo cáo nội dung.");
+      onClose();
+    } catch (err: any) {
+      Notify.failure(err?.message || "Gửi báo cáo thất bại.");
     } finally {
       setIsSubmitting(false);
     }
@@ -192,11 +139,10 @@ export default function CommunityItemModal({ isOpen, onClose, targetType, target
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
           onClick={onClose}
         >
           <motion.div
@@ -204,420 +150,224 @@ export default function CommunityItemModal({ isOpen, onClose, targetType, target
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 20 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="surface-card w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
-            onClick={(e) => e.stopPropagation()}
+            className="surface-card flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
           >
-            {/* ────── HEADER ────── */}
-            <div className="flex items-start justify-between p-6 border-b border-border/50 bg-muted/20">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-primary mb-1.5">
-                  {TYPE_LABEL[targetType] || targetType}
+            <div className="flex items-start justify-between border-b border-border/50 bg-muted/20 p-6">
+              <div className="min-w-0">
+                <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                  {TYPE_LABEL[item.targetType]} · nguồn #{item.targetId}
                 </div>
-                <h2 className="font-display text-xl font-bold max-w-xl line-clamp-2">{title}</h2>
+                <h2 className="font-display line-clamp-2 max-w-xl text-xl font-bold">{item.title}</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {subjectLabel || "Chưa gắn môn"} · {item.creatorName || "Ẩn danh"}
+                </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0 ml-4">
-                {/* UC-91 Nút chia sẻ */}
-                <button
-                  onClick={handleShareLink}
-                  className="size-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-primary transition-all"
-                  title="Chia sẻ liên kết"
-                >
-                  <Share2 size={17} />
-                </button>
-                <button
-                  onClick={() => setIsReporting(true)}
-                  className="size-9 flex items-center justify-center rounded-xl text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-all"
-                  title="Báo cáo vi phạm"
-                  aria-label="Báo cáo nội dung này"
-                >
-                  <Flag size={17} />
-                </button>
-                <button
-                  onClick={onClose}
-                  className="size-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted transition-all"
-                  title="Đóng"
-                  aria-label="Đóng"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+              <button
+                onClick={onClose}
+                className="ml-4 flex size-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-muted"
+                aria-label="Đóng"
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            {isReporting ? (
-              // ────── REPORT FORM ──────
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-6 flex-1 overflow-y-auto bg-destructive/5"
-              >
-                <div className="flex items-center gap-3 text-destructive mb-5">
-                  <ShieldAlert size={24} />
-                  <h3 className="font-display text-lg font-bold">Báo cáo nội dung</h3>
-                </div>
+            <div className="flex gap-0.5 border-b border-border/50 bg-card px-6 pt-4">
+              {[
+                ["overview", "Overview"],
+                ["reviews", "Đánh giá"],
+                ["report", "Báo cáo"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setActiveTab(value as typeof activeTab)}
+                  className={`relative h-11 px-4 text-sm font-semibold transition-colors ${
+                    activeTab === value ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                  {activeTab === value && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
+                </button>
+              ))}
+            </div>
 
-                <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto p-6">
+              {activeTab === "overview" && (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="surface-card rounded-xl p-4">
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rating</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-display text-2xl font-bold">{reviewAverage ? reviewAverage.toFixed(1) : "N/A"}</span>
+                        <Star size={15} className={reviewAverage ? "fill-amber-500 text-amber-500" : "text-muted-foreground"} />
+                      </div>
+                    </div>
+                    <div className="surface-card rounded-xl p-4">
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lượt clone</div>
+                      <div className="font-display text-2xl font-bold">{formatNumber(item.downloadCount)}</div>
+                    </div>
+                    <div className="surface-card rounded-xl p-4">
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Đánh giá</div>
+                      <div className="font-display text-2xl font-bold">{formatNumber(item.reviewCount)}</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border/60 bg-muted/10 p-5">
+                    <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <Eye size={14} /> Overview marketplace
+                    </div>
+                    <div className="grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground">Loại nội dung</div>
+                        <div className="font-semibold">{TYPE_LABEL[item.targetType]}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground">Trạng thái</div>
+                        <div className="font-semibold text-green-600">{item.marketStatus || "APPROVED"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground">Subject ID</div>
+                        <div className="font-semibold">{item.subjectId ?? "Chưa gắn"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground">Clone source ID</div>
+                        <div className="font-semibold">{item.clonedFromId ?? item.targetId}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => onClone(item)}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 active:scale-95"
+                    >
+                      <Download size={15} /> Clone về workspace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("report")}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-destructive"
+                    >
+                      <Flag size={15} /> Báo cáo
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "reviews" && (
+                <div className="space-y-5">
+                  <div className="surface-card rounded-xl p-4">
+                    <div className="mb-3 flex justify-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button key={star} type="button" onClick={() => setReviewRating(star)} className="p-1 transition-transform hover:scale-110">
+                          <Star size={24} className={star <= reviewRating ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"} />
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={reviewText}
+                        onChange={(event) => setReviewText(event.target.value)}
+                        placeholder="Viết đánh giá cho nội dung này..."
+                        className="h-11 flex-1 rounded-xl border border-border/50 bg-background px-4 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        onKeyDown={(event) => event.key === "Enter" && submitReview()}
+                      />
+                      <button
+                        onClick={submitReview}
+                        disabled={isSubmitting || !reviewText.trim()}
+                        className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
+                        aria-label="Đăng đánh giá"
+                      >
+                        <Send size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {isLoadingReviews ? (
+                    <div className="py-8 text-center text-sm text-muted-foreground">Đang tải đánh giá...</div>
+                  ) : reviews.length === 0 ? (
+                    <div className="rounded-xl border border-border/50 bg-muted/20 py-10 text-center text-sm text-muted-foreground">
+                      Chưa có đánh giá nào.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {reviews.map((review) => (
+                        <div key={review.id} className="surface-card rounded-xl p-4">
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold">{review.reviewerName || review.authorName || "Người dùng"}</div>
+                              <div className="text-[11px] text-muted-foreground">{new Date(review.createdAt).toLocaleDateString("vi-VN")}</div>
+                            </div>
+                            <div className="flex gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star key={star} size={12} className={star <= review.rating ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"} />
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-sm leading-relaxed text-foreground/80">{review.content}</p>
+                          <div className="mt-3 flex justify-end border-t border-border/20 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => deleteReview(review.id)}
+                              disabled={isSubmitting}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive disabled:opacity-40"
+                            >
+                              <Trash2 size={12} /> Xóa đánh giá của tôi
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "report" && (
+                <div className="space-y-4 rounded-xl border border-destructive/20 bg-destructive/5 p-5">
+                  <div className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle size={22} />
+                    <h3 className="font-display text-lg font-bold">Báo cáo nội dung</h3>
+                  </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Lý do</label>
+                    <label className="mb-2 block text-sm font-semibold">Lý do</label>
                     <select
                       value={reportReason}
-                      onChange={(e) => setReportReason(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl border border-border/50 bg-background focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                      onChange={(event) => setReportReason(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-border/50 bg-background px-3 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
-                      <option value="INAPPROPRIATE">Nội dung không phù hợp</option>
-                      <option value="COPYRIGHT">Vi phạm bản quyền tài liệu</option>
-                      <option value="SPAM">Spam hoặc gây hiểu lầm</option>
-                      <option value="OTHER">Khác</option>
+                      {REPORT_REASONS.map((reason) => (
+                        <option key={reason.value} value={reason.value}>
+                          {reason.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Chi tiết báo cáo</label>
+                    <label className="mb-2 block text-sm font-semibold">Chi tiết báo cáo</label>
                     <textarea
                       value={reportDetails}
-                      onChange={(e) => setReportDetails(e.target.value)}
-                      placeholder="Cho chúng tôi biết thêm về vấn đề này để kiểm duyệt viên xử lý..."
-                      className="w-full h-24 px-4 py-3 rounded-xl border border-border/50 bg-background focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none text-sm"
+                      onChange={(event) => setReportDetails(event.target.value)}
+                      placeholder="Mô tả vấn đề để kiểm duyệt viên xử lý..."
+                      className="h-28 w-full resize-none rounded-xl border border-border/50 bg-background px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-
-                  <div className="flex gap-2 justify-end pt-4">
-                    <button
-                      onClick={() => setIsReporting(false)}
-                      className="px-4 h-10 rounded-xl border border-border/50 hover:bg-muted transition-colors text-sm font-semibold"
-                    >
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveTab("overview")} className="h-10 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted">
                       Hủy
                     </button>
                     <button
-                      onClick={handleSubmitReport}
+                      type="button"
+                      onClick={submitReport}
                       disabled={isSubmitting || !reportDetails.trim()}
-                      className="px-4 h-10 rounded-xl bg-destructive text-white hover:opacity-90 disabled:opacity-50 transition-all text-sm font-semibold active:scale-95"
+                      className="h-10 rounded-xl bg-destructive px-4 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
                     >
                       Gửi báo cáo
                     </button>
                   </div>
                 </div>
-              </motion.div>
-            ) : (
-              <>
-                {/* ────── TABS ────── */}
-                <div className="flex gap-0.5 px-6 pt-4 border-b border-border/50 bg-card">
-                  {(["details", "comments", "reviews"] as const).map((tabName) => (
-                    <button
-                      key={tabName}
-                      onClick={() => setActiveTab(tabName)}
-                      className={`relative px-4 h-11 text-sm font-semibold transition-colors ${
-                        activeTab === tabName ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {tabName === "details" ? "Chi tiết & Xem trước" : tabName === "comments" ? "Bình luận" : "Đánh giá"}
-                      {activeTab === tabName && (
-                        <div
-                          className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary rounded-full"
-                        />
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                {/* ────── CONTENT ────── */}
-                <div className="flex-1 overflow-y-auto p-6">
-                  <div>
-                      {activeTab === "details" ? (
-                        // ────── DETAILS & PREVIEW VIEW (UC-104) ──────
-                        <div className="space-y-6">
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="surface-card p-4 rounded-xl">
-                              <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wide mb-1">Đánh giá chung</div>
-                              <div className="flex items-baseline gap-2">
-                                <span className="font-display text-2xl font-bold">4.8</span>
-                                <div className="flex gap-0.5">
-                                  {[1, 2, 3, 4, 5].map((s) => (
-                                    <Star key={s} size={12} className="fill-amber-500 text-amber-500" />
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="surface-card p-4 rounded-xl">
-                              <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wide mb-1">Lượt tải</div>
-                              <div className="font-display text-2xl font-bold">1.2K</div>
-                            </div>
-                            <div className="surface-card p-4 rounded-xl">
-                              <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wide mb-1">Tương tác</div>
-                              <div className="font-display text-2xl font-bold">128</div>
-                            </div>
-                          </div>
-
-                          {/* KHU VỰC XEM TRƯỚC TÀI LIỆU (UC-104 Preview) */}
-                          <div className="border border-border/60 rounded-xl p-5 bg-muted/10 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                                <Eye size={13} /> Bản Xem Trước Nội Dung (Chỉ hiển thị 30%)
-                              </span>
-                              <span className="text-[11px] text-primary font-medium">Khuyên dùng: Nên clone về học</span>
-                            </div>
-                            <div className="bg-background border rounded-lg p-4 font-mono text-xs text-muted-foreground/90 space-y-2 h-32 overflow-hidden select-none relative">
-                              <p>1. Tổng quan kiến thức cốt lõi môn học...</p>
-                              <p>2. Danh sách các câu hỏi trọng tâm đề thi học kỳ trước...</p>
-                              <p>3. Phân tích mô hình thực tế và giải bài tập mẫu chương 1, chương 2...</p>
-                              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-2">
-                                <span className="text-[11px] font-sans font-semibold text-muted-foreground">Đã ẩn các trang sau theo bản quyền...</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="border-t border-border/50 pt-4">
-                            <div className="grid grid-cols-3 gap-4 text-sm">
-                              <div>
-                                <div className="text-muted-foreground font-medium mb-1">Đăng ngày</div>
-                                <div className="font-semibold">{new Date().toLocaleDateString()}</div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground font-medium mb-1">Cập nhật</div>
-                                <div className="font-semibold">{new Date().toLocaleDateString()}</div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground font-medium mb-1">Quyền tác giả</div>
-                                <div className="font-semibold text-green-600">Đã kiểm duyệt độc quyền</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : activeTab === "comments" ? (
-                        // ────── COMMENTS THREAD VIEW ──────
-                        <div className="space-y-4">
-                          {isLoading ? (
-                            <div className="text-center py-6 text-muted-foreground text-sm">Đang tải bình luận...</div>
-                          ) : comments.length === 0 ? (
-                            <div className="text-center py-10 text-muted-foreground text-sm">
-                              Chưa có bình luận nào. Hãy là người đầu tiên đóng góp ý kiến!
-                            </div>
-                          ) : (
-                            comments.map((c) => (
-                              <div key={c.id} className="surface-card p-4 rounded-xl space-y-3">
-                                <div className="flex items-start gap-3">
-                                  <div className="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                                    {c.authorName?.[0] || "U"}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="font-semibold text-sm">{c.authorName || "User"}</span>
-                                      <span className="text-[10px] text-muted-foreground">
-                                        {new Date(c.createdAt).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                    
-                                    {editingCommentId === c.id ? (
-                                      /* Giao diện Đang chỉnh sửa bình luận (UC-97) */
-                                      <div className="mt-2 flex gap-2">
-                                        <input
-                                          value={editingCommentText}
-                                          onChange={(e) => setEditingCommentText(e.target.value)}
-                                          className="flex-1 h-9 px-3 text-sm bg-background border rounded-lg focus:outline-none focus:border-primary"
-                                        />
-                                        <button onClick={() => handleUpdateComment(c.id)} className="px-3 h-9 bg-primary text-white text-xs rounded-lg font-semibold">Lưu</button>
-                                        <button onClick={() => setEditingCommentId(null)} className="px-3 h-9 bg-muted text-xs rounded-lg">Hủy</button>
-                                      </div>
-                                    ) : (
-                                      <p className="text-sm mt-1.5 text-foreground/80 leading-relaxed">{c.content}</p>
-                                    )}
-
-                                    <div className="flex items-center gap-4 mt-3 text-[11px] text-muted-foreground font-medium">
-                                      <button className="hover:text-primary transition-colors flex items-center gap-1">
-                                        <ThumbsUp size={11} /> Thích
-                                      </button>
-                                      {/* Nút Phản hồi bình luận (UC-99) */}
-                                      <button onClick={() => { setReplyingCommentId(c.id); setReplyCommentText(""); }} className="hover:text-primary transition-colors">Trả lời</button>
-                                      
-                                      {/* Tự động check hoặc giả lập bình luận của chính User đăng để cấp quyền Sửa/Xóa */}
-                                      {(c.authorName?.includes("You") || c.id > 0) && (
-                                        <>
-                                          <button onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); }} className="hover:text-primary transition-colors">Sửa</button>
-                                          <button onClick={() => handleDeleteComment(c.id)} className="hover:text-destructive transition-colors">Xóa</button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Form phản hồi con - Reply Thread UI (UC-99) */}
-                                {replyingCommentId === c.id && (
-                                  <div className="pl-8 pt-2 flex items-center gap-2 border-t border-border/20">
-                                    <CornerDownRight size={14} className="text-muted-foreground" />
-                                    <input
-                                      value={replyCommentText}
-                                      onChange={(e) => setReplyCommentText(e.target.value)}
-                                      placeholder="Phản hồi lại bình luận này..."
-                                      className="flex-1 h-9 px-3 bg-muted/40 border text-xs rounded-lg focus:outline-none"
-                                    />
-                                    <button onClick={() => handleReplyComment(c.id)} className="h-9 px-3 bg-primary text-white text-xs font-semibold rounded-lg">Gửi</button>
-                                    <button onClick={() => setReplyingCommentId(null)} className="h-9 px-2 text-xs">Hủy</button>
-                                  </div>
-                                )}
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      ) : (
-                        // ────── REVIEWS VIEW ──────
-                        <div className="space-y-6">
-                          {isLoading ? (
-                            <div className="text-center py-6 text-muted-foreground text-sm">Đang tải đánh giá...</div>
-                          ) : (
-                            <>
-                              <div className="flex flex-col sm:flex-row gap-6 p-5 surface-card rounded-xl">
-                                <div className="flex flex-col items-center shrink-0 sm:border-r border-border">
-                                  <div className="font-display text-4xl font-bold">4.8</div>
-                                  <div className="flex gap-0.5 mt-2">
-                                    {[1, 2, 3, 4, 5].map((s) => (
-                                      <Star key={s} size={14} className="fill-amber-500 text-amber-500" />
-                                    ))}
-                                  </div>
-                                  <div className="text-xs font-semibold text-muted-foreground mt-2 sm:pr-6">128 đánh giá</div>
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                  {[5, 4, 3, 2, 1].map((stars, idx) => (
-                                    <div key={stars} className="flex items-center gap-2 text-xs">
-                                      <span className="w-8 font-semibold">{stars}⭐</span>
-                                      <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
-                                        <motion.div
-                                          className="h-full bg-amber-500 rounded-full"
-                                          initial={{ width: 0 }}
-                                          animate={{ width: `${[80, 15, 3, 1.5, 0.5][idx]}%` }}
-                                          transition={{ duration: 0.6, delay: idx * 0.06 }}
-                                        />
-                                      </div>
-                                      <span className="w-8 text-right text-muted-foreground">{[102, 20, 4, 2, 0][idx]}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {reviews.length === 0 ? (
-                                <div className="text-center py-8 text-muted-foreground text-sm">Chưa có đánh giá công khai nào. Hãy chia sẻ cảm nhận về tài liệu nhé!</div>
-                              ) : (
-                                <div className="space-y-4">
-                                  {reviews.map((r) => (
-                                    <div key={r.id} className="surface-card p-4 rounded-xl">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          <div className="size-8 rounded-full bg-amber-500/20 text-amber-600 flex items-center justify-center font-bold text-xs">
-                                            {r.authorName?.[0] || "U"}
-                                          </div>
-                                          <span className="font-semibold text-sm">{r.authorName || "User"}</span>
-                                        </div>
-                                        <div className="flex gap-0.5">
-                                          {[1, 2, 3, 4, 5].map((star) => (
-                                            <Star
-                                              key={star}
-                                              size={11}
-                                              className={star <= r.rating ? "fill-amber-500 text-amber-500" : "text-muted/30"}
-                                            />
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                      {editingReviewId === r.id ? (
-                                        /* Giao diện Chỉnh sửa đánh giá (UC-95) */
-                                        <div className="mt-2 space-y-2">
-                                          <textarea
-                                            value={editingReviewText}
-                                            onChange={(e) => setEditingReviewText(e.target.value)}
-                                            className="w-full p-2 text-sm bg-background border rounded-lg focus:outline-none"
-                                          />
-                                          <div className="flex gap-1.5 justify-end">
-                                            <button onClick={() => handleUpdateReview(r.id)} className="px-3 h-8 bg-primary text-white text-xs rounded-lg font-bold">Lưu</button>
-                                            <button onClick={() => setEditingReviewId(null)} className="px-3 h-8 bg-muted text-xs rounded-lg">Hủy</button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <p className="text-sm text-foreground/80 leading-relaxed mb-3">{r.content}</p>
-                                      )}
-
-                                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium pt-1 border-t border-border/10">
-                                        <div className="flex gap-3">
-                                          <button className="hover:text-primary transition-colors flex items-center gap-1">
-                                            <ThumbsUp size={11} /> Hữu ích
-                                          </button>
-                                          {/* Cho phép Người dùng sửa/xóa Đánh giá của chính họ (UC-95, UC-96) */}
-                                          {(r.authorName?.includes("You") || r.id > 0) && !editingReviewId && (
-                                            <>
-                                              <button onClick={() => { setEditingReviewId(r.id); setEditingReviewText(r.content); }} className="hover:text-primary transition-colors flex items-center gap-0.5"><Edit2 size={10}/>Sửa</button>
-                                              <button onClick={() => handleDeleteReview(r.id)} className="hover:text-destructive transition-colors flex items-center gap-0.5"><Trash2 size={10}/>Xóa</button>
-                                            </>
-                                          )}
-                                        </div>
-                                        <span>{new Date(r.createdAt).toLocaleDateString()}</span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                  </div>
-                </div>
-
-                {/* ────── INPUT AREA ────── */}
-                {activeTab !== "details" && (
-                  <div className="p-4 border-t border-border/50 bg-muted/30">
-                    {activeTab === "comments" ? (
-                      <div className="flex gap-2">
-                        <input
-                          value={commentText}
-                          onChange={(e) => setCommentText(e.target.value)}
-                          placeholder="Chia sẻ suy nghĩ, thắc mắc của bạn về tài liệu này..."
-                          className="flex-1 h-11 px-4 rounded-xl bg-background border border-border/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handlePostComment()}
-                        />
-                        <button
-                          onClick={handlePostComment}
-                          disabled={isSubmitting || !commentText.trim()}
-                          className="size-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-50 hover:opacity-90 transition-all active:scale-95"
-                          aria-label="Đăng bình luận"
-                        >
-                          <Send size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex gap-1 justify-center">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              onClick={() => setReviewRating(star)}
-                              className="p-1 hover:scale-110 transition-transform"
-                            >
-                              <Star
-                                size={24}
-                                className={star <= reviewRating ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            value={reviewText}
-                            onChange={(e) => setReviewText(e.target.value)}
-                            placeholder="Viết đánh giá trải nghiệm học tập công tâm tại đây..."
-                            className="flex-1 h-11 px-4 rounded-xl bg-background border border-border/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handlePostReview()}
-                          />
-                          <button
-                            onClick={handlePostReview}
-                            disabled={isSubmitting || !reviewText.trim()}
-                            className="px-5 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-all active:scale-95"
-                          >
-                            Đăng
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+              )}
+            </div>
           </motion.div>
         </motion.div>
       )}
