@@ -20,6 +20,7 @@ export interface FlashcardDeckDTO {
   downloadCount: number;
   reviewCount: number;
   acceptPercentage: number;
+  clonedFromId: number | null;
   createdAt: string;
   cards: FlashcardDTO[];
 }
@@ -51,85 +52,59 @@ export interface MarketplaceFlashcardDeckDTO {
   visibility: "MARKETPLACE";
 }
 
+export interface CreateFlashcardDeckRequest {
+  title: string;
+  notebookId?: number;
+  subjectId?: number;
+  visibility?: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+}
+
 // ─── BASE REQUEST ────────────────────────────────────────────────────────────
 
 const BASE_URL = "/api";
 
 async function flashcardRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-  const headers = new Headers(options.headers);
-  if (token) {
-    const cleanToken = token.replace(/['"]+/g, '');
-    headers.set("Authorization", `Bearer ${cleanToken}`);
-  }
-  if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE") {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
-  const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
-
-  if (response.status === 401) {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
-      window.location.href = "/";
+  try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const headers = new Headers(options.headers);
+    if (token) {
+      const cleanToken = token.replace(/['"]+/g, '');
+      headers.set("Authorization", `Bearer ${cleanToken}`);
     }
-    throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
-  }
+    if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE") {
+      headers.set("Content-Type", "application/json");
+    }
 
-  if (!response.ok) {
-    throw {
-      status: response.status,
-      message: result.message || "Lỗi giao tiếp API Flashcard",
-      errorCode: result.errorCode || "FC_ERROR"
-    };
+    const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+    const text = await response.text();
+    let result: any = {};
+    if (text && text.trim().length > 0) {
+      try { result = JSON.parse(text); } catch { result = { message: text.substring(0, 200) }; }
+    }
+
+    if (response.status === 401) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_user");
+        localStorage.removeItem("auth-storage");
+        window.location.href = "/";
+      }
+      throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
+    }
+
+    if (!response.ok) {
+      throw {
+        status: response.status,
+        message: result.message || "Lỗi giao tiếp API Flashcard",
+        errorCode: result.errorCode || "FC_ERROR"
+      };
+    }
+    return result;
+  } catch (err: any) {
+    if (err && typeof err.status === "number") throw err;
+    throw { status: 500, message: err?.message || "Không thể kết nối đến máy chủ" };
   }
-  return result;
 }
-
-// ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
-
-let mockFlashcards: FlashcardDTO[] = [
-  { id: 1011, deckId: 1001, frontText: "SRS", backText: "Software Requirements Specification" },
-  { id: 1012, deckId: 1001, frontText: "OOP", backText: "Object-Oriented Programming" },
-  { id: 1013, deckId: 1001, frontText: "API", backText: "Application Programming Interface" },
-  { id: 1014, deckId: 1002, frontText: "React", backText: "A JavaScript library for building user interfaces" },
-  { id: 1015, deckId: 1002, frontText: "State", backText: "An object that holds some information that may change over the lifetime of the component" },
-];
-
-let mockDecks: FlashcardDeckDTO[] = [
-  {
-    id: 1001,
-    userId: 1,
-    notebookId: 101,
-    subjectId: 12,
-    title: "SWR302 Key Terms",
-    visibility: "PRIVATE",
-    marketStatus: "NONE",
-    downloadCount: 0,
-    reviewCount: 0,
-    acceptPercentage: 0,
-    createdAt: "2026-06-12T22:10:00",
-    cards: mockFlashcards.filter(c => c.deckId === 1001)
-  },
-  {
-    id: 1002,
-    userId: 1,
-    notebookId: 101,
-    subjectId: null,
-    title: "Frontend Development Basics",
-    visibility: "MARKETPLACE",
-    marketStatus: "APPROVED",
-    downloadCount: 120,
-    reviewCount: 45,
-    acceptPercentage: 98,
-    createdAt: "2026-05-10T10:00:00",
-    cards: mockFlashcards.filter(c => c.deckId === 1002)
-  }
-];
 
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
 
@@ -137,341 +112,127 @@ export const flashcardService = {
 
   // ─── 1. QUẢN LÝ BỘ THẺ (DECKS) ───
 
-  async getMyFlashcardDecks(page = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>> {
-    try {
-      const res = await flashcardRequest<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>>(`/flashcard-decks?page=${page}&size=${size}&keyword=${keyword}`, { method: "GET" });
-      if (!res.data || !res.data.items || res.data.items.length === 0) {
-        let items = mockDecks.filter(d => d.userId === 1);
-        if (keyword) {
-          items = items.filter(d => d.title.toLowerCase().includes(keyword.toLowerCase()));
-        }
-        return {
-          success: true,
-          message: "Success (Mock)",
-          data: { items, page, size, totalElements: items.length, totalPages: 1 }
-        };
-      }
-      return res;
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        let items = mockDecks.filter(d => d.userId === 1);
-        if (keyword) {
-          items = items.filter(d => d.title.toLowerCase().includes(keyword.toLowerCase()));
-        }
-        res({ success: true, message: "Success", data: { items, page, size, totalElements: items.length, totalPages: 1 } });
-      }, 300));
-    }
+  async getMyFlashcardDecks(params: {
+    keyword?: string;
+    subjectId?: number;
+    visibility?: string;
+    marketStatus?: string;
+    page?: number;
+    size?: number;
+    sort?: string;
+  } = {}): Promise<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>> {
+    const query = new URLSearchParams();
+    if (params.keyword) query.append("keyword", params.keyword);
+    if (params.subjectId !== undefined) query.append("subjectId", String(params.subjectId));
+    if (params.visibility) query.append("visibility", params.visibility);
+    if (params.marketStatus) query.append("marketStatus", params.marketStatus);
+    query.append("page", String(params.page ?? 0));
+    query.append("size", String(params.size ?? 10));
+    query.append("sort", params.sort ?? "createdAt,desc");
+
+    return await flashcardRequest<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>>(`/flashcard-decks?${query.toString()}`, { method: "GET" });
   },
 
-  async createFlashcardDeck(payload: Partial<FlashcardDeckDTO>): Promise<ApiResponse<FlashcardDeckDTO>> {
-    try {
-      return await flashcardRequest(`/flashcard-decks`, {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        const newDeck: FlashcardDeckDTO = {
-          id: Date.now(),
-          userId: 1,
-          notebookId: payload.notebookId || null,
-          subjectId: payload.subjectId || null,
-          title: payload.title || "Untitled Deck",
-          visibility: payload.visibility || "PRIVATE",
-          marketStatus: "NONE",
-          downloadCount: 0,
-          reviewCount: 0,
-          acceptPercentage: 0,
-          createdAt: new Date().toISOString(),
-          cards: []
-        };
-        mockDecks.unshift(newDeck);
-        res({ success: true, message: "Success", data: newDeck });
-      }, 400));
-    }
+  async createFlashcardDeck(payload: CreateFlashcardDeckRequest): Promise<ApiResponse<FlashcardDeckDTO>> {
+    return await flashcardRequest(`/flashcard-decks`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
   },
 
-  async generateFlashcardDeck(payload: { notebookId?: number, documentId?: number, numberOfCards: number }): Promise<ApiResponse<FlashcardDeckDTO>> {
-    try {
-      return await flashcardRequest(`/flashcard-decks/generate`, {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        const newDeckId = Date.now();
-        const newCards: FlashcardDTO[] = Array.from({ length: payload.numberOfCards }).map((_, i) => ({
-          id: Date.now() + i,
-          deckId: newDeckId,
-          frontText: `AI Generated Concept ${i + 1}`,
-          backText: `This is an automatically generated definition for concept ${i + 1} using AI.`
-        }));
-        mockFlashcards.push(...newCards);
-
-        const newDeck: FlashcardDeckDTO = {
-          id: newDeckId,
-          userId: 1,
-          notebookId: payload.notebookId || null,
-          subjectId: null,
-          title: `AI Generated Flashcards (${payload.numberOfCards} cards)`,
-          visibility: "PRIVATE",
-          marketStatus: "NONE",
-          downloadCount: 0,
-          reviewCount: 0,
-          acceptPercentage: 0,
-          createdAt: new Date().toISOString(),
-          cards: newCards
-        };
-        mockDecks.unshift(newDeck);
-        res({ success: true, message: "Success", data: newDeck });
-      }, 1500)); // Simulate AI delay
-    }
+  async generateFlashcardDeck(payload: { notebookId?: number; documentId?: number; numberOfCards: number }): Promise<ApiResponse<FlashcardDeckDTO>> {
+    return await flashcardRequest(`/flashcard-decks/generate`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
   },
 
   async getFlashcardDeckDetails(id: number): Promise<ApiResponse<FlashcardDeckDTO>> {
-    try {
-      return await flashcardRequest(`/flashcard-decks/${id}`, { method: "GET" });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const deck = mockDecks.find(d => d.id === id);
-        if (deck) res({ success: true, message: "Success", data: deck });
-        else rej({ message: "Not found" });
-      }, 200));
-    }
+    return await flashcardRequest(`/flashcard-decks/${id}`, { method: "GET" });
   },
 
-  async updateFlashcardDeck(id: number, payload: Partial<FlashcardDeckDTO>): Promise<ApiResponse<FlashcardDeckDTO>> {
-    try {
-      return await flashcardRequest(`/flashcard-decks/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const idx = mockDecks.findIndex(d => d.id === id);
-        if (idx === -1) return rej({ message: "Not found" });
-        mockDecks[idx] = { ...mockDecks[idx], ...payload };
-        res({ success: true, message: "Success", data: mockDecks[idx] });
-      }, 300));
-    }
+  async updateFlashcardDeck(id: number, payload: { title?: string; notebookId?: number; subjectId?: number; visibility?: string }): Promise<ApiResponse<FlashcardDeckDTO>> {
+    return await flashcardRequest(`/flashcard-decks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    });
   },
 
-  async deleteFlashcardDeck(id: number): Promise<ApiResponse<{ deleted: boolean }>> {
-    try {
-      return await flashcardRequest(`/flashcard-decks/${id}`, { method: "DELETE" });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        mockDecks = mockDecks.filter(d => d.id !== id);
-        mockFlashcards = mockFlashcards.filter(c => c.deckId !== id);
-        res({ success: true, message: "Deleted successfully", data: { deleted: true } });
-      }, 300));
-    }
+  async deleteFlashcardDeck(id: number): Promise<ApiResponse<any>> {
+    return await flashcardRequest(`/flashcard-decks/${id}`, { method: "DELETE" });
   },
 
-  // ─── 2. QUẢN LÝ THẺ (CARDS) ───
+  // ─── 2. QUẢN LÝ THẺ CHI TIẾT (CARDS) ───
 
   async addCardToDeck(deckId: number, frontText: string, backText: string): Promise<ApiResponse<FlashcardDeckDTO>> {
-    try {
-      return await flashcardRequest(`/flashcard-decks/${deckId}/cards`, {
-        method: "POST",
-        body: JSON.stringify({ frontText, backText })
-      });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const idx = mockDecks.findIndex(d => d.id === deckId);
-        if (idx === -1) return rej({ message: "Deck not found" });
-        const newCard = { id: Date.now(), deckId, frontText, backText };
-        mockFlashcards.push(newCard);
-        mockDecks[idx].cards.push(newCard);
-        res({ success: true, message: "Success", data: mockDecks[idx] });
-      }, 300));
-    }
+    return await flashcardRequest(`/flashcard-decks/${deckId}/cards`, {
+      method: "POST",
+      body: JSON.stringify({ frontText, backText })
+    });
   },
 
   async updateCard(cardId: number, frontText: string, backText: string): Promise<ApiResponse<FlashcardDTO>> {
-    try {
-      return await flashcardRequest(`/flashcards/${cardId}`, {
-        method: "PUT",
-        body: JSON.stringify({ frontText, backText })
-      });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const cIdx = mockFlashcards.findIndex(c => c.id === cardId);
-        if (cIdx === -1) return rej({ message: "Card not found" });
-        mockFlashcards[cIdx] = { ...mockFlashcards[cIdx], frontText, backText };
-        
-        // Update in deck too
-        const deck = mockDecks.find(d => d.id === mockFlashcards[cIdx].deckId);
-        if (deck) {
-          const dCardIdx = deck.cards.findIndex(c => c.id === cardId);
-          if (dCardIdx !== -1) deck.cards[dCardIdx] = mockFlashcards[cIdx];
-        }
-
-        res({ success: true, message: "Success", data: mockFlashcards[cIdx] });
-      }, 300));
-    }
+    return await flashcardRequest(`/flashcards/${cardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ frontText, backText })
+    });
   },
 
-  async deleteCard(cardId: number): Promise<ApiResponse<{ deleted: boolean }>> {
-    try {
-      return await flashcardRequest(`/flashcards/${cardId}`, { method: "DELETE" });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        const card = mockFlashcards.find(c => c.id === cardId);
-        if (card) {
-          const deck = mockDecks.find(d => d.id === card.deckId);
-          if (deck) {
-            deck.cards = deck.cards.filter(c => c.id !== cardId);
-          }
-        }
-        mockFlashcards = mockFlashcards.filter(c => c.id !== cardId);
-        res({ success: true, message: "Deleted successfully", data: { deleted: true } });
-      }, 300));
-    }
+  async deleteCard(cardId: number): Promise<ApiResponse<any>> {
+    return await flashcardRequest(`/flashcards/${cardId}`, { method: "DELETE" });
   },
 
-  // ─── 3. ÔN TẬP (SPACED REPETITION) ───
+  // ─── 3. TIẾN ĐỘ & ÔN TẬP (SPACED REPETITION) ───
 
-  async getFlashcardDeckProgress(deckId: number): Promise<ApiResponse<FlashcardProgressDTO>> {
-    try {
-      return await flashcardRequest(`/flashcard-decks/${deckId}/progress`, { method: "GET" });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const deck = mockDecks.find(d => d.id === deckId);
-        if (!deck) return rej({ message: "Not found" });
-        res({
-          success: true, message: "Success", data: {
-            deckId,
-            reviewedCards: Math.floor(deck.cards.length / 2),
-            totalCards: deck.cards.length,
-            rememberedRate: 75
-          }
-        });
-      }, 200));
-    }
+  async getFlashcardDeckProgress(deckId: number, subjectId?: number): Promise<ApiResponse<FlashcardProgressDTO>> {
+    const url = subjectId ? `/flashcard-decks/${deckId}/progress?subjectId=${subjectId}` : `/flashcard-decks/${deckId}/progress`;
+    return await flashcardRequest<ApiResponse<FlashcardProgressDTO>>(url, { method: "GET" });
   },
 
-  async getFlashcardsDue(): Promise<ApiResponse<FlashcardDTO[]>> {
-    try {
-      return await flashcardRequest(`/flashcards/due`, { method: "GET" });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        // Mock returning a subset of all cards as "due"
-        res({ success: true, message: "Success", data: mockFlashcards.slice(0, 3) });
-      }, 300));
-    }
+  async getFlashcardsDue(deckId?: number): Promise<ApiResponse<FlashcardDTO[]>> {
+    const url = deckId ? `/flashcards/due?deckId=${deckId}` : `/flashcards/due`;
+    return await flashcardRequest<ApiResponse<FlashcardDTO[]>>(url, { method: "GET" });
   },
 
   async reviewFlashcard(cardId: number, isKnown: boolean): Promise<ApiResponse<ReviewCardResponseDTO>> {
-    try {
-      return await flashcardRequest(`/flashcards/${cardId}/review`, {
-        method: "POST",
-        body: JSON.stringify({ isKnown })
-      });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        res({
-          success: true, message: "Success", data: {
-            flashcardId: cardId,
-            boxLevel: isKnown ? 2 : 0,
-            lastReviewed: new Date().toISOString(),
-            nextReviewAt: new Date(Date.now() + (isKnown ? 86400000 * 2 : 3600000)).toISOString()
-          }
-        });
-      }, 100));
-    }
+    // Chuẩn hóa Request Body theo Swagger: { "result": "REMEMBERED" }
+    return await flashcardRequest(`/flashcards/${cardId}/review`, {
+      method: "POST",
+      body: JSON.stringify({
+        result: isKnown ? "REMEMBERED" : "AGAIN"
+      })
+    });
   },
 
-  // ─── 4. MARKETPLACE CỘNG ĐỒNG ───
+  // ─── 4. MARKETPLACE FLASHCARD DECKS ───
 
-  async getMarketplaceFlashcardDecks(page = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<MarketplaceFlashcardDeckDTO>>> {
-    try {
-      return await flashcardRequest(`/marketplace/flashcard-decks?page=${page}&size=${size}&keyword=${keyword}`, { method: "GET" });
-    } catch (e) {
-      return new Promise(res => setTimeout(() => {
-        let docs = mockDecks.filter(d => d.visibility === "MARKETPLACE" && d.marketStatus === "APPROVED");
-        if (keyword) {
-          docs = docs.filter(d => d.title.toLowerCase().includes(keyword.toLowerCase()));
-        }
-        const mapped = docs.map(d => ({
-          targetType: "FLASHCARD_DECK" as const,
-          targetId: d.id,
-          title: d.title,
-          subjectId: d.subjectId,
-          creatorName: "Mock User",
-          downloadCount: d.downloadCount,
-          reviewCount: d.reviewCount,
-          acceptPercentage: d.acceptPercentage,
-          marketStatus: "APPROVED" as const,
-          visibility: "MARKETPLACE" as const
-        }));
-        res({ success: true, message: "Success", data: { items: mapped, page, size, totalElements: mapped.length, totalPages: 1 } });
-      }, 300));
-    }
-  },
-
-  async submitToMarketplace(id: number): Promise<ApiResponse<FlashcardDeckDTO>> {
-    try {
-      return await flashcardRequest(`/marketplace/flashcard-decks/${id}/submit`, {
-        method: "POST",
-        body: JSON.stringify({ note: "Submit for marketplace review" })
-      });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const docIndex = mockDecks.findIndex(d => d.id === id);
-        if (docIndex === -1) return rej({ message: "Not found" });
-        mockDecks[docIndex] = { ...mockDecks[docIndex], visibility: "MARKETPLACE", marketStatus: "PENDING" };
-        res({ success: true, message: "Submitted successfully", data: mockDecks[docIndex] });
-      }, 400));
-    }
+  async getMarketplaceFlashcardDecks(page = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>> {
+    const query = new URLSearchParams();
+    if (keyword) query.set("keyword", keyword);
+    query.set("page", String(page));
+    query.set("size", String(size));
+    query.set("sort", "createdAt,desc");
+    return await flashcardRequest<ApiResponse<PaginatedResponse<FlashcardDeckDTO>>>(`/marketplace/flashcard-decks?${query.toString()}`, { method: "GET" });
   },
 
   async cloneMarketplaceDeck(id: number, targetNotebookId?: number): Promise<ApiResponse<FlashcardDeckDTO>> {
-    try {
-      return await flashcardRequest(`/marketplace/flashcard-decks/${id}/clone`, {
-        method: "POST",
-        body: JSON.stringify({ targetNotebookId })
-      });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const doc = mockDecks.find(d => d.id === id);
-        if (!doc) return rej({ message: "Not found" });
-        const newDeckId = Date.now();
-        const clonedCards = doc.cards.map(c => ({ ...c, id: Date.now() + Math.random(), deckId: newDeckId }));
-        const cloned: FlashcardDeckDTO = {
-          ...doc,
-          id: newDeckId,
-          userId: 1,
-          notebookId: targetNotebookId || null,
-          visibility: "PRIVATE",
-          marketStatus: "NONE",
-          cards: clonedCards
-        };
-        mockDecks.unshift(cloned);
-        mockFlashcards.push(...clonedCards);
-        res({ success: true, message: "Cloned successfully", data: cloned });
-      }, 400));
-    }
+    return await flashcardRequest(`/marketplace/flashcard-decks/${id}/clone`, {
+      method: "POST",
+      body: JSON.stringify({ targetNotebookId })
+    });
+  },
+
+  async submitToMarketplace(id: number): Promise<ApiResponse<FlashcardDeckDTO>> {
+    return await flashcardRequest(`/marketplace/flashcard-decks/${id}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ note: "Submit for marketplace review" })
+    });
   },
 
   async reviewMarketplaceDeck(id: number, payload: { voteResult: "APPROVED" | "REJECTED"; reviewNote?: string }): Promise<ApiResponse<any>> {
-    try {
-      return await flashcardRequest(`/admin/marketplace/flashcard-decks/${id}/review`, {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {
-      return new Promise((res, rej) => setTimeout(() => {
-        const docIndex = mockDecks.findIndex(d => d.id === id);
-        if (docIndex === -1) return rej({ message: "Not found" });
-        mockDecks[docIndex] = { ...mockDecks[docIndex], marketStatus: payload.voteResult };
-        res({
-          success: true, message: "Success", data: {
-            id: Date.now(), reviewerId: 99, targetType: "FLASHCARD_DECK", targetId: id, voteResult: payload.voteResult, createdAt: new Date().toISOString()
-          }
-        });
-      }, 400));
-    }
+    return await flashcardRequest(`/admin/marketplace/flashcard-decks/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
   }
-
 };

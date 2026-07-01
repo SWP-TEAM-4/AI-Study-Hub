@@ -1,13 +1,11 @@
 import { ApiResponse, PaginatedResponse } from "./types";
 
-// ─── DTOS ───────────────────────────────────────────────────────────────────
-
 export interface CommunityRoleDTO {
   id: number;
   userId: number;
   grantedByUserId: number;
-  roleType: string; // e.g. "MARKETPLACE_REVIEWER", "MODERATOR", etc.
-  scopeType: string; // e.g. "SUBJECT", "GLOBAL"
+  roleType: string;
+  scopeType: string;
   scopeId: number | null;
   startAt: string;
   endAt: string | null;
@@ -24,7 +22,17 @@ export interface GrantRoleRequest {
   endAt: string | null;
 }
 
-// ─── BASE CONFIG ─────────────────────────────────────────────────────────────
+export interface AdminCommunityRoleParams {
+  keyword?: string;
+  userId?: number;
+  roleType?: string;
+  status?: string;
+  scopeType?: string;
+  scopeId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
 
 const BASE_URL = "/api";
 
@@ -63,8 +71,6 @@ async function roleRequest<T>(endpoint: string, options: RequestInit = {}): Prom
   return result;
 }
 
-// ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
-
 let mockRoles: CommunityRoleDTO[] = [
   {
     id: 1401,
@@ -80,7 +86,7 @@ let mockRoles: CommunityRoleDTO[] = [
   },
   {
     id: 1402,
-    userId: 1, // Current User
+    userId: 1,
     grantedByUserId: 99,
     roleType: "COMMUNITY_MODERATOR",
     scopeType: "GLOBAL",
@@ -92,20 +98,29 @@ let mockRoles: CommunityRoleDTO[] = [
   }
 ];
 
-// ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
-
 export const communityRoleService = {
-  // 1. GET /api/admin/community-roles
-  async getAdminCommunityRoles(page: number = 0, size: number = 10): Promise<ApiResponse<PaginatedResponse<CommunityRoleDTO>>> {
+  // 1. GET /api/admin/community-roles (Bổ sung bộ lọc chi tiết từ Swagger)
+  async getAdminCommunityRoles(params?: AdminCommunityRoleParams): Promise<ApiResponse<PaginatedResponse<CommunityRoleDTO>>> {
     try {
-      return await roleRequest(`/admin/community-roles?page=${page}&size=${size}`, { method: "GET" });
+      const query = new URLSearchParams();
+      if (params?.keyword) query.append("keyword", params.keyword);
+      if (params?.userId !== undefined) query.append("userId", String(params.userId));
+      if (params?.roleType) query.append("roleType", params.roleType);
+      if (params?.status) query.append("status", params.status);
+      if (params?.scopeType) query.append("scopeType", params.scopeType);
+      if (params?.scopeId !== undefined) query.append("scopeId", String(params.scopeId));
+      query.append("page", String(params?.page ?? 0));
+      query.append("size", String(params?.size ?? 10));
+      query.append("sort", params?.sort ?? "newest");
+
+      return await roleRequest(`/admin/community-roles?${query.toString()}`, { method: "GET" });
     } catch (err) {
       console.warn("Fallback: getAdminCommunityRoles", err);
       return new Promise(resolve => setTimeout(() => {
         resolve({
           success: true,
           message: "Success",
-          data: { items: [...mockRoles].reverse(), page, size, totalElements: mockRoles.length, totalPages: 1 }
+          data: { items: [...mockRoles].reverse(), page: params?.page || 0, size: params?.size || 10, totalElements: mockRoles.length, totalPages: 1 }
         });
       }, 400));
     }
@@ -127,7 +142,7 @@ export const communityRoleService = {
         const newRole: CommunityRoleDTO = {
           id: Date.now(),
           ...payload,
-          grantedByUserId: 99, // admin id
+          grantedByUserId: 99,
           status: "ACTIVE",
           createdAt: new Date().toISOString()
         };
@@ -163,7 +178,6 @@ export const communityRoleService = {
     } catch (err) {
       console.warn("Fallback: getMyCommunityRoles", err);
       return new Promise(resolve => setTimeout(() => {
-        // Mock current user has ID = 1
         const myRoles = mockRoles.filter(r => r.userId === 1 && r.status === "ACTIVE");
         resolve({ success: true, message: "Success", data: myRoles });
       }, 300));

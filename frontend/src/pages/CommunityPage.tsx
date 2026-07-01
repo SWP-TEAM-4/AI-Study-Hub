@@ -7,7 +7,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { marketItems } from "../lib/mock-data";
 import { communityService, ContributorDTO } from "../services/communityService";
-import CommunityItemModal from "./CommunityItemModal";
+import CommunityDetailPage, { CommunityDetailItem } from "./CommunityDetailPage";
 import CustomSelect from "../components/ui/CustomSelect";
 import { Notify, Loading } from "notiflix";
 import { 
@@ -74,7 +74,7 @@ export default function CommunityPage() {
 
   const [contributors, setContributors] = useState<ContributorDTO[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<{ id: number; type: "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK"; title: string } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<CommunityDetailItem | null>(null);
   
   // State quản lý danh sách Yêu thích & Theo dõi
   const [savedIds, setSavedIds] = useState<string[]>([]);
@@ -103,7 +103,7 @@ export default function CommunityPage() {
       rating: d.acceptPercentage ? (d.acceptPercentage / 20).toFixed(1) : "4.8",
       downloads: d.downloadCount,
     }));
-    const dynamicDecks = (communityDecks || []).map((d) => ({
+    const dynamicDecks = (communityDecks || []).map((d: any) => ({
       id: "deck_" + d.targetId,
       realId: d.targetId,
       kind: "deck",
@@ -254,6 +254,11 @@ export default function CommunityPage() {
     if (index === 2) return { label: "Bronze", color: "text-amber-700 bg-amber-700/10" };
     return { label: "Expert", color: "text-primary bg-primary/10" };
   };
+
+  // Show detail page if item selected
+  if (selectedItem) {
+    return <CommunityDetailPage item={selectedItem} onBack={() => setSelectedItem(null)} />;
+  }
 
   return (
     <motion.div
@@ -574,6 +579,13 @@ export default function CommunityPage() {
                         id: (m as any).realId,
                         type: m.kind === "doc" ? "DOCUMENT" : m.kind === "deck" ? "FLASHCARD_DECK" : "QUIZ",
                         title: m.title,
+                        author: m.author,
+                        subject: m.subject,
+                        semester: (m as any).semester,
+                        rating: m.rating,
+                        downloads: m.downloads,
+                        isVerified: (m as any).isVerified,
+                        kind: m.kind as "doc" | "quiz" | "deck",
                       });
                     }
                   }}
@@ -674,16 +686,7 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* MODAL CHI TIẾT SẢN PHẨM */}
-      {selectedItem && (
-        <CommunityItemModal
-          isOpen={!!selectedItem}
-          onClose={() => setSelectedItem(null)}
-          targetId={selectedItem.id}
-          targetType={selectedItem.type}
-          title={selectedItem.title}
-        />
-      )}
+      {/* Detail page is rendered above when selectedItem is set */}
     </motion.div>
   );
 }

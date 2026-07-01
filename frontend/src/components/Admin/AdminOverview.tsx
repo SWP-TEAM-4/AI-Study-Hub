@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Users, FileText, Bot, AlertTriangle } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { analyticsService } from "../../services/analyticsService";
+import { analyticsService, AIUsageAnalyticsDTO } from "../../services/analyticsService";
 
 const trend = [
   { d: "T2", v: 1240 }, { d: "T3", v: 1380 }, { d: "T4", v: 1520 },
@@ -15,8 +15,8 @@ export default function AdminOverview() {
   const { data: aiUsageData, isLoading } = useQuery({
     queryKey: ["adminAiUsage"],
     queryFn: async () => {
-      const res = await analyticsService.adminGetAiUsage();
-      return res.data?.items || [];
+      const res = await analyticsService.getAdminAIUsage();
+      return res.data;
     },
   });
 
@@ -89,19 +89,19 @@ export default function AdminOverview() {
                     </td>
                   </tr>
                 ))
-              ) : !aiUsageData || aiUsageData.length === 0 ? (
+              ) : !aiUsageData ? (
                 <tr><td colSpan={6} className="py-8 text-center text-muted-foreground text-xs">{t("admin.overview.noData")}</td></tr>
               ) : (
-                aiUsageData.map((usage, idx) => (
-                  <tr key={idx} className="hover:bg-muted/10">
-                    <td className="px-4 py-3 font-mono font-bold text-primary">#{usage.userId}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{usage.period}</td>
-                    <td className="px-4 py-3 text-right">{usage.chatRequests} lượt</td>
-                    <td className="px-4 py-3 text-right">{usage.quizGenerations} lượt</td>
-                    <td className="px-4 py-3 text-right">{usage.flashcardGenerations} lượt</td>
-                    <td className="px-4 py-3 text-right font-mono text-success font-bold">{usage.estimatedTokens.toLocaleString()}</td>
+                <>
+                  <tr className="hover:bg-muted/10">
+                    <td className="px-4 py-3 font-semibold">Tất cả người dùng</td>
+                    <td className="px-4 py-3 font-mono text-xs">Hệ thống</td>
+                    <td className="px-4 py-3 text-right">{aiUsageData.actionCounts?.CHAT_NORMAL || 0} lượt</td>
+                    <td className="px-4 py-3 text-right">{aiUsageData.actionCounts?.GENERATE_QUIZ || 0} lượt</td>
+                    <td className="px-4 py-3 text-right">{aiUsageData.actionCounts?.GENERATE_FLASHCARD || 0} lượt</td>
+                    <td className="px-4 py-3 text-right font-mono text-success font-bold">{aiUsageData.totalTokens?.toLocaleString() || 0}</td>
                   </tr>
-                ))
+                </>
               )}
             </tbody>
           </table>

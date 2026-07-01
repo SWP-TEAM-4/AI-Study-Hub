@@ -6,6 +6,7 @@ import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
 import { authService, type AuthUser } from "../../services/authService";
+import { academicService } from "../../services/academicService";
 import { cn } from "../../lib/utils";
 
 // 1. IMPORT CÁC COMPONENT LIÊN QUAN
@@ -199,8 +200,6 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
           email: cleanEmail,
           password: password,
           fullName: fullName,
-          currentSemesterId: 3,
-          comboId: 1
         });
 
         if (response.success) {
@@ -257,7 +256,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
     try {
       const response = await authService.forgotPassword(cleanEmail);
       if (response.success) {
-        setResetMessage(`Yêu cầu thành công. Mã Reset Token Preview: ${response.data.resetTokenPreview}`);
+        setResetMessage(`Yêu cầu thành công. Vui lòng kiểm tra email để nhận hướng dẫn đặt lại mật khẩu.`);
         Notify.success("Đã khởi tạo lệnh cấp lại mật khẩu!");
         setTimeout(() => { setMode("login"); setResetMessage(""); setEmail(""); }, 4000);
       }

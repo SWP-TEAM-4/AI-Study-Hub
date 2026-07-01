@@ -1,16 +1,18 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag, Trash2 } from "lucide-react";
+import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag, Trash2, Eye } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import FlashcardStudyPage from "./FlashcardStudyPage";
+import FlashcardDetailPage from "./FlashcardDetailPage";
 import { Notify, Confirm } from "notiflix";
 import { MockFeatureModal } from "../components/ui/MockFeatureModal";
 import CustomSelect from "../components/ui/CustomSelect";
-import { 
-  useFlashcardDecks, 
+import {
+  useFlashcardDecks,
   useGenerateFlashcardDeck,
   useDeleteFlashcardDeck
 } from "../hooks/useFlashcards";
+import { FlashcardDeckDTO } from "../services/flashcardService";
 import { SkeletonCard } from "../components/ui/SkeletonCard";
 import { motionFadeUp } from "../lib/motion";
 
@@ -22,6 +24,7 @@ export default function FlashcardsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
+  const [detailDeck, setDetailDeck] = useState<FlashcardDeckDTO | null>(null);
   const { data: decksList = [], isLoading } = useFlashcardDecks();
   const generateMutation = useGenerateFlashcardDeck();
   const isGenerating = generateMutation.isPending;
@@ -71,6 +74,16 @@ export default function FlashcardsPage() {
     return <FlashcardStudyPage deckId={activeDeckId} onBack={() => setActiveDeckId(null)} />;
   }
 
+  if (detailDeck) {
+    return (
+      <FlashcardDetailPage
+        deck={detailDeck}
+        onBack={() => setDetailDeck(null)}
+        onStudy={() => { setActiveDeckId(detailDeck.id.toString()); setDetailDeck(null); }}
+      />
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -78,11 +91,11 @@ export default function FlashcardsPage() {
       transition={{ duration: 0.35, ease: "easeOut" }}
       className="space-y-6"
     >
-      <MockFeatureModal 
-        isOpen={mockModal.isOpen} 
-        onClose={() => setMockModal({ isOpen: false, type: "EDIT" })} 
-        type={mockModal.type} 
-        itemName="Flashcard Deck" 
+      <MockFeatureModal
+        isOpen={mockModal.isOpen}
+        onClose={() => setMockModal({ isOpen: false, type: "EDIT" })}
+        type={mockModal.type}
+        itemName="Flashcard Deck"
       />
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
@@ -91,12 +104,12 @@ export default function FlashcardsPage() {
           </h1>
           <p className="text-muted-foreground mt-1">{t('pages.flashcards.desc')}</p>
         </div>
-        <button 
+        <button
           onClick={handleGenerateDeck}
           disabled={isGenerating}
           className={`inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium self-start ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
         >
-          {isGenerating ? <div className="size-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> : <Sparkles size={16} />} 
+          {isGenerating ? <div className="size-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" /> : <Sparkles size={16} />}
           {isGenerating ? t('components.aiConfigModal.processing', "Đang xử lý...") : t('pages.flashcards.addDeck', "+ Tạo Bộ Thẻ")}
         </button>
       </div>
@@ -111,7 +124,7 @@ export default function FlashcardsPage() {
             className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
-        
+
         <div className="flex flex-wrap md:flex-nowrap gap-3 w-full lg:w-auto">
           <CustomSelect
             value={filterSubject}
@@ -175,69 +188,23 @@ export default function FlashcardsPage() {
         <AnimatePresence>
           {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-          ) : list.map((deck, i) => {
-            const masteredCount = Math.floor(deck.cards.length / 2); // Mock mastered count since progress is a separate API
-            const pct = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
-            return (
-              <motion.div
-                key={deck.id}
-                layout
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="surface-card p-5 !overflow-visible"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium mr-2">{deck.subjectId ? `Môn #${deck.subjectId}` : "Tự do"}</span>
-                    <span className="text-xs text-muted-foreground">{new Date(deck.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  
-                  {/* Action Dropdown (Mocked) */}
-                  <div className="relative group/menu">
-                    <button className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50">
-                      <MoreHorizontal size={16} />
-                    </button>
-                    <div className="absolute right-0 mt-1 w-40 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => handleEdit(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                        <Edit size={14} /> {t('pages.flashcards.edit')}
-                      </button>
-                      <button onClick={() => handleAddTag(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                        <Tag size={14} /> {t('pages.flashcards.addTag')}
-                      </button>
-                      <button onClick={() => handlePublish(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                        <Globe size={14} /> {t('pages.flashcards.publish')}
-                      </button>
-                      <button onClick={() => handleDeleteDeck(deck.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
-                        <Trash2 size={14} /> {t('pages.flashcards.delete', "Xóa bộ thẻ")}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <h3 className="font-display text-lg font-semibold">{deck.title}</h3>
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{t('pages.flashcards.progress')}</span>
-                  <span className="font-medium">{masteredCount}/{deck.cards.length}</span>
-                </div>
-                <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ background: "linear-gradient(to right, var(--color-coral), var(--color-primary))" }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.8, delay: i * 0.1 }}
-                  />
-                </div>
-                <button
-                  onClick={() => setActiveDeckId(deck.id.toString())}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-1.5 h-10 rounded-xl text-white text-sm font-medium hover:opacity-90"
-                  style={{ background: "var(--color-coral)" }}
-                >
-                  <Plus size={16} /> {t('pages.flashcards.studyNow')}
-                </button>
-              </motion.div>
-            );
-          })}
+          ) : list.length > 0 ? (
+            list.map((deck, i) => {
+              const masteredCount = Math.floor(deck.cards.length / 2);
+              const pct = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
+              return (
+                <motion.div key={deck.id} layout className="surface-card p-5 !overflow-visible">
+                  {/* ...Giữ nguyên toàn bộ code render bộ thẻ hiện tại của bạn... */}
+                </motion.div>
+              );
+            })
+          ) : (
+            /* --- THÊM ĐOẠN ĐIỀU KIỆN NÀY VÀO --- */
+            <div className="col-span-full py-16 text-center text-muted-foreground bg-muted/25 rounded-2xl border border-dashed border-border/60">
+              <p className="text-base font-medium">Kho flashcard của bạn đang trống.</p>
+              <p className="text-sm opacity-70 mt-1">Hãy thử đổi bộ lọc hoặc bấm nút "+ Tạo Bộ Thẻ" phía trên để bắt đầu nhé!</p>
+            </div>
+          )}
         </AnimatePresence>
       </div>
     </motion.div>

@@ -1,31 +1,33 @@
-import { PaginatedResponse } from "./types";
+import { ApiResponse } from "./types";
 
-export interface AiUsageDTO {
-  userId: number;
-  period: string;
-  chatRequests: number;
-  quizGenerations: number;
-  flashcardGenerations: number;
-  estimatedTokens: number;
+export interface AIUsageAnalyticsDTO {
+  totalRequests: number;
+  totalTokens: number;
+  estimatedCost: number;
+  actionCounts: Record<string, number>;
 }
 
 const BASE_URL = "/api";
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function analyticsRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
   if (token) {
-    const cleanToken = token.replace(/['"]+/g, '');
+    const cleanToken = token.replace(/['"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
-  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
-
-  const textData = await response.text();
-  const result = textData ? JSON.parse(textData) : {};
+  const text = await response.text();
+  let result: any = {};
+  if (text && text.trim().length > 0) {
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = { message: text.substring(0, 200) };
+    }
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -38,23 +40,19 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   if (!response.ok) {
-    throw { status: response.status, message: result.message || "Lỗi hệ thống" };
+    throw {
+      status: response.status,
+      message: result.message || "Lỗi giao tiếp Analytics API",
+      errorCode: result.errorCode || "ANALYTICS_ERROR",
+    };
   }
-  return result as T;
-}
-
-function buildQueryString(params?: { page?: number; size?: number }): string {
-  const query = new URLSearchParams();
-  if (params?.page !== undefined) query.append("page", params.page.toString());
-  if (params?.size !== undefined) query.append("size", params.size.toString());
-  const str = query.toString();
-  return str ? `?${str}` : "";
+  return result;
 }
 
 export const analyticsService = {
-  adminGetAiUsage: async (params?: { page?: number; size?: number }) => {
-    return request<{ success: boolean; message: string; data: PaginatedResponse<AiUsageDTO> }>(
-      `/admin/analytics/ai-usage${buildQueryString(params)}`
-    );
-  }
+  async getAdminAIUsage(): Promise<ApiResponse<AIUsageAnalyticsDTO>> {
+    return await analyticsRequest<ApiResponse<AIUsageAnalyticsDTO>>("/admin/analytics/ai-usage", {
+      method: "GET",
+    });
+  },
 };

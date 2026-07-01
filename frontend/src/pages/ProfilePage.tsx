@@ -32,7 +32,7 @@ import { feedbackService } from "../services/feedbackService";
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { useAuthStore } from "../store/useAuthStore";
 
-// ─── 🌐 1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
+// ───  1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
 
 const COMBO_MAJORS: Record<number, { major: string; spec: string }> = {
   1: { major: "Kỹ thuật Phần mềm + AI", spec: "Trí tuệ nhân tạo (AI/ML)" },
@@ -45,19 +45,6 @@ const statsConfig: { label: string; value: number; icon: LucideIcon }[] = [
   { label: "Tài liệu", value: 42, icon: FileText },
   { label: "Quiz đã làm", value: 28, icon: GraduationCap },
 ];
-
-const MOCK_USER_FALLBACK: UserDTO = {
-  id: 1,
-  email: "anhkhoa@fpt.edu.vn",
-  fullName: "Lê Trần Anh Khoa",
-  avatarUrl: null,
-  currentSemesterId: 3,
-  comboId: 1,
-  role: "STUDENT",
-  reputationPoints: 11320,
-  isActive: true,
-  createdAt: "2026-03-15T21:30:00"
-};
 
 // ─── 🧑‍🎓 2. MAIN PROFILE COMPONENT ──────────────────────────────────────────────
 
@@ -117,7 +104,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
         userService.getMyActivityLogs({ page: 0, size: 3 }),
         userService.getMyAIUsage(),
         communityService.getMyReferralInfo().catch(() => null),
-        communityRoleService.getMyCommunityRoles().catch(() => null)
+        communityRoleService.getMyCommunityRoles().catch(() => null),
       ]);
 
       if (profileRes.success && profileRes.data) {
@@ -131,7 +118,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
           const colorMap = ["165", "35", "200", "75"];
           return {
             ...b,
-            color: b.color || colorMap[index % colorMap.length]
+            color: b.color || colorMap[index % colorMap.length],
           };
         });
         setBadges(mappedBadges);
@@ -141,39 +128,9 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
       if (aiRes.success && aiRes.data) setAiUsage(aiRes.data);
       if (refRes?.success && refRes.data) setMyReferral(refRes.data);
       if (rolesRes?.success && rolesRes.data) setMyRoles(rolesRes.data);
-
     } catch (err: any) {
-      console.warn("⚠️ Hệ thống tự động kích hoạt chế độ Fallback Mock do chưa kết nối được Server:", err);
-
-      setUserInfo(MOCK_USER_FALLBACK);
-      setEditName(MOCK_USER_FALLBACK.fullName);
-
-      setBadges([
-        { id: 1, name: "Người mới", description: "Hoàn thành onboarding", color: "165" },
-        { id: 2, name: "Chăm chỉ", description: "Học 7 ngày liên tiếp", color: "35" },
-        { id: 3, name: "Đóng góp", description: "Upload 10 tài liệu", color: "200" },
-        { id: 4, name: "Quiz Master", description: "Đạt 100 điểm", color: "75" }
-      ]);
-
-      setTestHistory([
-        { id: 901, quizId: 801, userId: 1, title: "SWP391 — Kiến trúc ứng dụng web Java", totalScore: 9.0, duration: 15, status: "COMPLETED", createdAt: "2026-06-12T22:05:00" },
-        { id: 902, quizId: 802, userId: 1, title: "IOT102 — Lập trình điều khiển mạch ESP32", totalScore: 8.5, duration: 30, status: "COMPLETED", createdAt: "2026-06-11T14:15:00" }
-      ]);
-
-      setActivityLogs([
-        { id: 1, actorId: 1, action: "Hỏi trợ lý AI về cấu trúc JSTL tags", targetType: "CHAT", targetId: 10, metadata: {}, createdAt: "2026-06-15T21:30:00" },
-        { id: 2, actorId: 1, action: "Tải lên tài liệu \"Đề cương mạch ESP32\"", targetType: "DOCUMENT", targetId: 5, metadata: {}, createdAt: "2026-06-14T14:15:00" },
-        { id: 3, actorId: 1, action: "Hoàn thành Flashcard Java Servlets", targetType: "FLASHCARD", targetId: 2, metadata: {}, createdAt: "2026-06-12T09:00:00" }
-      ]);
-
-      setAiUsage({
-        userId: 1,
-        period: "2026-06",
-        chatRequests: 128,
-        quizGenerations: 5,
-        flashcardGenerations: 3,
-        estimatedTokens: 18500
-      });
+      console.error("Error loading profile:", err);
+      Notify.failure(err.message || "Không thể tải dữ liệu hồ sơ");
     } finally {
       setIsLoading(false);
     }

@@ -48,25 +48,26 @@ async function qRequest<T>(endpoint: string, options: RequestInit = {}): Promise
 
 export interface QuizDTO {
   id: number;
-  notebookId?: number;
-  subjectId?: number;
+  notebookId: number | null;
+  notebookTitle: string | null;
+  subjectId: number | null;
+  subjectName: string | null;
+  creatorId: number;
+  creatorFullName: string | null;
   title: string;
-  description?: string;
-  academicTermId?: number;
-  examType?: string;
-  visibility?: string;
-  marketStatus?: string;
-  downloadCount?: number;
-  reviewCount?: number;
-  acceptPercentage?: number;
-  createdAt?: string;
-
-  // Frontend bổ sung
-  subject?: string;
-  level?: string;
-  questions?: number;
-  bestScore?: number;
-  attempts?: number;
+  description: string | null;
+  academicTermId: number | null;
+  academicTermName: string | null;
+  examType: string | null;
+  visibility: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+  marketStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  downloadCount: number;
+  reviewCount: number;
+  acceptPercentage: number;
+  aiVerdictNote: string | null;
+  clonedFromId: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OptionDTO {
@@ -104,8 +105,8 @@ export interface TestDTO {
 // ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
 
 let mockQuizzes: QuizDTO[] = [
-  { id: 801, title: "Kiến trúc ứng dụng web Java", description: "Ôn tập Servlet/JSP", subject: "SWP391", level: "Medium", questions: 10, bestScore: 85, attempts: 2 },
-  { id: 802, title: "Lập trình điều khiển mạch ESP32", description: "Sensor & IoT logic", subject: "SWR302", level: "Hard", questions: 8, bestScore: 0, attempts: 0 }
+  { id: 801, notebookId: null, notebookTitle: "", subjectId: null, subjectName: "SWP391", creatorId: 1, creatorFullName: "You", title: "Kiến trúc ứng dụng web Java", description: "Ôn tập Servlet/JSP", academicTermId: null, academicTermName: "", examType: "MIDTERM", visibility: "PRIVATE", marketStatus: "NONE", downloadCount: 0, reviewCount: 0, acceptPercentage: 0, aiVerdictNote: null, clonedFromId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 802, notebookId: null, notebookTitle: "", subjectId: null, subjectName: "SWR302", creatorId: 1, creatorFullName: "You", title: "Lập trình điều khiển mạch ESP32", description: "Sensor & IoT logic", academicTermId: null, academicTermName: "", examType: "FINAL", visibility: "PRIVATE", marketStatus: "NONE", downloadCount: 0, reviewCount: 0, acceptPercentage: 0, aiVerdictNote: null, clonedFromId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 let mockTestResult: TestDTO | null = null;
@@ -177,14 +178,35 @@ export const quizService = {
 
   // ─── 2. QUIZ MANAGEMENT (CRUD QUIZ) ────────────────────────────────────────
 
-  async getQuizzes(): Promise<ApiResponse<PaginatedResponse<QuizDTO>>> {
+  async getQuizzes(params?: {
+    keyword?: string;
+    subjectId?: number;
+    notebookId?: number;
+    academicTermId?: number;
+    examType?: string;
+    visibility?: string;
+    marketStatus?: string;
+    page?: number;
+    size?: number;
+    sort?: string;
+  }): Promise<ApiResponse<PaginatedResponse<QuizDTO>>> {
     try {
-      const res = await qRequest<ApiResponse<PaginatedResponse<QuizDTO>>>(`/quizzes`);
+      const query = new URLSearchParams();
+      if (params?.keyword) query.set("keyword", params.keyword);
+      if (params?.subjectId != null) query.set("subjectId", String(params.subjectId));
+      if (params?.notebookId != null) query.set("notebookId", String(params.notebookId));
+      if (params?.academicTermId != null) query.set("academicTermId", String(params.academicTermId));
+      if (params?.examType) query.set("examType", params.examType);
+      if (params?.visibility) query.set("visibility", params.visibility);
+      if (params?.marketStatus) query.set("marketStatus", params.marketStatus);
+      query.set("page", String(params?.page ?? 0));
+      query.set("size", String(params?.size ?? 10));
+      query.set("sort", params?.sort ?? "createdAt,desc");
+      const res = await qRequest<ApiResponse<PaginatedResponse<QuizDTO>>>(`/quizzes?${query.toString()}`);
       if (!res.data || !res.data.items || res.data.items.length === 0) {
         return {
-          success: true,
-          message: "Success (Mock)",
-          data: { items: mockQuizzes, page: 0, size: 10, totalElements: mockQuizzes.length, totalPages: 1 }
+          success: true, message: "Success (Mock)",
+          data: { items: mockQuizzes, page: params?.page ?? 0, size: params?.size ?? 10, totalElements: mockQuizzes.length, totalPages: 1 }
         };
       }
       return res;
@@ -193,7 +215,7 @@ export const quizService = {
         res({
           success: true,
           message: "Success",
-          data: { items: mockQuizzes, page: 0, size: 10, totalElements: mockQuizzes.length, totalPages: 1 }
+          data: { items: mockQuizzes, page: params?.page ?? 0, size: params?.size ?? 10, totalElements: mockQuizzes.length, totalPages: 1 }
         });
       }, 400));
     }

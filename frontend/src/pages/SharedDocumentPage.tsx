@@ -111,9 +111,9 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
                   <span className="px-2.5 py-1 rounded-md bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/30">
                     {doc?.fileType || "DOCUMENT"}
                   </span>
-                  {doc?.subject && (
+                  {doc?.subjectId != null && (
                     <span className="px-2.5 py-1 rounded-md bg-muted border border-border/50 text-muted-foreground text-[10px] font-bold uppercase">
-                      {doc.subject.code}
+                      Môn #{doc.subjectId}
                     </span>
                   )}
                 </div>
@@ -121,7 +121,6 @@ export default function SharedDocumentPage({ shareToken }: SharedDocumentPagePro
                   {doc?.title}
                 </h1>
                 <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5"><User size={14} /> {doc?.ownerName}</div>
                   <div className="flex items-center gap-1.5"><HardDrive size={14} /> {formatSize(doc?.fileSize || 0)}</div>
                 </div>
               </div>

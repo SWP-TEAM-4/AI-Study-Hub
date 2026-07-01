@@ -37,10 +37,47 @@ export interface MessageDTO {
   id: number;
   sessionId: number;
   messageSequence: number;
-  senderRole: "USER" | "AI";
+  senderRole: "USER" | "AI" | string;
+  messageType?: "TEXT" | "PRACTICE_DRAFT" | string;
+  practiceType?: "QUIZ" | "FLASHCARD_DECK" | "NONE" | string;
+  practiceStatus?: "NONE" | "GENERATED" | "IMPORTED" | string;
   content: string;
   citedSources: CitedSourceDTO[];
+  generatedPayload?: string;
+  validationErrors?: string;
+  importedTargetType?: "QUIZ" | "FLASHCARD_DECK" | string;
+  importedTargetId?: number;
+  importedAt?: string;
   createdAt: string;
+}
+
+export interface PracticeImportPayload {
+  targetMode: "CREATE_NEW" | "ADD_TO_EXISTING" | string;
+  target: {
+    title: string;
+    description: string;
+    visibility: "PRIVATE" | "WORKSPACE" | "MARKETPLACE" | string;
+  };
+  importOptions?: {
+    skipDuplicateQuestions?: boolean;
+    shuffleQuestions?: boolean;
+  };
+}
+
+export interface PracticeImportResponseDTO {
+  messageId: number;
+  practiceType: string;
+  targetMode: string;
+  targetType: string;
+  targetId: number;
+  createdQuizId?: number;
+  createdDeckId?: number;
+  createdQuestions?: number;
+  createdOptions?: number;
+  createdCards?: number;
+  skippedDuplicates?: number;
+  practiceStatus: string;
+  importedAt: string;
 }
 
 export interface ChatResponseData {
@@ -65,7 +102,10 @@ async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Prom
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  if (text && text.trim().length > 0) {
+    try { result = JSON.parse(text); } catch { result = { message: text.substring(0, 200) }; }
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -258,6 +298,59 @@ export const chatService = {
         mockMessages[newSession.id] = [];
         resolve({ success: true, message: "Success", data: newSession });
       }, 400));
+    } // <-- Sửa lỗi: Đóng ngoặc catch ở đây
+  }, // <-- Sửa lỗi: Đóng ngoặc hàm ở đây
+  // 7. GET /api/chat-messages/{messageId}/practice-draft
+  async getPracticeDraft(messageId: number): Promise<ApiResponse<string>> {
+    try {
+      return await chatRequest(`/chat-messages/${messageId}/practice-draft`, { method: "GET" });
+    } catch (err) {
+      console.warn("Fallback: Get practice draft", err);
+      return new Promise((resolve) => setTimeout(() => {
+        const mockDraft = JSON.stringify({
+          title: "Mock Quiz from Chat",
+          description: "This is a mock draft generated from AI chat.",
+          questions: [
+            {
+              questionText: "What does SRS stand for?",
+              questionType: "SINGLE_CHOICE",
+              options: [
+                { optionText: "Software Requirement Specification", isCorrect: true },
+                { optionText: "System Requirement Specification", isCorrect: false }
+              ]
+            }
+          ]
+        }, null, 2);
+        resolve({ success: true, message: "Success", data: mockDraft });
+      }, 500));
     }
-  }
-};
+  },
+
+  // 8. POST /api/chat-messages/{messageId}/practice-import
+  async importPracticeDraft(messageId: number, payload: PracticeImportPayload): Promise<ApiResponse<PracticeImportResponseDTO>> {
+    try {
+      return await chatRequest(`/chat-messages/${messageId}/practice-import`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      console.warn("Fallback: Import practice draft", err);
+      return new Promise((resolve) => setTimeout(() => {
+        const mockResponse: PracticeImportResponseDTO = {
+          messageId,
+          practiceType: "QUIZ",
+          targetMode: payload.targetMode,
+          targetType: "QUIZ",
+          targetId: Math.floor(Math.random() * 1000),
+          createdQuizId: Math.floor(Math.random() * 1000),
+          createdQuestions: 5,
+          createdOptions: 20,
+          skippedDuplicates: 0,
+          practiceStatus: "IMPORTED",
+          importedAt: new Date().toISOString()
+        };
+        resolve({ success: true, message: "Import successful", data: mockResponse });
+      }, 800));
+    }
+  } // <-- Sửa lỗi: Đóng ngoặc hàm importPracticeDraft ở đây
+}; // <-- Sửa lỗi: Đóng ngoặc nhọn của đối tượng chatService tại đây

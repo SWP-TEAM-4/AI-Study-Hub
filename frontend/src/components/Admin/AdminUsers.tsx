@@ -1,42 +1,71 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Search, UserCheck, UserMinus, Award } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { userService, UserDTO } from "../../services/userService";
-import { MOCK_USERS } from "../../lib/admin-mock-data";
 
 export default function AdminUsers() {
   const { t } = useTranslation();
   
   const [searchKeyword, setSearchKeyword] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
-  const [usersList, setUsersList] = useState<UserDTO[]>(MOCK_USERS);
+  const [usersList, setUsersList] = useState<UserDTO[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [totalElements, setTotalElements] = useState(0);
 
-  const filteredUsers = useMemo(() => {
-    return usersList.filter(u =>
-      u.fullName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchKeyword.toLowerCase())
-    );
-  }, [usersList, searchKeyword]);
+  // Gọi API lấy danh sách user thực tế từ Backend khi chuyển trang hoặc gõ tìm kiếm
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      try {
+        const res = await userService.adminGetUsers({
+          page: currentPage,
+          size: 10,
+          keyword: searchKeyword
+        });
+        if (res.success && res.data) {
+          setUsersList(res.data.items);
+          setTotalElements(res.data.totalElements);
+        }
+      } catch (err: any) {
+        console.error("Lỗi lấy danh sách thành viên từ API:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Cơ chế debounce nhẹ nếu cần, hoặc gọi trực tiếp qua dependency array
+    fetchUsers();
+  }, [currentPage, searchKeyword]);
 
   const handleToggleActive = async (userId: number, currentStatus: boolean) => {
     try {
       const res = await userService.adminToggleUserActive(userId, !currentStatus);
-      if (res.success && res.data) setUsersList(prev => prev.map(u => u.id === userId ? res.data! : u));
-    } catch (err: any) { alert(err.message || "Lỗi khóa tài khoản"); }
+      if (res.success && res.data) {
+        setUsersList(prev => prev.map(u => u.id === userId ? res.data! : u));
+      }
+    } catch (err: any) { 
+      alert(err.message || "Lỗi khóa tài khoản"); 
+    }
   };
 
   const handleRoleChange = async (userId: number, newRole: "STUDENT" | "REVIEWER" | "ADMIN") => {
     try {
       const res = await userService.adminUpdateUserRole(userId, newRole);
-      if (res.success && res.data) setUsersList(prev => prev.map(u => u.id === userId ? res.data! : u));
-    } catch (err: any) { alert(err.message || "Lỗi cập nhật quyền hạn"); }
+      if (res.success && res.data) {
+        setUsersList(prev => prev.map(u => u.id === userId ? res.data! : u));
+      }
+    } catch (err: any) { 
+      alert(err.message || "Lỗi cập nhật quyền hạn"); 
+    }
   };
 
   const handleRewardBadge = async (userId: number) => {
     try {
       const res = await userService.adminAssignBadgeToUser(userId, 2);
       if (res.success) alert("Đã gán huy hiệu danh giá thành công! 🎖️");
-    } catch (err: any) { alert(`Không thể gán: ${err.message || "Lỗi không xác định"}`); }
+    } catch (err: any) { 
+      alert(`Không thể gán: ${err.message || "Lỗi không xác định"}`); 
+    }
   };
 
   return (
@@ -53,6 +82,7 @@ export default function AdminUsers() {
           />
         </div>
       </div>
+      
       <div className="surface-card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground border-b border-border/50">
@@ -64,40 +94,72 @@ export default function AdminUsers() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {filteredUsers.map((user: any) => (
-              <tr key={user.id} className="hover:bg-muted/20">
-                <td className="px-5 py-3 flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-ink text-white font-bold text-xs grid place-items-center">{user.fullName.slice(0, 2).toUpperCase()}</div>
-                  <div className="text-left">
-                    <div className="font-semibold text-foreground">{user.fullName}</div>
-                    <div className="text-[11px] text-muted-foreground font-mono">{user.email}</div>
-                  </div>
-                </td>
-                <td className="px-5 py-3 text-left">
-                  <select value={user.role} onChange={(e) => handleRoleChange(user.id, e.target.value as any)} className="bg-muted text-foreground text-xs font-bold rounded-lg px-2 py-1">
-                    <option value="STUDENT">STUDENT</option>
-                    <option value="REVIEWER">REVIEWER</option>
-                    <option value="ADMIN">ADMIN</option>
-                  </select>
-                </td>
-                <td className="px-5 py-3 text-left">
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium uppercase ${user.isActive ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : "bg-rose-500/12 text-rose-300 border border-rose-500/25"}`}>
-                    {user.isActive ? t("admin.users.active") : t("admin.users.locked")}
-                  </span>
-                </td>
-                <td className="px-5 py-3 text-right">
-                  <div className="inline-flex gap-1.5">
-                    <button onClick={() => handleRewardBadge(user.id)} className="size-8 rounded-lg border border-border grid place-items-center hover:text-primary transition-colors cursor-pointer"><Award size={13} /></button>
-                    <button onClick={() => handleToggleActive(user.id, user.isActive)} className={`size-8 rounded-lg grid place-items-center ${user.isActive ? "bg-rose-500/12 text-rose-300 border border-rose-500/25" : "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25"} cursor-pointer`}>
-                      {user.isActive ? <UserMinus size={13} /> : <UserCheck size={13} />}
-                    </button>
-                  </div>
+            {loading ? (
+              <tr>
+                <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                  <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Đang tải danh sách thành viên hệ thống...
                 </td>
               </tr>
-            ))}
+            ) : usersList.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                  Không tìm thấy thành viên nào phù hợp.
+                </td>
+              </tr>
+            ) : (
+              usersList.map((user: UserDTO) => (
+                <tr key={user.id} className="hover:bg-muted/20">
+                  <td className="px-5 py-3 flex items-center gap-3">
+                    <div className="size-9 rounded-xl bg-ink text-white font-bold text-xs grid place-items-center">
+                      {user.fullName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-foreground">{user.fullName}</div>
+                      <div className="text-[11px] text-muted-foreground font-mono">{user.email}</div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-left">
+                    <select 
+                      value={user.role} 
+                      onChange={(e) => handleRoleChange(user.id, e.target.value as any)} 
+                      className="bg-muted text-foreground text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+                    >
+                      <option value="STUDENT">STUDENT</option>
+                      <option value="REVIEWER">REVIEWER</option>
+                      <option value="ADMIN">ADMIN</option>
+                    </select>
+                  </td>
+                  <td className="px-5 py-3 text-left">
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium uppercase ${user.isActive ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : "bg-rose-500/12 text-rose-300 border border-rose-500/25"}`}>
+                      {user.isActive ? t("admin.users.active") : t("admin.users.locked")}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="inline-flex gap-1.5">
+                      <button onClick={() => handleRewardBadge(user.id)} className="size-8 rounded-lg border border-border grid place-items-center hover:text-primary transition-colors cursor-pointer" title="Tặng huy hiệu">
+                        <Award size={13} />
+                      </button>
+                      <button onClick={() => handleToggleActive(user.id, user.isActive)} className={`size-8 rounded-lg grid place-items-center ${user.isActive ? "bg-rose-500/12 text-rose-300 border border-rose-500/25" : "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25"} cursor-pointer`} title={user.isActive ? "Khóa tài khoản" : "Kích hoạt tài khoản"}>
+                        {user.isActive ? <UserMinus size={13} /> : <UserCheck size={13} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+      
+      {/* Gợi ý phân trang nhỏ gọn phía dưới */}
+      {totalElements > 10 && (
+        <div className="flex justify-end gap-2 text-xs font-medium pr-2">
+          <button disabled={currentPage === 0} onClick={() => setCurrentPage(p => p - 1)} className="px-3 h-8 rounded-lg bg-muted border border-border disabled:opacity-45">Trước</button>
+          <span className="h-8 flex items-center px-2">Trang {currentPage + 1}</span>
+          <button disabled={usersList.length < 10} onClick={() => setCurrentPage(p => p + 1)} className="px-3 h-8 rounded-lg bg-muted border border-border disabled:opacity-45">Sau</button>
+        </div>
+      )}
     </div>
   );
 }

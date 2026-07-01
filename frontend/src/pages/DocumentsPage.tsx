@@ -53,7 +53,13 @@ export default function DocumentsPage() {
   const [sortBy, setSortBy] = useState("newest");
 
   // Fetch using Custom Hook
-  const { data: list = [], isLoading } = useDocuments();
+  const { data: list = [], isLoading } = useDocuments({
+    keyword: q,
+    subjectId: filterSubject !== "all" ? Number(filterSubject) : undefined,
+    visibility: filterVisibility !== "all" ? filterVisibility : undefined,
+    processingStatus: filterStatus !== "all" ? filterStatus : undefined,
+    sort: sortBy === "newest" ? "createdAt,desc" : sortBy === "oldest" ? "createdAt,asc" : undefined,
+  });
   const deleteMutation = useDeleteDocument();
 
   // Upload using Custom Hook
@@ -163,7 +169,7 @@ export default function DocumentsPage() {
     setShareForm({ allowDownload: true, expiresAt: "" });
     try {
       const res = await documentService.getShareLinkStatus(doc.id);
-      if (res.success && res.data && res.data.visibility === "PUBLIC_LINK") {
+      if (res.success && res.data && res.data.documentVisibility === "PUBLIC_LINK") {
         setShareInfo(res.data);
         setShareForm({
           allowDownload: res.data.allowDownload,

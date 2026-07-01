@@ -11,10 +11,30 @@ export const documentKeys = {
 };
 
 // ─── FETCH WORKSPACE DOCUMENTS ───────────────────────────────────────────────
-export function useDocuments() {
+export function useDocuments(filters?: {
+  keyword?: string;
+  subjectId?: number;
+  fileType?: string;
+  visibility?: string;
+  processingStatus?: string;
+  sort?: string;
+}) {
+  const keyword = filters?.keyword ?? "";
+  const subjectId = filters?.subjectId;
+  const fileType = filters?.fileType;
+  const visibility = filters?.visibility;
+  const processingStatus = filters?.processingStatus;
+  const sort = filters?.sort;
+
   return useQuery({
-    queryKey: documentKeys.workspace(),
-    queryFn: () => documentService.getWorkspaceDocuments(0, 50),
+    queryKey: [...documentKeys.workspace(), "filters", { keyword, subjectId, fileType, visibility, processingStatus, sort }],
+    queryFn: () => documentService.getWorkspaceDocuments(0, 50, keyword, {
+      subjectId,
+      fileType,
+      visibility,
+      processingStatus,
+      sort
+    }),
     staleTime: 3 * 60 * 1000, // 3 phút cache
     select: (data) => data?.data?.items ?? [],
   });

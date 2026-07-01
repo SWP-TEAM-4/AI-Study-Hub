@@ -16,7 +16,7 @@ export default function AdminReportsTab() {
   const loadReports = async () => {
     setIsLoading(true);
     try {
-      const res = await governanceService.getAdminReports(0, 50, statusFilter);
+      const res = await governanceService.getAdminReports({ page: 0, size: 50, status: statusFilter || undefined });
       if (res.success) setReports(res.data.items);
     } catch (err) {
       console.error(err);
@@ -30,7 +30,7 @@ export default function AdminReportsTab() {
       const res = await governanceService.resolveReport(id, "Admin đã giải quyết.");
       if (res.success) {
         Notify.success("Đã duyệt báo cáo (Resolve).");
-        setReports(prev => prev.map(r => r.id === id ? res.data : r));
+        loadReports();
       }
     } catch (e: any) {
       Notify.failure(e.message || "Lỗi xử lý báo cáo");
@@ -42,7 +42,7 @@ export default function AdminReportsTab() {
       const res = await governanceService.rejectReport(id, "Admin từ chối báo cáo này.");
       if (res.success) {
         Notify.success("Đã từ chối báo cáo (Reject).");
-        setReports(prev => prev.map(r => r.id === id ? res.data : r));
+        loadReports();
       }
     } catch (e: any) {
       Notify.failure(e.message || "Lỗi xử lý báo cáo");
