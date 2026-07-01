@@ -63,14 +63,6 @@ async function communityRequest<T>(endpoint: string, options: RequestInit = {}):
 
 // ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
 
-const mockContributors: ContributorDTO[] = [
-  { rank: 1, userId: 2, fullName: "Tran Thi B", reputationPoints: 980, approvedContents: 42 },
-  { rank: 2, userId: 15, fullName: "Nguyen Van C", reputationPoints: 850, approvedContents: 35 },
-  { rank: 3, userId: 8, fullName: "Le Hoang D", reputationPoints: 720, approvedContents: 28 },
-  { rank: 4, userId: 1, fullName: "Lê Trần Anh Khoa", reputationPoints: 650, approvedContents: 21 },
-  { rank: 5, userId: 22, fullName: "Pham Nhat E", reputationPoints: 500, approvedContents: 15 },
-];
-
 let mockMyReferral: ReferralDTO = {
   id: 2101,
   code: "KHOA2026",

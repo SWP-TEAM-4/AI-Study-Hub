@@ -13,31 +13,10 @@ import java.util.Optional;
  */
 public interface MarketReviewRepository extends JpaRepository<MarketReview, Long> {
 
-    // ── Marketplace review statistics (BE-030) ────────────────────────────────
-    long countByDocumentId(Long documentId);
-
-    long countByDocumentIdAndVoteResult(Long documentId, String voteResult);
-
-    long countByDocumentIdAndVoteResultIsNotNull(Long documentId);
-
-    long countByQuizId(Long quizId);
-
-    long countByQuizIdAndVoteResult(Long quizId, String voteResult);
-
-    long countByQuizIdAndVoteResultIsNotNull(Long quizId);
-
-    long countByFlashcardDeckId(Long flashcardDeckId);
-
-    long countByFlashcardDeckIdAndVoteResult(Long flashcardDeckId, String voteResult);
-
-    long countByFlashcardDeckIdAndVoteResultIsNotNull(Long flashcardDeckId);
-
-    // ── Marketplace vote: kiểm tra trùng lặp (voteResult IS NOT NULL = marketplace vote) (BE-046) ──
-    boolean existsByReviewerIdAndDocumentIdAndVoteResultIsNotNull(Long reviewerId, Long documentId);
-
-    boolean existsByReviewerIdAndQuizIdAndVoteResultIsNotNull(Long reviewerId, Long quizId);
-
-    boolean existsByReviewerIdAndFlashcardDeckIdAndVoteResultIsNotNull(Long reviewerId, Long flashcardDeckId);
+    // Marketplace decisions are isolated by submission round.
+    boolean existsBySubmissionIdAndReviewerId(Long submissionId, Long reviewerId);
+    long countBySubmissionIdAndVoteResultIsNotNull(Long submissionId);
+    long countBySubmissionIdAndVoteResult(Long submissionId, String voteResult);
 
     // ── Community review: kiểm tra trùng lặp (voteResult IS NULL = review cộng đồng) ──
     Optional<MarketReview> findByReviewerIdAndDocumentIdAndVoteResultIsNull(Long reviewerId, Long documentId);

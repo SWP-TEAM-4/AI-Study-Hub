@@ -61,6 +61,7 @@ public class MarketPlaceService {
     private final FlashcardDeckRepository flashcardDeckRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final ActivityLogService activityLogService;
+    private final MarketplaceSubmissionService marketplaceSubmissionService;
 
     /**
      * Gửi yêu cầu đăng tải một tài liệu học tập (Document) lên Marketplace.
@@ -105,6 +106,8 @@ public class MarketPlaceService {
         if (document.getProcessingStatus() != ProcessingStatus.SUCCESS) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Document processing is not successful yet.");
         }
+        assertCanSubmit(document.getMarketStatus());
+        marketplaceSubmissionService.create("DOCUMENT", document.getId(), document.getSubject(), document.getUser(), note);
         // Bước 7: Cập nhật Visibility, MarketStatus và SubmitNote
         document.setVisibility(Visibility.MARKETPLACE);
         document.setMarketStatus(MarketStatus.PENDING);
@@ -172,6 +175,8 @@ public class MarketPlaceService {
         if (questions == null || questions.isEmpty()) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Quiz must contain at least one question.");
         }
+        assertCanSubmit(quiz.getMarketStatus());
+        marketplaceSubmissionService.create("QUIZ", quiz.getId(), quiz.getSubject(), quiz.getCreator(), note);
         // Bước 7: Cập nhật Visibility, MarketStatus và SubmitNote
         quiz.setVisibility(Visibility.MARKETPLACE);
         quiz.setMarketStatus(MarketStatus.PENDING);
@@ -233,6 +238,8 @@ public class MarketPlaceService {
         if (deck.getCards() == null || deck.getCards().isEmpty()) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Flashcard deck must contain at least one card.");
         }
+        assertCanSubmit(deck.getMarketStatus());
+        marketplaceSubmissionService.create("FLASHCARD_DECK", deck.getId(), deck.getSubject(), deck.getUser(), note);
         // Bước 6: Cập nhật Visibility, MarketStatus và SubmitNote
         deck.setVisibility(Visibility.MARKETPLACE);
         deck.setMarketStatus(MarketStatus.PENDING);
@@ -542,5 +549,14 @@ public class MarketPlaceService {
 
         // 7. Đóng gói kết quả phân trang trả về cho client
         return PaginationResponse.of(pageItems, page, size, totalElements);
+    }
+
+    private void assertCanSubmit(MarketStatus status) {
+        if (status == MarketStatus.PENDING) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Content is already pending review");
+        }
+        if (status == MarketStatus.APPROVED) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Approved content cannot be submitted again");
+        }
     }
 }

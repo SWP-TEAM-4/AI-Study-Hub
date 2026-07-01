@@ -17,4 +17,9 @@ public class MarketPendingItemResponse {
     private Long targetId;
     private String title;
     private LocalDateTime submittedAt;
+    private Long subjectId;
+    private Long ownerId;
+    private boolean adminRequired;
+    private String policyMode;
+    private Integer requiredVotes;
 }

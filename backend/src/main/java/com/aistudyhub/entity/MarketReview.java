@@ -3,6 +3,8 @@ package com.aistudyhub.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
 
@@ -11,7 +13,8 @@ import java.time.LocalDateTime;
  * Owner: BE3 (Task BE-030)
  */
 @Entity
-@Table(name = "market_reviews")
+@Table(name = "market_reviews", uniqueConstraints =
+        @UniqueConstraint(name = "uk_market_review_submission_reviewer", columnNames = {"submission_id", "reviewer_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,6 +29,11 @@ public class MarketReview {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewer_id", nullable = false)
     private User reviewer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "submission_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private MarketplaceSubmission submission;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id")

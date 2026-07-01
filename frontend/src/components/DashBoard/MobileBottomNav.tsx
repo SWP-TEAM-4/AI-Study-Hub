@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 import { useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useCapabilities } from "../../hooks/useCapabilities";
 
 export function MobileBottomNav() {
   const { t, i18n } = useTranslation();
@@ -13,6 +14,7 @@ export function MobileBottomNav() {
   const { toggle: toggleSearch } = useCommandPalette();
   const { logout, user } = useAuthStore();
   const userRole = user?.role ?? "STUDENT";
+  const { data: capabilities } = useCapabilities();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [langTarget, setLangTarget] = useState("vi");
 
@@ -118,7 +120,7 @@ export function MobileBottomNav() {
                 </button>
 
                 {/* Kiểm duyệt */}
-                {(userRole === "ADMIN" || userRole === "REVIEWER") && (
+                {(userRole === "ADMIN" || capabilities?.canReviewMarketplace) && (
                   <button
                     onClick={() => handleMoreItemClick("/reviewer")}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-sm font-semibold text-foreground transition-colors"

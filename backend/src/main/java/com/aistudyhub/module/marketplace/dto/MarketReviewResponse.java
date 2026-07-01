@@ -22,6 +22,14 @@ public class MarketReviewResponse {
     private String voteResult; // "APPROVED", "REJECTED"
     private String reviewNote;
     private LocalDateTime createdAt;
+    private Long submissionId;
+    private String submissionStatus;
+    private Long approvedVotes;
+    private Long rejectedVotes;
+    private Long totalVotes;
+    private Integer requiredVotes;
+    private Integer approvalPercentageRequired;
+    private boolean decisionReached;
 
     /**
      * Map MarketReview entity to MarketReviewResponse DTO.

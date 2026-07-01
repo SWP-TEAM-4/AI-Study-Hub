@@ -130,7 +130,13 @@ export default function ReviewerPage() {
       );
       
       if (res.success) {
-        Notify.success(voteResult === "APPROVED" ? "Đã duyệt và phát sóng nội dung!" : "Đã từ chối và cách ly nội dung!");
+        if (res.data.decisionReached) {
+          Notify.success(res.data.submissionStatus === "APPROVED"
+            ? "Nội dung đã đủ điều kiện và được xuất bản."
+            : "Nội dung đã đủ điều kiện và bị từ chối.");
+        } else {
+          Notify.info(`Đã ghi nhận vote (${res.data.totalVotes}/${res.data.requiredVotes}). Nội dung vẫn đang chờ.`);
+        }
         // Remove item from queue
         setQueue(prev => prev.filter(c => !(c.targetType === selectedItem.targetType && c.targetId === selectedItem.targetId)));
         setSelectedItem(null);

@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import com.aistudyhub.module.user.dto.UserCapabilitiesResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -103,6 +104,24 @@ public class CommunityPermissionService {
         return hasScopedPermission(userId, ContentTarget.of(scopeType, scopeId),
                 CommunityRoleType.CONTENT_MODERATOR,
                 CommunityRoleType.SUBJECT_MODERATOR);
+    }
+
+    @Transactional(readOnly = true)
+    public UserCapabilitiesResponse getCapabilities(Long userId) {
+        boolean admin = isAdmin(userId);
+        LocalDateTime now = LocalDateTime.now();
+        boolean reviewer = admin || hasAnyMarketplaceReviewerRole(userId, now);
+        boolean moderator = admin || communityRoleRepository.existsAnyActiveRoleByUserIdAndRoleTypes(
+                userId, List.of(CommunityRoleType.CONTENT_MODERATOR, CommunityRoleType.SUBJECT_MODERATOR),
+                CommunityRoleStatus.ACTIVE, now);
+        return UserCapabilitiesResponse.builder().admin(admin).canReviewMarketplace(reviewer)
+                .canModerateReports(moderator).build();
+    }
+
+    private boolean hasAnyMarketplaceReviewerRole(Long userId, LocalDateTime now) {
+        return userId != null && communityRoleRepository.existsAnyActiveRoleByUserIdAndRoleTypes(
+                userId, List.of(CommunityRoleType.REVIEWER, CommunityRoleType.MARKETPLACE_REVIEWER),
+                CommunityRoleStatus.ACTIVE, now);
     }
 
     @Transactional(readOnly = true)

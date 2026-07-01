@@ -10,6 +10,7 @@ import Loader from "./components/LoginPage/Loader/Loader";
 import { AppShell } from "./components/DashBoard/AppShell";
 import NotFoundPage from "./pages/NotFoundPage";
 import { Toaster } from "sonner";
+import { useCapabilities } from "./hooks/useCapabilities";
 
 // Pages (Lazy Loaded)
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -36,6 +37,7 @@ export default function App() {
 
   // Lấy role từ store (đã được persist, không cần parse localStorage thủ công)
   const userRole = user?.role ?? "STUDENT";
+  const { data: capabilities, isLoading: capabilitiesLoading } = useCapabilities(isLoggedIn);
 
   const handleLoginSuccess = (token?: string, userData?: any) => {
     setIsLoginLoading(true);
@@ -64,7 +66,7 @@ export default function App() {
     navigate("/", { replace: true });
   };
 
-  if (isLoginLoading) return <Loader />;
+  if (isLoginLoading || (isLoggedIn && capabilitiesLoading)) return <Loader />;
 
   const landingElement = isLoggedIn ? (
     <Navigate to="/dashboard" replace />
@@ -139,7 +141,7 @@ export default function App() {
               <Route path="/admin/:tab" element={<AdminPage />} />
             </>
           )}
-          {(userRole === "REVIEWER" || userRole === "ADMIN") && (
+          {(capabilities?.canReviewMarketplace || userRole === "ADMIN") && (
             <Route path="/reviewer" element={
               <Suspense fallback={<Loader />}>
                 <ReviewerPage />

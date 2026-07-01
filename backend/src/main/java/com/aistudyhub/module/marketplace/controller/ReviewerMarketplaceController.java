@@ -74,8 +74,10 @@ public class ReviewerMarketplaceController {
     @PatchMapping("/api/admin/marketplace/{targetType}/{targetId}/approve")
     public ResponseEntity<ApiResponse<MarketReviewResponse>> adminApprove(
             @PathVariable String targetType,
-            @PathVariable Long targetId) {
-        return ResponseEntity.ok(ApiResponse.success(marketReviewService.adminApprove(targetType, targetId)));
+            @PathVariable Long targetId,
+            @RequestBody(required = false) MarketReviewRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(marketReviewService.adminApprove(targetType, targetId,
+                request != null ? request.getReviewNote() : null)));
     }
 
     @Operation(summary = "Admin reject thủ công nội dung marketplace")
@@ -83,7 +85,9 @@ public class ReviewerMarketplaceController {
     @PatchMapping("/api/admin/marketplace/{targetType}/{targetId}/reject")
     public ResponseEntity<ApiResponse<MarketReviewResponse>> adminReject(
             @PathVariable String targetType,
-            @PathVariable Long targetId) {
-        return ResponseEntity.ok(ApiResponse.success(marketReviewService.adminReject(targetType, targetId)));
+            @PathVariable Long targetId,
+            @RequestBody(required = false) MarketReviewRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(marketReviewService.adminReject(targetType, targetId,
+                request != null ? request.getReviewNote() : null)));
     }
 }

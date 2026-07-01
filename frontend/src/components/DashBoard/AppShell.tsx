@@ -45,6 +45,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 const Spline = lazy(() => import("@splinetool/react-spline"));
 import { FeedbackModal } from "../ui/FeedbackModal";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useCapabilities } from "../../hooks/useCapabilities";
 
 
 const nav = [
@@ -89,6 +90,7 @@ export function AppShell() {
   // Lấy user info từ zustand store (không parse localStorage thủ công)
   const { user: authUser } = useAuthStore();
   const userRole = authUser?.role ?? "STUDENT";
+  const { data: capabilities } = useCapabilities();
 
   // Mobile Drawer & Sidebar Toggle State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -416,7 +418,7 @@ export function AppShell() {
               )}
 
               {/* Kiểm duyệt */}
-              {(userRole === "ADMIN" || userRole === "REVIEWER") && (
+              {(userRole === "ADMIN" || capabilities?.canReviewMarketplace) && (
                 <div>
                   <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
                     Kiểm duyệt

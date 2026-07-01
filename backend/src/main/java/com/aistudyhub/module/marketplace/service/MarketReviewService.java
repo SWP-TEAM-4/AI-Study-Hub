@@ -15,8 +15,6 @@ import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.module.marketplace.dto.*;
 import com.aistudyhub.module.notification.service.NotificationService;
-import com.aistudyhub.module.systemconfig.SystemConfigKeys;
-import com.aistudyhub.module.systemconfig.service.SystemConfigService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -51,12 +49,10 @@ public class MarketReviewService {
     private final CommunityPermissionService communityPermissionService;
     private final CommunityRoleRepository communityRoleRepository;
     private final ActivityLogService activityLogService;
-    private final SystemConfigService systemConfigService;
     private final NotificationService notificationService;
-
-    // ── Constants ────────────────────────────────────────────────────────────
-    private static final int DEFAULT_MIN_REVIEWS = 3;
-    private static final int DEFAULT_ACCEPT_PERCENTAGE = 70;
+    private final MarketplaceSubmissionService marketplaceSubmissionService;
+    private final MarketplaceSubmissionRepository marketplaceSubmissionRepository;
+    private final ReviewPolicyService reviewPolicyService;
 
     // ══════════════════════════════════════════════════════════════════════════
     // GET /api/reviewer/marketplace/pending — Pending Queue
@@ -109,6 +105,7 @@ public class MarketReviewService {
         Specification<Document> docSpec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("marketStatus"), MarketStatus.PENDING));
+            if (!isAdmin) predicates.add(cb.notEqual(root.get("user").get("id"), currentUser.getId()));
 
             if (restrictBySubjects) {
                 if (allowedSubjectIds.isEmpty()) {
@@ -144,6 +141,7 @@ public class MarketReviewService {
         Specification<Quiz> quizSpec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("marketStatus"), MarketStatus.PENDING));
+            if (!isAdmin) predicates.add(cb.notEqual(root.get("creator").get("id"), currentUser.getId()));
 
             if (restrictBySubjects) {
                 if (allowedSubjectIds.isEmpty()) {
@@ -179,6 +177,7 @@ public class MarketReviewService {
         Specification<FlashcardDeck> deckSpec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("marketStatus"), MarketStatus.PENDING));
+            if (!isAdmin) predicates.add(cb.notEqual(root.get("user").get("id"), currentUser.getId()));
 
             if (restrictBySubjects) {
                 if (allowedSubjectIds.isEmpty()) {
@@ -211,27 +210,39 @@ public class MarketReviewService {
         // 4. Combine into a unified pending list
         List<MarketPendingItemResponse> items = new ArrayList<>();
         for (Document doc : docs) {
+            QueuePolicy queuePolicy = resolveQueuePolicy("DOCUMENT", doc.getId(), doc.getSubject().getId(), doc.getUser().getId());
             items.add(MarketPendingItemResponse.builder()
                     .targetType("DOCUMENT")
                     .targetId(doc.getId())
                     .title(doc.getTitle())
                     .submittedAt(doc.getUpdatedAt())
+                    .subjectId(doc.getSubject().getId()).ownerId(doc.getUser().getId())
+                    .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
+                    .requiredVotes(queuePolicy.requiredVotes())
                     .build());
         }
         for (Quiz quiz : quizzes) {
+            QueuePolicy queuePolicy = resolveQueuePolicy("QUIZ", quiz.getId(), quiz.getSubject().getId(), quiz.getCreator().getId());
             items.add(MarketPendingItemResponse.builder()
                     .targetType("QUIZ")
                     .targetId(quiz.getId())
                     .title(quiz.getTitle())
                     .submittedAt(quiz.getUpdatedAt())
+                    .subjectId(quiz.getSubject().getId()).ownerId(quiz.getCreator().getId())
+                    .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
+                    .requiredVotes(queuePolicy.requiredVotes())
                     .build());
         }
         for (FlashcardDeck deck : decks) {
+            QueuePolicy queuePolicy = resolveQueuePolicy("FLASHCARD_DECK", deck.getId(), deck.getSubject().getId(), deck.getUser().getId());
             items.add(MarketPendingItemResponse.builder()
                     .targetType("FLASHCARD_DECK")
                     .targetId(deck.getId())
                     .title(deck.getTitle())
                     .submittedAt(deck.getUpdatedAt())
+                    .subjectId(deck.getSubject().getId()).ownerId(deck.getUser().getId())
+                    .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
+                    .requiredVotes(queuePolicy.requiredVotes())
                     .build());
         }
 
@@ -324,14 +335,14 @@ public class MarketReviewService {
      * Admin overrides the vote queue and directly approves a marketplace item.
      */
     @Transactional
-    public MarketReviewResponse adminApprove(String targetType, Long targetId) {
+    public MarketReviewResponse adminApprove(String targetType, Long targetId, String reviewNote) {
         User admin = userService.getCurrentUser();
         String type = parseTargetType(targetType);
 
         return switch (type) {
-            case "DOCUMENT" -> adminApproveDocument(admin, targetId);
-            case "QUIZ" -> adminApproveQuiz(admin, targetId);
-            case "FLASHCARD_DECK" -> adminApproveFlashcardDeck(admin, targetId);
+            case "DOCUMENT" -> adminApproveDocument(admin, targetId, reviewNote);
+            case "QUIZ" -> adminApproveQuiz(admin, targetId, reviewNote);
+            case "FLASHCARD_DECK" -> adminApproveFlashcardDeck(admin, targetId, reviewNote);
             default -> throw new AppException(ErrorCode.VALIDATION_ERROR,
                     "Invalid targetType. Must be DOCUMENT, QUIZ, or FLASHCARD_DECK");
         };
@@ -345,14 +356,14 @@ public class MarketReviewService {
      * Admin overrides the vote queue and directly rejects a marketplace item.
      */
     @Transactional
-    public MarketReviewResponse adminReject(String targetType, Long targetId) {
+    public MarketReviewResponse adminReject(String targetType, Long targetId, String reviewNote) {
         User admin = userService.getCurrentUser();
         String type = parseTargetType(targetType);
 
         return switch (type) {
-            case "DOCUMENT" -> adminRejectDocument(admin, targetId);
-            case "QUIZ" -> adminRejectQuiz(admin, targetId);
-            case "FLASHCARD_DECK" -> adminRejectFlashcardDeck(admin, targetId);
+            case "DOCUMENT" -> adminRejectDocument(admin, targetId, reviewNote);
+            case "QUIZ" -> adminRejectQuiz(admin, targetId, reviewNote);
+            case "FLASHCARD_DECK" -> adminRejectFlashcardDeck(admin, targetId, reviewNote);
             default -> throw new AppException(ErrorCode.VALIDATION_ERROR,
                     "Invalid targetType. Must be DOCUMENT, QUIZ, or FLASHCARD_DECK");
         };
@@ -372,15 +383,19 @@ public class MarketReviewService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Document is not pending review");
         }
 
+        assertNotOwner(reviewer, document.getUser());
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "DOCUMENT", documentId, document.getSubject(), document.getUser());
+
         // Check duplicate vote
-        if (marketReviewRepository.existsByReviewerIdAndDocumentIdAndVoteResultIsNotNull(
-                reviewer.getId(), documentId)) {
+        if (marketReviewRepository.existsBySubmissionIdAndReviewerId(submission.getId(), reviewer.getId())) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "You have already voted for this item");
         }
 
         // Save vote (do NOT set marketStatus yet)
         MarketReview review = MarketReview.builder()
                 .reviewer(reviewer)
+                .submission(submission)
                 .document(document)
                 .voteResult(request.getVoteResult().toUpperCase())
                 .reviewNote(request.getReviewNote())
@@ -388,8 +403,8 @@ public class MarketReviewService {
         review = marketReviewRepository.save(review);
 
         // Update statistics
-        long totalReviews = marketReviewRepository.countByDocumentIdAndVoteResultIsNotNull(documentId);
-        long approvedReviews = marketReviewRepository.countByDocumentIdAndVoteResult(documentId, "APPROVED");
+        long totalReviews = marketReviewRepository.countBySubmissionIdAndVoteResultIsNotNull(submission.getId());
+        long approvedReviews = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "APPROVED");
         BigDecimal acceptPercentage = totalReviews > 0
                 ? BigDecimal.valueOf((double) approvedReviews / totalReviews * 100)
                         .setScale(2, RoundingMode.HALF_UP)
@@ -399,12 +414,13 @@ public class MarketReviewService {
         document.setAcceptPercentage(acceptPercentage);
 
         // Check auto-approve/reject threshold
-        checkAutoApproveReject(document.getMarketStatus(), totalReviews, acceptPercentage, () -> {
+        ReviewDecision decision = evaluateSubmission(submission, reviewer, () -> {
             document.setMarketStatus(MarketStatus.APPROVED);
             document.setVisibility(Visibility.MARKETPLACE);
             notifyAuthor(document.getUser().getId(), document.getTitle(), true);
         }, () -> {
             document.setMarketStatus(MarketStatus.REJECTED);
+            document.setVisibility(Visibility.PRIVATE);
             notifyAuthor(document.getUser().getId(), document.getTitle(), false);
         });
 
@@ -416,7 +432,7 @@ public class MarketReviewService {
                 document.getSubject() != null ? document.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
 
-        return MarketReviewResponse.fromEntity(review, "DOCUMENT", documentId);
+        return toReviewResponse(review, "DOCUMENT", documentId, submission, decision);
     }
 
     private MarketReviewResponse voteForQuiz(User reviewer, Long quizId, MarketReviewRequest request) {
@@ -429,21 +445,25 @@ public class MarketReviewService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Quiz is not pending review");
         }
 
-        if (marketReviewRepository.existsByReviewerIdAndQuizIdAndVoteResultIsNotNull(
-                reviewer.getId(), quizId)) {
+        assertNotOwner(reviewer, quiz.getCreator());
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "QUIZ", quizId, quiz.getSubject(), quiz.getCreator());
+
+        if (marketReviewRepository.existsBySubmissionIdAndReviewerId(submission.getId(), reviewer.getId())) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "You have already voted for this item");
         }
 
         MarketReview review = MarketReview.builder()
                 .reviewer(reviewer)
+                .submission(submission)
                 .quiz(quiz)
                 .voteResult(request.getVoteResult().toUpperCase())
                 .reviewNote(request.getReviewNote())
                 .build();
         review = marketReviewRepository.save(review);
 
-        long totalReviews = marketReviewRepository.countByQuizIdAndVoteResultIsNotNull(quizId);
-        long approvedReviews = marketReviewRepository.countByQuizIdAndVoteResult(quizId, "APPROVED");
+        long totalReviews = marketReviewRepository.countBySubmissionIdAndVoteResultIsNotNull(submission.getId());
+        long approvedReviews = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "APPROVED");
         BigDecimal acceptPercentage = totalReviews > 0
                 ? BigDecimal.valueOf((double) approvedReviews / totalReviews * 100)
                         .setScale(2, RoundingMode.HALF_UP)
@@ -452,12 +472,13 @@ public class MarketReviewService {
         quiz.setReviewCount((int) totalReviews);
         quiz.setAcceptPercentage(acceptPercentage);
 
-        checkAutoApproveReject(quiz.getMarketStatus(), totalReviews, acceptPercentage, () -> {
+        ReviewDecision decision = evaluateSubmission(submission, reviewer, () -> {
             quiz.setMarketStatus(MarketStatus.APPROVED);
             quiz.setVisibility(Visibility.MARKETPLACE);
             notifyAuthor(quiz.getCreator().getId(), quiz.getTitle(), true);
         }, () -> {
             quiz.setMarketStatus(MarketStatus.REJECTED);
+            quiz.setVisibility(Visibility.PRIVATE);
             notifyAuthor(quiz.getCreator().getId(), quiz.getTitle(), false);
         });
 
@@ -469,7 +490,7 @@ public class MarketReviewService {
                 quiz.getSubject() != null ? quiz.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
 
-        return MarketReviewResponse.fromEntity(review, "QUIZ", quizId);
+        return toReviewResponse(review, "QUIZ", quizId, submission, decision);
     }
 
     private MarketReviewResponse voteForFlashcardDeck(User reviewer, Long deckId, MarketReviewRequest request) {
@@ -482,21 +503,25 @@ public class MarketReviewService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Flashcard deck is not pending review");
         }
 
-        if (marketReviewRepository.existsByReviewerIdAndFlashcardDeckIdAndVoteResultIsNotNull(
-                reviewer.getId(), deckId)) {
+        assertNotOwner(reviewer, deck.getUser());
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "FLASHCARD_DECK", deckId, deck.getSubject(), deck.getUser());
+
+        if (marketReviewRepository.existsBySubmissionIdAndReviewerId(submission.getId(), reviewer.getId())) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "You have already voted for this item");
         }
 
         MarketReview review = MarketReview.builder()
                 .reviewer(reviewer)
+                .submission(submission)
                 .flashcardDeck(deck)
                 .voteResult(request.getVoteResult().toUpperCase())
                 .reviewNote(request.getReviewNote())
                 .build();
         review = marketReviewRepository.save(review);
 
-        long totalReviews = marketReviewRepository.countByFlashcardDeckIdAndVoteResultIsNotNull(deckId);
-        long approvedReviews = marketReviewRepository.countByFlashcardDeckIdAndVoteResult(deckId, "APPROVED");
+        long totalReviews = marketReviewRepository.countBySubmissionIdAndVoteResultIsNotNull(submission.getId());
+        long approvedReviews = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "APPROVED");
         BigDecimal acceptPercentage = totalReviews > 0
                 ? BigDecimal.valueOf((double) approvedReviews / totalReviews * 100)
                         .setScale(2, RoundingMode.HALF_UP)
@@ -505,12 +530,13 @@ public class MarketReviewService {
         deck.setReviewCount((int) totalReviews);
         deck.setAcceptPercentage(acceptPercentage);
 
-        checkAutoApproveReject(deck.getMarketStatus(), totalReviews, acceptPercentage, () -> {
+        ReviewDecision decision = evaluateSubmission(submission, reviewer, () -> {
             deck.setMarketStatus(MarketStatus.APPROVED);
             deck.setVisibility(Visibility.MARKETPLACE);
             notifyAuthor(deck.getUser().getId(), deck.getTitle(), true);
         }, () -> {
             deck.setMarketStatus(MarketStatus.REJECTED);
+            deck.setVisibility(Visibility.PRIVATE);
             notifyAuthor(deck.getUser().getId(), deck.getTitle(), false);
         });
 
@@ -522,22 +548,25 @@ public class MarketReviewService {
                 deck.getSubject() != null ? deck.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
 
-        return MarketReviewResponse.fromEntity(review, "FLASHCARD_DECK", deckId);
+        return toReviewResponse(review, "FLASHCARD_DECK", deckId, submission, decision);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
     // Private — Admin Override Logic
     // ══════════════════════════════════════════════════════════════════════════
 
-    private MarketReviewResponse adminApproveDocument(User admin, Long documentId) {
+    private MarketReviewResponse adminApproveDocument(User admin, Long documentId, String reviewNote) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
         assertPendingReview(document.getMarketStatus(), "Document");
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "DOCUMENT", documentId, document.getSubject(), document.getUser());
         document.setMarketStatus(MarketStatus.APPROVED);
         document.setVisibility(Visibility.MARKETPLACE);
         documentRepository.save(document);
 
-        MarketReview review = saveAdminReview(admin, "APPROVED", "Approved by admin");
+        MarketReview review = saveAdminReview(admin, "APPROVED", normalizeAdminNote(reviewNote, "Approved by admin"));
+        review.setSubmission(submission);
         review.setDocument(document);
         review = marketReviewRepository.save(review);
 
@@ -548,18 +577,21 @@ public class MarketReviewService {
                 document.getAcceptPercentage());
 
         log.info("Document id={} admin-approved by admin id={}", documentId, admin.getId());
-        return MarketReviewResponse.fromEntity(review, "DOCUMENT", documentId);
+        return completeAdminDecision(review, "DOCUMENT", documentId, submission, admin, MarketStatus.APPROVED);
     }
 
-    private MarketReviewResponse adminApproveQuiz(User admin, Long quizId) {
+    private MarketReviewResponse adminApproveQuiz(User admin, Long quizId, String reviewNote) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
         assertPendingReview(quiz.getMarketStatus(), "Quiz");
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "QUIZ", quizId, quiz.getSubject(), quiz.getCreator());
         quiz.setMarketStatus(MarketStatus.APPROVED);
         quiz.setVisibility(Visibility.MARKETPLACE);
         quizRepository.save(quiz);
 
-        MarketReview review = saveAdminReview(admin, "APPROVED", "Approved by admin");
+        MarketReview review = saveAdminReview(admin, "APPROVED", normalizeAdminNote(reviewNote, "Approved by admin"));
+        review.setSubmission(submission);
         review.setQuiz(quiz);
         review = marketReviewRepository.save(review);
 
@@ -570,18 +602,21 @@ public class MarketReviewService {
                 quiz.getAcceptPercentage());
 
         log.info("Quiz id={} admin-approved by admin id={}", quizId, admin.getId());
-        return MarketReviewResponse.fromEntity(review, "QUIZ", quizId);
+        return completeAdminDecision(review, "QUIZ", quizId, submission, admin, MarketStatus.APPROVED);
     }
 
-    private MarketReviewResponse adminApproveFlashcardDeck(User admin, Long deckId) {
+    private MarketReviewResponse adminApproveFlashcardDeck(User admin, Long deckId, String reviewNote) {
         FlashcardDeck deck = flashcardDeckRepository.findById(deckId)
                 .orElseThrow(() -> new AppException(ErrorCode.FLASHCARD_DECK_NOT_FOUND));
         assertPendingReview(deck.getMarketStatus(), "Flashcard deck");
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "FLASHCARD_DECK", deckId, deck.getSubject(), deck.getUser());
         deck.setMarketStatus(MarketStatus.APPROVED);
         deck.setVisibility(Visibility.MARKETPLACE);
         flashcardDeckRepository.save(deck);
 
-        MarketReview review = saveAdminReview(admin, "APPROVED", "Approved by admin");
+        MarketReview review = saveAdminReview(admin, "APPROVED", normalizeAdminNote(reviewNote, "Approved by admin"));
+        review.setSubmission(submission);
         review.setFlashcardDeck(deck);
         review = marketReviewRepository.save(review);
 
@@ -592,17 +627,21 @@ public class MarketReviewService {
                 deck.getAcceptPercentage());
 
         log.info("FlashcardDeck id={} admin-approved by admin id={}", deckId, admin.getId());
-        return MarketReviewResponse.fromEntity(review, "FLASHCARD_DECK", deckId);
+        return completeAdminDecision(review, "FLASHCARD_DECK", deckId, submission, admin, MarketStatus.APPROVED);
     }
 
-    private MarketReviewResponse adminRejectDocument(User admin, Long documentId) {
+    private MarketReviewResponse adminRejectDocument(User admin, Long documentId, String reviewNote) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
         assertPendingReview(document.getMarketStatus(), "Document");
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "DOCUMENT", documentId, document.getSubject(), document.getUser());
         document.setMarketStatus(MarketStatus.REJECTED);
+        document.setVisibility(Visibility.PRIVATE);
         documentRepository.save(document);
 
-        MarketReview review = saveAdminReview(admin, "REJECTED", "Rejected by admin");
+        MarketReview review = saveAdminReview(admin, "REJECTED", normalizeAdminNote(reviewNote, "Rejected by admin"));
+        review.setSubmission(submission);
         review.setDocument(document);
         review = marketReviewRepository.save(review);
 
@@ -613,17 +652,21 @@ public class MarketReviewService {
                 document.getAcceptPercentage());
 
         log.info("Document id={} admin-rejected by admin id={}", documentId, admin.getId());
-        return MarketReviewResponse.fromEntity(review, "DOCUMENT", documentId);
+        return completeAdminDecision(review, "DOCUMENT", documentId, submission, admin, MarketStatus.REJECTED);
     }
 
-    private MarketReviewResponse adminRejectQuiz(User admin, Long quizId) {
+    private MarketReviewResponse adminRejectQuiz(User admin, Long quizId, String reviewNote) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
         assertPendingReview(quiz.getMarketStatus(), "Quiz");
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "QUIZ", quizId, quiz.getSubject(), quiz.getCreator());
         quiz.setMarketStatus(MarketStatus.REJECTED);
+        quiz.setVisibility(Visibility.PRIVATE);
         quizRepository.save(quiz);
 
-        MarketReview review = saveAdminReview(admin, "REJECTED", "Rejected by admin");
+        MarketReview review = saveAdminReview(admin, "REJECTED", normalizeAdminNote(reviewNote, "Rejected by admin"));
+        review.setSubmission(submission);
         review.setQuiz(quiz);
         review = marketReviewRepository.save(review);
 
@@ -634,17 +677,21 @@ public class MarketReviewService {
                 quiz.getAcceptPercentage());
 
         log.info("Quiz id={} admin-rejected by admin id={}", quizId, admin.getId());
-        return MarketReviewResponse.fromEntity(review, "QUIZ", quizId);
+        return completeAdminDecision(review, "QUIZ", quizId, submission, admin, MarketStatus.REJECTED);
     }
 
-    private MarketReviewResponse adminRejectFlashcardDeck(User admin, Long deckId) {
+    private MarketReviewResponse adminRejectFlashcardDeck(User admin, Long deckId, String reviewNote) {
         FlashcardDeck deck = flashcardDeckRepository.findById(deckId)
                 .orElseThrow(() -> new AppException(ErrorCode.FLASHCARD_DECK_NOT_FOUND));
         assertPendingReview(deck.getMarketStatus(), "Flashcard deck");
+        MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
+                "FLASHCARD_DECK", deckId, deck.getSubject(), deck.getUser());
         deck.setMarketStatus(MarketStatus.REJECTED);
+        deck.setVisibility(Visibility.PRIVATE);
         flashcardDeckRepository.save(deck);
 
-        MarketReview review = saveAdminReview(admin, "REJECTED", "Rejected by admin");
+        MarketReview review = saveAdminReview(admin, "REJECTED", normalizeAdminNote(reviewNote, "Rejected by admin"));
+        review.setSubmission(submission);
         review.setFlashcardDeck(deck);
         review = marketReviewRepository.save(review);
 
@@ -655,7 +702,7 @@ public class MarketReviewService {
                 deck.getAcceptPercentage());
 
         log.info("FlashcardDeck id={} admin-rejected by admin id={}", deckId, admin.getId());
-        return MarketReviewResponse.fromEntity(review, "FLASHCARD_DECK", deckId);
+        return completeAdminDecision(review, "FLASHCARD_DECK", deckId, submission, admin, MarketStatus.REJECTED);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -684,6 +731,99 @@ public class MarketReviewService {
         }
     }
 
+    private void assertNotOwner(User reviewer, User owner) {
+        if (reviewer.getId().equals(owner.getId())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Content owners cannot review their own marketplace submission");
+        }
+    }
+
+    private ReviewDecision evaluateSubmission(MarketplaceSubmission original,
+            User decisionActor,
+            Runnable onApprove,
+            Runnable onReject) {
+        MarketplaceSubmission submission = marketplaceSubmissionRepository.findByIdForUpdate(original.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Submission not found"));
+        if (submission.getStatus() != MarketStatus.PENDING) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Marketplace submission has already been decided");
+        }
+
+        long total = marketReviewRepository.countBySubmissionIdAndVoteResultIsNotNull(submission.getId());
+        long approved = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "APPROVED");
+        long rejected = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "REJECTED");
+        BigDecimal percentage = total == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf((double) approved / total * 100).setScale(2, RoundingMode.HALF_UP);
+        boolean reached = total >= submission.getRequiredVotesSnapshot();
+
+        if (reached) {
+            if (percentage.compareTo(BigDecimal.valueOf(submission.getApprovalPercentageSnapshot())) >= 0) {
+                submission.setStatus(MarketStatus.APPROVED);
+                onApprove.run();
+            } else {
+                submission.setStatus(MarketStatus.REJECTED);
+                onReject.run();
+            }
+            submission.setDecidedAt(LocalDateTime.now());
+            submission.setDecidedBy(decisionActor);
+            marketplaceSubmissionRepository.save(submission);
+        }
+        original.setStatus(submission.getStatus());
+        original.setDecidedAt(submission.getDecidedAt());
+        original.setDecidedBy(submission.getDecidedBy());
+        return new ReviewDecision(total, approved, rejected, percentage, reached);
+    }
+
+    private MarketReviewResponse toReviewResponse(MarketReview review, String type, Long targetId,
+            MarketplaceSubmission submission, ReviewDecision decision) {
+        return MarketReviewResponse.builder()
+                .id(review.getId()).reviewerId(review.getReviewer().getId()).targetType(type).targetId(targetId)
+                .voteResult(review.getVoteResult()).reviewNote(review.getReviewNote()).createdAt(review.getCreatedAt())
+                .submissionId(submission.getId()).submissionStatus(submission.getStatus().name())
+                .approvedVotes(decision.approved()).rejectedVotes(decision.rejected()).totalVotes(decision.total())
+                .requiredVotes(submission.getRequiredVotesSnapshot())
+                .approvalPercentageRequired(submission.getApprovalPercentageSnapshot())
+                .decisionReached(decision.reached()).build();
+    }
+
+    private MarketReviewResponse completeAdminDecision(MarketReview review, String type, Long targetId,
+            MarketplaceSubmission submission, User admin, MarketStatus status) {
+        MarketplaceSubmission locked = marketplaceSubmissionRepository.findByIdForUpdate(submission.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Submission not found"));
+        locked.setStatus(status);
+        locked.setDecidedAt(LocalDateTime.now());
+        locked.setDecidedBy(admin);
+        marketplaceSubmissionRepository.save(locked);
+        submission.setStatus(status);
+        long total = marketReviewRepository.countBySubmissionIdAndVoteResultIsNotNull(submission.getId());
+        long approved = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "APPROVED");
+        long rejected = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "REJECTED");
+        return toReviewResponse(review, type, targetId, submission,
+                new ReviewDecision(total, approved, rejected, BigDecimal.ZERO, true));
+    }
+
+    private QueuePolicy resolveQueuePolicy(String type, Long targetId, Long subjectId, Long ownerId) {
+        MarketplaceSubmission submission = marketplaceSubmissionRepository
+                .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(type, targetId, MarketStatus.PENDING)
+                .orElse(null);
+        String mode;
+        int requiredVotes;
+        if (submission != null) {
+            mode = submission.getPolicyModeSnapshot().name();
+            requiredVotes = submission.getRequiredVotesSnapshot();
+        } else {
+            ReviewPolicyResponse policy = reviewPolicyService.resolve(subjectId);
+            mode = policy.getMode().name();
+            requiredVotes = policy.getRequiredVotes();
+        }
+        long eligible = communityRoleRepository.countEligibleSubjectReviewers(subjectId, ownerId,
+                List.of(CommunityRoleType.REVIEWER, CommunityRoleType.MARKETPLACE_REVIEWER),
+                CommunityRoleStatus.ACTIVE, LocalDateTime.now());
+        return new QueuePolicy(mode, requiredVotes, eligible < requiredVotes);
+    }
+
+    private record ReviewDecision(long total, long approved, long rejected, BigDecimal percentage, boolean reached) {}
+    private record QueuePolicy(String mode, int requiredVotes, boolean adminRequired) {}
+
     /**
      * Parse and validate targetType from path variable.
      */
@@ -698,38 +838,6 @@ public class MarketReviewService {
                     "Invalid targetType. Must be DOCUMENT, QUIZ, or FLASHCARD_DECK");
         }
         return normalized;
-    }
-
-    /**
-     * Check auto-approve or auto-reject based on system config thresholds.
-     * Only triggers when marketStatus is still PENDING and reviewCount >=
-     * minReviews.
-     */
-    private void checkAutoApproveReject(MarketStatus currentStatus,
-            long totalReviews,
-            BigDecimal acceptPercentage,
-            Runnable onApprove,
-            Runnable onReject) {
-        if (currentStatus != MarketStatus.PENDING) {
-            return;
-        }
-
-        int minReviews = systemConfigService.getIntValueOrDefault(
-                SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS, DEFAULT_MIN_REVIEWS);
-        int acceptPctThreshold = systemConfigService.getIntValueOrDefault(
-                SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE, DEFAULT_ACCEPT_PERCENTAGE);
-
-        if (totalReviews >= minReviews) {
-            if (acceptPercentage.compareTo(BigDecimal.valueOf(acceptPctThreshold)) >= 0) {
-                log.info("Auto-approve triggered: reviewCount={}, acceptPct={}, threshold={}",
-                        totalReviews, acceptPercentage, acceptPctThreshold);
-                onApprove.run();
-            } else {
-                log.info("Auto-reject triggered: reviewCount={}, acceptPct={}, threshold={}",
-                        totalReviews, acceptPercentage, acceptPctThreshold);
-                onReject.run();
-            }
-        }
     }
 
     /**
@@ -761,6 +869,10 @@ public class MarketReviewService {
                 .voteResult(voteResult)
                 .reviewNote(reviewNote)
                 .build();
+    }
+
+    private String normalizeAdminNote(String note, String fallback) {
+        return note == null || note.isBlank() ? fallback : note.trim();
     }
 
     // ── Mapping Helpers ─────────────────────────────────────────────────────
