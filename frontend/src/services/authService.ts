@@ -55,6 +55,8 @@ export interface ResetPasswordResponseData {
   passwordChanged: boolean;
 }
 
+export type EmptyApiResponseData = null | undefined;
+
 // ─── 2. CORE BASE CONFIGURATION ────────────────────────────────────────────────
 
 // Cấu hình cổng kết nối: Sử dụng relative path để chạy qua proxy/Vercel rewrite 
@@ -153,7 +155,7 @@ export const authService = {
    * 3. POST /api/auth/forgot-password - Tạo token đặt lại mật khẩu khi sinh viên quên thông tin truy cập
    */
   async forgotPassword(email: string) {
-    return authRequest<{ success: boolean; message: string; data?: ForgotPasswordResponseData | null }>(
+    return authRequest<{ success: boolean; message: string; data?: ForgotPasswordResponseData | EmptyApiResponseData }>(
       "/auth/forgot-password",
       { email }
     );
@@ -163,7 +165,7 @@ export const authService = {
    * 4. POST /api/auth/reset-password - Đặt lại mật khẩu bảo mật mới bằng mã xác thực Reset Token
    */
   async resetPassword(resetToken: string, newPassword: string) {
-    return authRequest<{ success: boolean; message: string; data: ResetPasswordResponseData }>(
+    return authRequest<{ success: boolean; message: string; data?: ResetPasswordResponseData | EmptyApiResponseData }>(
       "/auth/reset-password",
       { token: resetToken, newPassword }
     );
