@@ -5,6 +5,7 @@ import { Mail, Lock, User, Sparkles, ArrowRight, ArrowLeft, Check, X, Eye, EyeOf
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation, useNavigate } from "react-router-dom";
 import { authService, type AuthUser } from "../../services/authService";
 import { cn } from "../../lib/utils";
 import type { UserDTO } from "../../services/userService";
@@ -62,6 +63,8 @@ interface LoginPanelProps {
 }
 
 export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset">(() => {
     return (localStorage.getItem("loginPanelMode") as "login" | "signup" | "forgot" | "reset") || "login";
   });
@@ -77,6 +80,25 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   const [resetMessage, setResetMessage] = useState("");
   const formContainerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tokenFromUrl = params.get("token")?.trim();
+
+    if (tokenFromUrl) {
+      setMode("reset");
+      setResetToken(tokenFromUrl);
+      setResetMessage("");
+      setPassword("");
+      setConfirmPassword("");
+      return;
+    }
+
+    if (location.pathname === "/reset-password") {
+      setMode("reset");
+      setResetMessage("");
+    }
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (!formContainerRef.current || showCombo) return;
@@ -239,6 +261,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
         Notify.success("Khôi phục mật khẩu thành công! Vui lòng đăng nhập lại bằng mật khẩu mới.");
         setMode("login");
         setPassword(""); setConfirmPassword(""); setResetToken("");
+        navigate("/login", { replace: true });
       }
     } catch (err: any) {
       Notify.failure(err.message || "Khôi phục mật khẩu thất bại.");
@@ -258,10 +281,10 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
     try {
       const response = await authService.forgotPassword(cleanEmail);
       if (response.success) {
-        const tokenPreview = response.data?.resetTokenPreview;
-        setResetMessage(tokenPreview ? `Yêu cầu thành công. Mã Reset Token Preview: ${tokenPreview}` : response.message);
-        Notify.success("Đã khởi tạo lệnh cấp lại mật khẩu!");
-        setTimeout(() => { setMode("login"); setResetMessage(""); setEmail(""); }, 4000);
+        const message = response.message || "Nếu email tồn tại, link đặt lại mật khẩu đã được gửi.";
+        setResetMessage(message);
+        setEmail("");
+        Notify.success("Nếu email tồn tại, link đặt lại mật khẩu đã được gửi.");
       }
     } catch (err: any) {
       Notify.failure(err.message || "Gửi yêu cầu khôi phục thất bại.");

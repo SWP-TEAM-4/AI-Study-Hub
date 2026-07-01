@@ -85,7 +85,23 @@ export default function App() {
       </motion.div>
     </div>
   );
-
+  const authElement = isLoggedIn ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    <div className="flex w-screen h-screen overflow-hidden bg-space relative">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full h-full flex items-center justify-center relative"
+      >
+        <LoginPanel
+          onLoginSuccess={(token, user) => handleLoginSuccess(token, user)}
+          onClose={() => navigate("/")}
+        />
+      </motion.div>
+    </div>
+  );
   return (
     <>
       <Routes>
@@ -94,29 +110,8 @@ export default function App() {
         <Route path="/privacy-policy" element={landingElement} />
         <Route path="/cookie-settings" element={landingElement} />
 
-        <Route
-          path="/login"
-          element={
-            isLoggedIn ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <div className="flex w-screen h-screen overflow-hidden bg-space relative">
-                <motion.div 
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                  className="w-full h-full flex items-center justify-center relative"
-                >
-                  <LoginPanel
-                    onLoginSuccess={(token, user) => handleLoginSuccess(token, user)}
-                    onClose={() => navigate("/")}
-                  />
-                </motion.div>
-              </div>
-            )
-          }
-        />
-
+        <Route path="/login" element={authElement} />
+        <Route path="/reset-password" element={authElement} />
         <Route path="/share/documents/:token" element={
           <Suspense fallback={<Loader />}>
             <SharedDocumentPage />
