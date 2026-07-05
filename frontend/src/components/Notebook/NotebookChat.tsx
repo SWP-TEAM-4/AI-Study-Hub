@@ -61,6 +61,18 @@ function dateTime(value: string) {
   return new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
+function messageTime(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return new Intl.DateTimeFormat("vi-VN", sameDay
+    ? { hour: "2-digit", minute: "2-digit" }
+    : { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
+  ).format(date);
+}
+
 function DraftSummary({ message, onPreview }: { message: MessageDTO; onPreview: () => void }) {
   const payload = message.generatedPayload;
   if (!payload) return null;
@@ -332,15 +344,90 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-5">
-              {messages.map((message) => <div key={message.id} className={`flex ${message.senderRole === "USER" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[88%] ${message.senderRole === "USER" ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3" : "w-full"}`}>
-                  {message.senderRole === "AI" && <div className="flex items-center gap-2 text-xs font-bold mb-2"><div className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center"><Sparkles size={14} /></div>AI Study Hub</div>}
-                  <div className={`text-sm leading-6 prose prose-sm max-w-none dark:prose-invert ${message.senderRole === "USER" ? "text-primary-foreground" : ""}`}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>
-                  {message.senderRole === "AI" && message.citedSources?.length > 0 && <div className="flex flex-wrap gap-1.5 mt-3">{message.citedSources.map((source, index) => <button key={`${source.documentId}-${index}`} onClick={() => onDocumentClick?.(documents.find((doc) => Number(doc.id) === source.documentId))} className="px-2.5 py-1 rounded-full bg-muted text-[10px] text-muted-foreground hover:text-primary"><FileText size={10} className="inline mr-1" />{source.documentTitle}{source.sourcePage ? ` · tr.${source.sourcePage}` : ""}</button>)}</div>}
-                  {message.senderRole === "AI" && message.generatedPayload && <DraftSummary message={message} onPreview={() => openPreview(message)} />}
-                </div>
-              </div>)}
-              {thinking && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin text-primary" />AI đang đọc tài liệu và tạo phản hồi...</div>}
+              <AnimatePresence initial={false}>
+                {messages.map((message) => {
+                  const isUser = message.senderRole === "USER";
+                  const sentAt = messageTime(message.createdAt);
+                  return (
+                    <motion.div
+                      layout
+                      key={message.id}
+                      initial={{ opacity: 0, y: 18, x: isUser ? 28 : -28, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.72 }}
+                      className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                    >
+                      <motion.div
+                        layout
+                        whileHover={{ y: -1 }}
+                        transition={{ type: "spring", stiffness: 360, damping: 28 }}
+                        className={`max-w-[88%] ${isUser
+                          ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3 shadow-sm shadow-primary/10"
+                          : "w-full rounded-3xl border border-border/60 bg-background/70 px-4 py-3 shadow-sm"
+                        }`}
+                      >
+                        {message.senderRole === "AI" && (
+                          <div className="flex items-center justify-between gap-3 text-xs font-bold mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <motion.div
+                                initial={{ rotate: -10, scale: 0.86 }}
+                                animate={{ rotate: 0, scale: 1 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                                className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0"
+                              >
+                                <Sparkles size={14} />
+                              </motion.div>
+                              <span className="truncate">AI Study Hub</span>
+                            </div>
+                            {sentAt && <span className="shrink-0 text-[10px] font-medium text-muted-foreground">{sentAt}</span>}
+                          </div>
+                        )}
+                        <div className={`text-sm leading-6 prose prose-sm max-w-none dark:prose-invert ${isUser ? "text-primary-foreground" : ""}`}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                        </div>
+                        {message.senderRole === "AI" && message.citedSources?.length > 0 && <div className="flex flex-wrap gap-1.5 mt-3">{message.citedSources.map((source, index) => <button key={`${source.documentId}-${index}`} onClick={() => onDocumentClick?.(documents.find((doc) => Number(doc.id) === source.documentId))} className="px-2.5 py-1 rounded-full bg-muted text-[10px] text-muted-foreground hover:text-primary"><FileText size={10} className="inline mr-1" />{source.documentTitle}{source.sourcePage ? ` · tr.${source.sourcePage}` : ""}</button>)}</div>}
+                        {message.senderRole === "AI" && message.generatedPayload && <DraftSummary message={message} onPreview={() => openPreview(message)} />}
+                        {isUser && sentAt && (
+                          <div className="mt-1.5 text-right text-[10px] font-medium text-primary-foreground/70">
+                            {sentAt}
+                          </div>
+                        )}
+                      </motion.div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+              <AnimatePresence>
+                {thinking && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 14, x: -18, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                    className="flex justify-start"
+                  >
+                    <div className="rounded-3xl border border-border/60 bg-background/70 px-4 py-3 shadow-sm">
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <div className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center">
+                          <Loader2 size={15} className="animate-spin" />
+                        </div>
+                        <span>AI đang đọc tài liệu và tạo phản hồi</span>
+                        <span className="flex gap-1">
+                          {[0, 1, 2].map((dot) => (
+                            <motion.span
+                              key={dot}
+                              animate={{ opacity: [0.35, 1, 0.35], y: [0, -3, 0] }}
+                              transition={{ duration: 1, repeat: Infinity, delay: dot * 0.16 }}
+                              className="size-1.5 rounded-full bg-primary"
+                            />
+                          ))}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div ref={endRef} />
             </div>
           )}
