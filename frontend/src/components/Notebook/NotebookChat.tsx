@@ -331,16 +331,49 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-5">
-              {messages.map((message) => <div key={message.id} className={`flex ${message.senderRole === "USER" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[88%] ${message.senderRole === "USER" ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3" : "w-full"}`}>
-                  {message.senderRole === "AI" && <div className="flex items-center gap-2 text-xs font-bold mb-2"><div className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center"><Sparkles size={14} /></div>AI Study Hub</div>}
-                  <div className={`text-sm leading-6 prose prose-sm max-w-none dark:prose-invert ${message.senderRole === "USER" ? "text-primary-foreground" : ""}`}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>
-                  {message.senderRole === "AI" && message.citedSources?.length > 0 && <div className="flex flex-wrap gap-1.5 mt-3">{message.citedSources.map((source, index) => <button key={`${source.documentId}-${index}`} onClick={() => onDocumentClick?.(documents.find((doc) => Number(doc.id) === source.documentId))} className="px-2.5 py-1 rounded-full bg-muted text-[10px] text-muted-foreground hover:text-primary"><FileText size={10} className="inline mr-1" />{source.documentTitle}{source.sourcePage ? ` · tr.${source.sourcePage}` : ""}</button>)}</div>}
-                  {message.senderRole === "AI" && message.generatedPayload && <DraftSummary message={message} onPreview={() => openPreview(message)} />}
-                </div>
-              </div>)}
-              {thinking && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin text-primary" />AI đang đọc tài liệu và tạo phản hồi...</div>}
+            <div className="max-w-3xl mx-auto space-y-6">
+              {messages.map((message) => (
+                <motion.div 
+                  key={message.id} 
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  layout
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className={`flex ${message.senderRole === "USER" ? "justify-end" : "justify-start"}`}
+                >
+                  <div className={`max-w-[88%] ${message.senderRole === "USER" ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3" : "w-full"}`}>
+                    {message.senderRole === "AI" && (
+                      <div className="flex items-center gap-2 text-xs font-bold mb-2">
+                        <div className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center">
+                          <Sparkles size={14} />
+                        </div>
+                        AI Study Hub
+                      </div>
+                    )}
+                    <div className={`text-sm leading-6 prose prose-sm max-w-none dark:prose-invert ${message.senderRole === "USER" ? "text-primary-foreground" : ""}`}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                    </div>
+                    
+                    {/* Giờ chat thực */}
+                    <div className={`text-[10px] mt-1.5 opacity-60 font-medium ${message.senderRole === "USER" ? "text-primary-foreground/80 text-right" : "text-muted-foreground"}`}>
+                      {dateTime(message.createdAt)}
+                    </div>
+
+                    {message.senderRole === "AI" && message.citedSources?.length > 0 && <div className="flex flex-wrap gap-1.5 mt-3">{message.citedSources.map((source, index) => <button key={`${source.documentId}-${index}`} onClick={() => onDocumentClick?.(documents.find((doc) => Number(doc.id) === source.documentId))} className="px-2.5 py-1 rounded-full bg-muted text-[10px] text-muted-foreground hover:text-primary"><FileText size={10} className="inline mr-1" />{source.documentTitle}{source.sourcePage ? ` · tr.${source.sourcePage}` : ""}</button>)}</div>}
+                    {message.senderRole === "AI" && message.generatedPayload && <DraftSummary message={message} onPreview={() => openPreview(message)} />}
+                  </div>
+                </motion.div>
+              ))}
+              {thinking && (
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  className="flex items-center gap-2 text-sm text-muted-foreground ml-2"
+                >
+                  <Loader2 size={16} className="animate-spin text-primary" />
+                  <span>AI đang học bài và suy nghĩ...</span>
+                </motion.div>
+              )}
               <div ref={endRef} />
             </div>
           )}

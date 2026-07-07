@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, RotateCw, ThumbsUp, ThumbsDown, Trophy } from "lucide-react";
-import { useState, useEffect } from "react";
-import { flashcardService, FlashcardDTO } from "../services/flashcardService";
+import { useState, useCallback } from "react";
+import { flashcardService } from "../services/flashcardService";
 import { Notify } from "notiflix";
+import { useSuspenseQuery } from "@tanstack/react-query";
 
 interface FlashcardStudyPageProps {
   deckId: string;
@@ -13,47 +14,42 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [stats, setStats] = useState({ known: 0, again: 0 });
-  const [cards, setCards] = useState<FlashcardDTO[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    flashcardService.getFlashcardDeckDetails(Number(deckId)).then(res => {
-      if (res.success && res.data.cards) {
-        setCards(res.data.cards);
-      }
-      setIsLoading(false);
-    }).catch(err => {
-      Notify.failure("Lỗi tải bộ thẻ");
-      setIsLoading(false);
-    });
-  }, [deckId]);
+  const { data } = useSuspenseQuery({
+    queryKey: ["deckDetails", deckId],
+    queryFn: () => flashcardService.getFlashcardDeckDetails(Number(deckId)),
+  });
 
-  if (isLoading) {
-    return <div className="py-20 text-center text-muted-foreground"><div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />Đang tải dữ liệu bộ thẻ...</div>;
-  }
+  const cards = data?.data?.cards || [];
 
   if (cards.length === 0) {
-    return <div className="py-20 text-center text-muted-foreground">Bộ thẻ này hiện chưa có thẻ nào. <button onClick={onBack} className="text-primary hover:underline block mx-auto mt-2">Quay lại</button></div>;
+    return <div className="py-20 text-center text-muted-foreground">Bộ thẻ này hiện chưa có thẻ nào. <button onClick={onBack} className="text-primary hover:underline block mx-auto mt-2 min-h-[44px] min-w-[44px] px-3 rounded-lg">Quay lại</button></div>;
   }
 
   const card = cards[idx];
   const isLast = idx === cards.length - 1;
 
-  const advance = async (known: boolean) => {
-    setStats((s) => ({ known: s.known + (known ? 1 : 0), again: s.again + (known ? 0 : 1) }));
+  const advance = useCallback(async (known: boolean) => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       await flashcardService.reviewFlashcard(card.id, known);
+      setStats((s) => ({ known: s.known + (known ? 1 : 0), again: s.again + (known ? 0 : 1) }));
+      
+      if (!isLast) {
+        setIdx((prevIdx) => prevIdx + 1);
+        setFlipped(false);
+      } else {
+        setIdx((prevIdx) => prevIdx + 1);
+      }
     } catch (e) {
       console.error(e);
+      Notify.failure("Lỗi khi lưu kết quả ôn tập");
+    } finally {
+      setIsSaving(false);
     }
-    
-    if (!isLast) {
-      setIdx(idx + 1);
-      setFlipped(false);
-    } else {
-      setIdx(idx + 1);
-    }
-  };
+  }, [card.id, isLast, isSaving]);
 
   if (idx >= cards.length) {
     return (
@@ -90,7 +86,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
               <div className="text-xs text-muted-foreground">Cần ôn lại</div>
             </div>
           </div>
-          <button onClick={onBack} className="mt-6 inline-flex px-4 h-10 rounded-xl bg-primary text-primary-foreground items-center font-medium text-sm">
+          <button onClick={onBack} className="mt-6 inline-flex px-5 min-h-[44px] rounded-xl bg-primary text-primary-foreground items-center justify-center font-medium text-sm hover:opacity-90 transition-opacity">
             Về danh sách
           </button>
         </motion.div>
@@ -101,7 +97,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <button onClick={onBack} className="inline-flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
           <ArrowLeft size={14} /> Thoát
         </button>
         <div className="text-sm text-muted-foreground">{idx + 1}/{cards.length}</div>
@@ -123,8 +119,8 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -30 }}
-            className="absolute inset-0 cursor-pointer"
-            onClick={() => setFlipped((f) => !f)}
+            className={`absolute inset-0 ${isSaving ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            onClick={() => { if (!isSaving) setFlipped((f) => !f); }}
           >
             <motion.div
               className="relative w-full h-full"
@@ -163,17 +159,19 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={() => advance(false)}
-          className="inline-flex items-center justify-center gap-2 h-12 rounded-xl font-medium hover:opacity-90"
+          disabled={isSaving}
+          className="inline-flex items-center justify-center gap-2 h-12 min-h-[44px] rounded-xl font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           style={{ background: "oklch(0.62 0.18 25 / 0.1)", color: "var(--color-coral)" }}
         >
-          <ThumbsDown size={16} /> Chưa thuộc
+          <ThumbsDown size={16} /> {isSaving ? "Đang lưu..." : "Chưa thuộc"}
         </button>
         <button
           onClick={() => advance(true)}
-          className="inline-flex items-center justify-center gap-2 h-12 rounded-xl text-white font-medium hover:opacity-90"
+          disabled={isSaving}
+          className="inline-flex items-center justify-center gap-2 h-12 min-h-[44px] rounded-xl text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           style={{ background: "var(--color-success)" }}
         >
-          <ThumbsUp size={16} /> Đã thuộc
+          <ThumbsUp size={16} /> {isSaving ? "Đang lưu..." : "Đã thuộc"}
         </button>
       </div>
     </div>

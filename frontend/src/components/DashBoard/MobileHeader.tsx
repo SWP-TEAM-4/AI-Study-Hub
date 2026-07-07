@@ -116,9 +116,47 @@ export function MobileHeader() {
 
           <button
             onClick={toggleDarkMode}
-            className="size-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted active:scale-95 transition-all"
+            title="Toggle Theme"
+            className={`relative flex items-center w-[64px] h-[26px] rounded-full p-[2.5px] cursor-pointer transition-all duration-300 overflow-hidden select-none outline-none border-none bg-transparent ${
+              isDarkMode ? "justify-end" : "justify-start"
+            }`}
           >
-            {isDarkMode ? <Moon size={20} /> : <Sun size={20} />}
+            {/* Background tracks cross-fade */}
+            <img
+              src="/images/light_theme_btn.png"
+              className={`absolute inset-0 w-full h-full object-cover rounded-full transition-opacity duration-500 pointer-events-none ${
+                isDarkMode ? "opacity-0" : "opacity-100"
+              }`}
+              alt="Light Theme Track"
+            />
+            <img
+              src="/images/dark_theme_btn.png"
+              className={`absolute inset-0 w-full h-full object-cover rounded-full transition-opacity duration-500 pointer-events-none ${
+                isDarkMode ? "opacity-100" : "opacity-0"
+              }`}
+              alt="Dark Theme Track"
+            />
+            
+            {/* Sliding Handle */}
+            <motion.div
+              layout
+              transition={{ type: "spring", stiffness: 350, damping: 25 }}
+              className="relative z-10 w-5 h-5 rounded-full flex items-center justify-center shadow-md bg-white cursor-pointer"
+            >
+              {isDarkMode ? (
+                <img 
+                  src="/images/moon_square.png" 
+                  alt="Moon" 
+                  className="w-[80%] h-[80%] object-contain"
+                />
+              ) : (
+                <img 
+                  src="/images/sun_square.png" 
+                  alt="Sun" 
+                  className="w-[80%] h-[80%] object-contain"
+                />
+              )}
+            </motion.div>
           </button>
 
           <button

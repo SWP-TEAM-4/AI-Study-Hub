@@ -11,6 +11,7 @@ import {
   Tooltip,
   Cell,
   ReferenceLine,
+  CartesianGrid,
 } from "recharts";
 import { motion } from "framer-motion";
 
@@ -30,15 +31,17 @@ const todayIdx = today === 0 ? 6 : today - 1;
 const totalMinutes = weekActivity.reduce((s, d) => s + d.minutes, 0);
 const avgMinutes = Math.round(totalMinutes / weekActivity.length);
 
-// Custom tooltip
+// Custom Premium Tooltip (Apple Style: Clean, crisp, light)
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const val = payload[0].value as number;
     return (
-      <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-lg text-xs">
-        <p className="font-bold text-foreground">{label}</p>
-        <p className="text-primary font-extrabold mt-0.5">{val} phút</p>
-        <p className="text-muted-foreground">{Math.round(val / 60 * 10) / 10} giờ</p>
+      <div className="rounded-xl border border-black/5 bg-white/90 px-4 py-3 text-xs shadow-[0_8px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+        <p className="font-semibold text-[#86868b] mb-1">{label}</p>
+        <div className="flex items-baseline gap-2">
+          <p className="font-bold text-[#1d1d1f] text-lg">{val} phút</p>
+          <p className="text-[#86868b]">{Math.round(val / 60 * 10) / 10} giờ</p>
+        </div>
       </div>
     );
   }
@@ -48,127 +51,145 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export const DashboardStudyChart = React.memo(function DashboardStudyChart() {
   const [hovered, setHovered] = useState<number | null>(null);
 
+  // Staggered animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1, delayChildren: 0.1 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, bounce: 0.3 } },
+  };
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm p-5 flex flex-col h-full"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="relative flex h-full flex-col overflow-hidden rounded-[24px] bg-white p-6 sm:p-8 shadow-sm ring-1 ring-black/[0.04]"
     >
-      {/* Ambient */}
-      <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
-
       {/* Header */}
-      <div className="relative z-10 flex items-start justify-between mb-5">
+      <motion.div variants={itemVariants} className="relative z-10 mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center" aria-hidden="true">
-              <BarChart2 size={15} className="text-primary" />
+          <div className="mb-2 flex items-center gap-2">
+            <div className="grid size-10 place-items-center rounded-full bg-[var(--color-study)]/10" aria-hidden="true">
+              <BarChart2 size={18} className="text-[var(--color-study)]" />
             </div>
-            <h3 className="font-bold text-base text-foreground leading-tight">
-              Thống kê thời gian học
+            <h3 className="text-xl font-bold leading-tight tracking-tight text-[#1d1d1f]">
+              Thời gian học
             </h3>
           </div>
-          <p className="text-[11px] text-muted-foreground ml-10">
+          <p className="sm:ml-12 text-[13px] font-medium text-[#86868b]">
             Phút học tập tích lũy trong tuần
           </p>
         </div>
 
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold bg-emerald-500/10 px-2.5 py-1 rounded-full">
-            <TrendingUp size={12} aria-hidden="true" />
+        <div className="flex shrink-0 flex-col sm:items-end gap-1.5">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-600">
+            <TrendingUp size={14} aria-hidden="true" />
             +24% tuần này
           </div>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[12px] font-medium text-[#86868b]">
             TB: {avgMinutes} phút/ngày
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Summary strip */}
-      <div className="relative z-10 grid grid-cols-3 gap-3 mb-5 p-3 rounded-xl bg-muted/40 border border-border/50">
+      <motion.div variants={itemVariants} className="relative z-10 mb-8 grid grid-cols-3 gap-4 rounded-[20px] bg-[#f5f5f7] p-4">
         {[
-          { label: "Tổng tuần", value: `${totalMinutes} phút` },
-          { label: "Ngày cao nhất", value: "120 phút" },
-          { label: "Trung bình", value: `${avgMinutes} phút` },
+          { label: "Tổng tuần", value: `${totalMinutes} p` },
+          { label: "Cao nhất", value: "120 p" },
+          { label: "Trung bình", value: `${avgMinutes} p` },
         ].map((s) => (
           <div key={s.label} className="text-center">
-            <div className="text-sm font-bold text-foreground tabular-nums">{s.value}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{s.label}</div>
+            <div className="text-xl font-bold tabular-nums tracking-tight text-[#1d1d1f]">{s.value}</div>
+            <div className="mt-1 text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">{s.label}</div>
           </div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Chart */}
-      <div
-        className="relative z-10 flex-1 min-h-[200px] w-full"
+      <motion.div
+        variants={itemVariants}
+        className="relative z-10 min-h-[220px] w-full flex-1"
         role="img"
         aria-label={`Biểu đồ thời gian học tập tuần này. Trung bình ${avgMinutes} phút mỗi ngày.`}
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={weekActivity}
-            margin={{ top: 8, right: 4, left: -24, bottom: 0 }}
+            margin={{ top: 10, right: 0, left: -24, bottom: 0 }}
             onMouseLeave={() => setHovered(null)}
           >
+            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#000000" strokeOpacity={0.04} />
             <XAxis
               dataKey="d"
               axisLine={false}
               tickLine={false}
-              fontSize={11}
-              tick={{ fill: "var(--color-muted-foreground)", fontWeight: 600 }}
+              fontSize={12}
+              tick={{ fill: "#86868b", fontWeight: 600 }}
+              dy={12}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              fontSize={10}
-              tick={{ fill: "var(--color-muted-foreground)" }}
+              fontSize={11}
+              tick={{ fill: "#86868b", fontWeight: 500 }}
               tickFormatter={(v) => `${v}m`}
+              dx={-8}
             />
             <ReferenceLine
               y={avgMinutes}
-              stroke="var(--color-primary)"
-              strokeDasharray="4 3"
-              strokeOpacity={0.35}
+              stroke="var(--color-study)"
+              strokeDasharray="4 4"
+              strokeOpacity={0.3}
             />
             <Tooltip
               content={<CustomTooltip />}
-              cursor={{ fill: "var(--color-muted)", opacity: 0.3, radius: 6 }}
+              cursor={{ fill: "#000000", opacity: 0.03, radius: 8 }}
             />
             <Bar
               dataKey="minutes"
-              radius={[6, 6, 0, 0]}
-              maxBarSize={44}
+              radius={[8, 8, 8, 8]}
+              maxBarSize={48}
               onMouseEnter={(_, index) => setHovered(index)}
+              animationBegin={200}
+              animationDuration={1200}
+              animationEasing="ease-out"
             >
               {weekActivity.map((_, i) => (
                 <Cell
                   key={i}
-                  fill={i === todayIdx ? "var(--color-primary)" : i === hovered ? "var(--color-primary)" : "var(--color-primary)"}
-                  fillOpacity={i === todayIdx ? 1 : hovered === i ? 0.75 : 0.35}
-                  style={{ transition: "fill-opacity 0.15s ease" }}
+                  fill="var(--color-study)"
+                  fillOpacity={i === todayIdx ? 1 : hovered === i ? 0.8 : 0.3}
+                  style={{ transition: "all 0.3s ease" }}
                 />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      </div>
+      </motion.div>
 
       {/* Legend */}
-      <div className="relative z-10 flex items-center gap-4 mt-3 pt-3 border-t border-border/50">
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <div className="size-2.5 rounded-sm bg-primary" aria-hidden="true" />
+      <motion.div variants={itemVariants} className="relative z-10 mt-6 flex flex-wrap items-center justify-center gap-6 pt-2">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-[#86868b] uppercase tracking-wider">
+          <div className="size-3 rounded-md bg-[var(--color-study)]" aria-hidden="true" />
           <span>Hôm nay</span>
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <div className="size-2.5 rounded-sm bg-primary opacity-35" aria-hidden="true" />
-          <span>Các ngày khác</span>
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-[#86868b] uppercase tracking-wider">
+          <div className="size-3 rounded-md bg-[var(--color-study)] opacity-30" aria-hidden="true" />
+          <span>Khác</span>
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-auto">
-          <div className="h-px w-6 border-t-2 border-dashed border-primary/50" aria-hidden="true" />
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-[#86868b] uppercase tracking-wider">
+          <div className="h-px w-6 border-t-2 border-dashed border-[var(--color-study)] opacity-40" aria-hidden="true" />
           <span>Trung bình</span>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 });

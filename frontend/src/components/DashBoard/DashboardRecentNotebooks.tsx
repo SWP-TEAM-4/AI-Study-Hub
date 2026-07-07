@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowUpRight, Bell, BookMarked, Clock, Download, FileText, Users } from "lucide-react";
+import { ArrowRight, Bell, BookMarked, Clock, Download, FileText, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -7,19 +7,20 @@ import { notebookService } from "../../services/notebookService";
 import { notificationService } from "../../services/notificationService";
 import { documentService } from "../../services/documentService";
 
-const notebookColors = [
-  { bg: "bg-blue-500/12", icon: "text-blue-400" },
-  { bg: "bg-violet-500/12", icon: "text-violet-400" },
-  { bg: "bg-emerald-500/12", icon: "text-emerald-400" },
-  { bg: "bg-amber-500/12", icon: "text-amber-400" },
+const NOTEBOOK_COLORS = [
+  { bg: "bg-blue-50", icon: "text-blue-600" },
+  { bg: "bg-purple-50", icon: "text-purple-600" },
+  { bg: "bg-emerald-50", icon: "text-emerald-600" },
+  { bg: "bg-amber-50", icon: "text-amber-600" },
 ];
 
 function relativeTime(value: string) {
   const date = new Date(value);
   const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60_000));
-  if (minutes < 60) return `${minutes} phút trước`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)} giờ trước`;
-  return date.toLocaleDateString();
+  if (minutes < 60) return `${minutes}m trước`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}h trước`;
+  if (minutes < 10080) return `${Math.floor(minutes / 1440)}d trước`;
+  return date.toLocaleDateString("vi-VN");
 }
 
 export const DashboardRecentNotebooks = React.memo(function DashboardRecentNotebooks() {
@@ -41,72 +42,203 @@ export const DashboardRecentNotebooks = React.memo(function DashboardRecentNoteb
     staleTime: 60_000,
   });
 
-  if (dataQuery.isLoading) return <div className="grid gap-5 lg:grid-cols-3"><div className="surface-card h-72 animate-pulse lg:col-span-2" /><div className="surface-card h-72 animate-pulse" /></div>;
-  if (dataQuery.isError || !dataQuery.data) return <div className="surface-card p-8 text-center text-slate-300"><p>Không thể tải dữ liệu dashboard.</p><button onClick={() => dataQuery.refetch()} className="mt-2 text-primary">Thử lại</button></div>;
+  if (dataQuery.isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 h-96 bg-gray-100 rounded-3xl animate-pulse" />
+        <div className="h-96 bg-gray-100 rounded-3xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (dataQuery.isError || !dataQuery.data) {
+    return (
+      <div className="bg-white rounded-3xl border border-gray-200 p-8 text-center">
+        <p className="text-gray-600 font-medium">Không thể tải dữ liệu</p>
+        <button
+          onClick={() => dataQuery.refetch()}
+          className="mt-3 text-sm font-semibold text-blue-600 hover:text-blue-700"
+        >
+          Thử lại
+        </button>
+      </div>
+    );
+  }
 
   const { notebooks, notifications, documents } = dataQuery.data;
+
   return (
     <div className="space-y-6">
-      <section className="grid gap-5 lg:grid-cols-3" aria-label="Notebook và thông báo">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
-          <Header title="Notebook gần đây" action="Xem tất cả" onClick={() => navigate("/notebooks")} />
-          {notebooks.length === 0 ? <Empty text="Bạn chưa có notebook nào." /> : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {notebooks.map((notebook, index) => {
-                const color = notebookColors[index % notebookColors.length];
-                return (
-                  <button key={notebook.id} onClick={() => navigate(`/notebooks/${notebook.id}`)} className="group w-full rounded-xl border border-border/70 bg-card p-4 text-left transition hover:border-primary/40 hover:bg-muted/20">
-                    <div className={`mb-3 grid size-10 place-items-center rounded-lg ${color.bg}`}><BookMarked size={18} className={color.icon} /></div>
-                    <div className="truncate text-sm font-semibold text-foreground">{notebook.title}</div>
-                    <div className="mt-1 text-xs font-medium text-muted-foreground">{notebook.documentCount} tài liệu · {notebook.subjectCode || "Chưa gán môn"}</div>
-                  </button>
-                );
-              })}
+      {/* Notebooks & Notifications */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Notebooks */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 overflow-hidden"
+        >
+          {/* Header */}
+          <div className="px-8 py-6 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-900">Notebook gần đây</h3>
+            <button
+              onClick={() => navigate("/notebooks")}
+              className="text-sm font-semibold text-gray-600 hover:text-gray-900 flex items-center gap-1 transition-colors"
+            >
+              Xem tất cả
+              <ArrowRight size={16} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-8">
+            {notebooks.length === 0 ? (
+              <div className="h-32 flex items-center justify-center text-gray-400 text-sm">
+                Chưa có notebook nào
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {notebooks.map((notebook, idx) => {
+                  const color = NOTEBOOK_COLORS[idx % NOTEBOOK_COLORS.length];
+                  return (
+                    <motion.button
+                      key={notebook.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.05 }}
+                      whileHover={{ y: -4 }}
+                      onClick={() => navigate(`/notebooks/${notebook.id}`)}
+                      className={`p-4 rounded-2xl text-left transition-all ${color.bg} hover:shadow-md`}
+                    >
+                      <div className={`w-10 h-10 rounded-lg ${color.bg} flex items-center justify-center mb-3`}>
+                        <BookMarked size={18} className={color.icon} />
+                      </div>
+                      <p className="text-sm font-bold text-gray-900 truncate">{notebook.title}</p>
+                      <p className="text-xs text-gray-600 mt-2">
+                        {notebook.documentCount} tài liệu · {notebook.subjectCode || "Chưa gán môn"}
+                      </p>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Notifications */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-gray-200 overflow-hidden flex flex-col"
+        >
+          {/* Header */}
+          <div className="px-8 py-6 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                <Bell size={18} className="text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Thông báo</h3>
             </div>
-          )}
-        </motion.div>
+          </div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border bg-card p-6 text-left shadow-sm">
-          <Header title="Thông báo mới" action="Tất cả" icon={<Bell size={17} className="text-primary" />} onClick={() => navigate("/notifications")} />
-          {notifications.length === 0 ? <Empty text="Bạn chưa có thông báo nào." /> : (
-            <ul className="space-y-4">
-              {notifications.map((notification) => (
-                <li key={notification.id} className="flex items-start gap-3">
-                  <span className={`mt-2 size-2 shrink-0 rounded-full ${notification.isRead ? "bg-slate-500" : "bg-primary"}`} />
-                  <button onClick={() => navigate("/notifications")} className="min-w-0 flex-1 text-left">
-                    <p className="truncate text-xs font-bold text-foreground">{notification.title}</p>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{notification.content}</p>
-                    <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Clock size={9} />{relativeTime(notification.createdAt)}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Content */}
+          <div className="p-6 flex-1 space-y-3">
+            {notifications.length === 0 ? (
+              <div className="h-32 flex items-center justify-center text-gray-400 text-xs">
+                Không có thông báo mới
+              </div>
+            ) : (
+              notifications.map((notif) => (
+                <motion.button
+                  key={notif.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  onClick={() => navigate("/notifications")}
+                  className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start gap-2">
+                    <div
+                      className={`w-2 h-2 rounded-full mt-1 shrink-0 ${
+                        notif.isRead ? "bg-gray-300" : "bg-red-500"
+                      }`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-900 line-clamp-1">{notif.title}</p>
+                      <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notif.content}</p>
+                      <p className="text-[10px] text-gray-500 mt-2 flex items-center gap-1">
+                        <Clock size={10} />
+                        {relativeTime(notif.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                </motion.button>
+              ))
+            )}
+          </div>
         </motion.div>
-      </section>
+      </div>
 
-      <section aria-label="Tài liệu cộng đồng nổi bật">
-        <div className="mb-4 flex items-center justify-between"><div><h3 className="flex items-center gap-2 text-base font-bold text-foreground"><Users size={17} className="text-primary" />Tài liệu cộng đồng nổi bật</h3><p className="mt-0.5 text-xs text-muted-foreground">Dữ liệu xếp hạng trực tiếp từ cộng đồng</p></div><button onClick={() => navigate("/community")} className="inline-flex items-center gap-1 text-xs font-bold text-primary">Xem tất cả <ArrowUpRight size={11} /></button></div>
-        {documents.length === 0 ? <Empty text="Chưa có tài liệu cộng đồng nổi bật." /> : (
-          <div className="grid gap-4 md:grid-cols-3">
-            {documents.map((document) => (
-              <button key={document.id} onClick={() => navigate("/community")} className="group rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/15 to-primary/5 p-5 text-left transition hover:-translate-y-0.5">
-                <div className="mb-3 flex items-start gap-3"><div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/12"><FileText size={19} className="text-primary" /></div><div className="min-w-0"><h4 className="line-clamp-2 text-sm font-bold text-foreground">{document.title}</h4><span className="text-[10px] font-medium text-muted-foreground">{document.fileType || "Tài liệu"}</span></div></div>
-                <p className="mb-4 line-clamp-2 text-xs text-muted-foreground">{document.description || "Không có mô tả."}</p>
-                <div className="flex items-center justify-between border-t border-border/40 pt-3 text-[10px] font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1"><Download size={10} />{document.downloadCount} lượt tải</span><span>{relativeTime(document.createdAt)}</span></div>
-              </button>
+      {/* Community Documents */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <div className="flex items-center justify-between mb-6 px-2">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+              <Users size={18} className="text-teal-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Tài liệu cộng đồng</h3>
+              <p className="text-xs text-gray-600 mt-1">Các tài liệu được bạn cộng đồng đánh giá cao</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/community")}
+            className="text-sm font-semibold text-gray-600 hover:text-gray-900 flex items-center gap-1 transition-colors"
+          >
+            Xem tất cả
+            <ArrowRight size={16} />
+          </button>
+        </div>
+
+        {documents.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-gray-200 h-40 flex items-center justify-center text-gray-400 text-sm">
+            Chưa có tài liệu nổi bật
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {documents.map((doc, idx) => (
+              <motion.button
+                key={doc.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: idx * 0.05 }}
+                whileHover={{ y: -4 }}
+                onClick={() => navigate("/community")}
+                className="p-6 bg-white rounded-2xl border border-gray-200 text-left hover:shadow-lg transition-all"
+              >
+                <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center mb-4">
+                  <FileText size={18} className="text-teal-600" />
+                </div>
+                <p className="text-sm font-bold text-gray-900 line-clamp-2 mb-2">{doc.title}</p>
+                <p className="text-xs text-gray-600 line-clamp-2 mb-4">
+                  {doc.description || "Tài liệu học tập chất lượng"}
+                </p>
+                <div className="border-t border-gray-200 pt-3 flex items-center justify-between text-[10px] text-gray-500 font-semibold">
+                  <span className="flex items-center gap-1">
+                    <Download size={10} />
+                    {doc.downloadCount} tải
+                  </span>
+                  <span>{relativeTime(doc.createdAt)}</span>
+                </div>
+              </motion.button>
             ))}
           </div>
         )}
-      </section>
+      </motion.div>
     </div>
   );
 });
-
-function Header({ title, action, onClick, icon }: { title: string; action: string; onClick: () => void; icon?: React.ReactNode }) {
-  return <div className="mb-5 flex items-center justify-between"><h3 className="flex items-center gap-2 text-base font-bold text-foreground">{icon}{title}</h3><button onClick={onClick} className="inline-flex items-center gap-1 text-xs font-bold text-primary">{action} <ArrowUpRight size={11} /></button></div>;
-}
-
-function Empty({ text }: { text: string }) {
-  return <div className="grid min-h-28 place-items-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">{text}</div>;
-}

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import FlashcardStudyPage from "./FlashcardStudyPage";
 import { Notify, Confirm } from "notiflix";
@@ -162,7 +162,11 @@ export default function FlashcardsPage() {
   };
 
   if (activeDeckId) {
-    return <FlashcardStudyPage deckId={activeDeckId} onBack={() => setActiveDeckId(null)} />;
+    return (
+      <Suspense fallback={<div className="py-20 text-center text-muted-foreground"><div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />Đang tải dữ liệu bộ thẻ...</div>}>
+        <FlashcardStudyPage deckId={activeDeckId} onBack={() => setActiveDeckId(null)} />
+      </Suspense>
+    );
   }
 
   return (

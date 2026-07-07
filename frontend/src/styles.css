@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
 @import "tailwindcss";
 
 @font-face {
@@ -9,8 +10,8 @@
 }
 
 .app-shell-font {
-    --font-sans: "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif;
-    --font-display: "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: "Quicksand", "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Quicksand", "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif;
     font-family: var(--font-sans) !important;
 }
 
@@ -674,3 +675,13 @@ body {
     animation: none !important;
   }
 }
+
+/* LESA Magic Potion bubble keyframes */
+@keyframes float-bubble {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  50% { opacity: 0.6; }
+  100% { transform: translateY(-40px) scale(0.8); opacity: 0; }
+}
+.bubble-1 { animation: float-bubble 4s infinite ease-in-out; }
+.bubble-2 { animation: float-bubble 3.2s infinite ease-in-out 1s; }
+.bubble-3 { animation: float-bubble 5s infinite ease-in-out 2s; }

@@ -151,8 +151,8 @@ export function AppShell() {
     }, 3000);
   };
 
-  const activeAdminTab = location.pathname.startsWith('/admin/') 
-    ? location.pathname.split('/')[2] 
+  const activeAdminTab = location.pathname.startsWith('/admin/')
+    ? location.pathname.split('/')[2]
     : "overview";
 
   const handleAdminTabClick = (id: string) => {
@@ -231,14 +231,13 @@ export function AppShell() {
       {/* Spacer giữ chỗ cho layout, sẽ giãn ra cùng lúc với Sidebar để đẩy nội dung sang phải */}
       <div className={`hidden lg:block shrink-0 transition-all duration-300 ${isSidebarCollapsed ? "w-0" : "w-64"}`} />
 
-      <aside 
-        className={`fixed top-0 left-0 z-50 h-screen w-64 shrink-0 flex-col bg-[var(--color-ink)] text-[var(--color-cream)] border-r border-white/5 transition-transform duration-300 ease-in-out flex ${
-        isMobileMenuOpen ? "translate-x-0" : (isSidebarCollapsed ? "-translate-x-full" : "translate-x-0")
-      }`}>
-        
+      <aside
+        className={`fixed top-0 left-0 z-50 h-screen w-64 shrink-0 flex-col bg-[var(--color-ink)] text-[var(--color-cream)] border-r border-white/5 transition-transform duration-300 ease-in-out flex ${isMobileMenuOpen ? "translate-x-0" : (isSidebarCollapsed ? "-translate-x-full" : "translate-x-0")
+          }`}>
+
         <div className="py-6 flex items-center px-6 gap-3 border-b border-white/5 relative">
-          <button 
-            onClick={() => setIsMobileMenuOpen(false)} 
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
             className="absolute right-4 top-1/2 -translate-y-1/2 lg:hidden text-white/50 hover:text-white"
           >
             <X size={20} />
@@ -445,9 +444,8 @@ export function AppShell() {
                         }}
                       />
                       <span
-                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${
-                          location.pathname === "/reviewer" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                        }`}
+                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${location.pathname === "/reviewer" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                          }`}
                       >
                         {t("appShell.nav.reviewer", "Kiểm duyệt marketplace")}
                       </span>
@@ -473,9 +471,8 @@ export function AppShell() {
                         }}
                       />
                       <span
-                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${
-                          location.pathname === "/admin/reports" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                        }`}
+                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${location.pathname === "/admin/reports" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
+                          }`}
                       >
                         Báo cáo vi phạm
                       </span>
@@ -485,7 +482,7 @@ export function AppShell() {
               )}
             </div>
           )}
-          
+
           {/* Nút Phản Hồi (Nằm dưới cùng Sidebar) */}
           <div className="mt-8 px-3">
             <button
@@ -512,7 +509,7 @@ export function AppShell() {
 
             <div className="flex-1 min-w-[120px] max-w-2xl relative flex items-center gap-4">
               {/* Nút Hamburger cho phép Toggle Sidebar trên Desktop và Mobile */}
-              <button 
+              <button
                 onClick={() => {
                   if (window.innerWidth < 1024) setIsMobileMenuOpen(true);
                   else toggleSidebar();
@@ -527,8 +524,8 @@ export function AppShell() {
               {showSearchBar && (
                 <div className="hidden md:flex items-center w-full max-w-md bg-muted/40 hover:bg-muted/60 border border-border/50 text-muted-foreground rounded-full h-10 px-4 transition-all focus-within:ring-2 focus-within:ring-primary/40 focus-within:bg-background focus-within:shadow-md">
                   <Search size={16} className="mr-2 text-primary/70" />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder={t("appShell.search", "Search in your workspace...")}
                     className="bg-transparent border-none outline-none w-full text-sm text-foreground placeholder:text-muted-foreground/60"
                   />
@@ -542,15 +539,33 @@ export function AppShell() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-4 relative">
-              
+
               {/* CỤM 1: Cài đặt (Theme & Lang) */}
-              <div className="hidden md:flex items-center p-1 rounded-full bg-muted/30 border border-border/40 shadow-inner">
+              <div className="hidden md:flex items-center gap-1 p-1.5 rounded-full bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <button
                   onClick={toggleDarkMode}
                   title="Toggle Theme"
-                  className="flex items-center justify-center size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background hover:shadow-sm active:scale-95 transition-all outline-none cursor-pointer"
+                  className={`relative flex items-center w-16 h-8 rounded-full cursor-pointer transition-all duration-400 overflow-hidden select-none outline-none border-none ${
+                    isDarkMode 
+                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50" 
+                      : "bg-gradient-to-r from-amber-400 to-orange-400 shadow-lg shadow-amber-400/30 hover:shadow-amber-400/50"
+                  }`}
+                  style={{
+                    justifyContent: isDarkMode ? "flex-end" : "flex-start"
+                  }}
                 >
-                  {isDarkMode ? <Moon size={15} className="text-primary" /> : <Sun size={15} className="text-orange-500" />}
+                  {/* Sliding Handle with Icon */}
+                  <motion.div
+                    layout
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center shadow-lg bg-white/95 backdrop-blur-sm cursor-pointer"
+                  >
+                    {isDarkMode ? (
+                      <Moon size={16} className="text-indigo-600" strokeWidth={2.5} />
+                    ) : (
+                      <Sun size={16} className="text-amber-600" strokeWidth={2.5} />
+                    )}
+                  </motion.div>
                 </button>
 
                 <div className="w-px h-4 bg-border/50 mx-1" />
@@ -567,10 +582,10 @@ export function AppShell() {
 
               {/* CỤM 3: Action & Profile */}
               <div className="flex items-center gap-3 sm:gap-4 pl-1 sm:pl-2 md:border-l md:border-border/50">
-                  <button
-                    onClick={() => navigate("/documents")}
-                    className="inline-flex items-center justify-center gap-1.5 px-0 sm:px-4 w-9 sm:w-auto h-9 rounded-full text-sm font-semibold glow-button active:scale-[0.98] transition-all cursor-pointer"
-                  >
+                <button
+                  onClick={() => navigate("/documents")}
+                  className="inline-flex items-center justify-center gap-1.5 px-0 sm:px-4 w-9 sm:w-auto h-9 rounded-full text-sm font-semibold glow-button active:scale-[0.98] transition-all cursor-pointer"
+                >
                   <Upload size={16} strokeWidth={2.5} /> <span className="hidden sm:inline">{t("appShell.upload")}</span>
                 </button>
 
@@ -589,7 +604,19 @@ export function AppShell() {
           </div>
         </header>
 
-        <main id="main-scroll-container" className="flex-1 px-4 md:px-6 lg:px-8 pt-16 md:pt-6 pb-24 md:pb-6 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative">
+        <main id="main-scroll-container" className="flex-1 px-4 md:px-6 lg:px-8 pt-16 md:pt-6 pb-24 md:pb-6 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative z-0">
+          {/* Blurred Background Gradients */}
+          <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+            {/* Orb 1: Pastel Blue/Teal Glow */}
+            <div className="absolute top-[10%] left-[5%] w-[35vw] h-[35vw] max-w-[400px] max-h-[400px] rounded-full bg-gradient-to-tr from-blue-300/25 to-[#89cff0]/20 blur-[80px] md:blur-[120px] dark:from-blue-950/20 dark:to-indigo-900/10" />
+            
+            {/* Orb 2: Mint Green Glow */}
+            <div className="absolute top-[40%] right-[5%] w-[40vw] h-[40vw] max-w-[450px] max-h-[450px] rounded-full bg-gradient-to-br from-emerald-300/15 to-[#8ad5b3]/20 blur-[95px] md:blur-[130px] dark:from-emerald-950/20 dark:to-[#0d6683]/10" />
+            
+            {/* Orb 3: Peach/Rose Glow */}
+            <div className="absolute bottom-[5%] left-[15%] w-[30vw] h-[30vw] max-w-[350px] max-h-[350px] rounded-full bg-gradient-to-tr from-rose-200/15 to-[#ffa07a]/20 blur-[80px] md:blur-[110px] dark:from-rose-950/15 dark:to-purple-900/10" />
+          </div>
+
           <Suspense fallback={
             <div className="flex h-[50vh] items-center justify-center">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>

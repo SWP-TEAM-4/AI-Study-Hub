@@ -46,6 +46,12 @@
   --color-ink: var(--ink);
   --color-cream: var(--cream);
   --color-coral: var(--coral);
+
+  --color-study: var(--study);
+  --color-notebook: var(--notebook);
+  --color-quiz: var(--quiz);
+  --color-community: var(--community);
+  --color-leaderboard: var(--leaderboard);
 }
 
 :root {
@@ -96,6 +102,13 @@
   --cream: oklch(0.97 0.022 90);
   --coral: oklch(0.72 0.16 35);
 
+  /* Brand Semantic Colors (Light) */
+  --study: oklch(0.6 0.25 300); /* Purple/Pink */
+  --notebook: oklch(0.55 0.14 165); /* Emerald */
+  --quiz: oklch(0.65 0.2 25); /* Coral */
+  --community: oklch(0.6 0.15 250); /* Blue */
+  --leaderboard: oklch(0.75 0.18 85); /* Gold */
+
   --gradient-hero: radial-gradient(
       circle at 20% 20%,
       oklch(0.55 0.14 165 / 0.18),
@@ -108,6 +121,11 @@
     0 8px 24px -8px oklch(0.18 0.025 250 / 0.12);
   --shadow-glow: 0 0 0 1px oklch(0.55 0.14 165 / 0.2),
     0 12px 40px -10px oklch(0.55 0.14 165 / 0.35);
+    
+  /* Surface Depths (Stripe/Linear Influence) */
+  --shadow-surface-1: 0 50px 100px -20px rgba(50,50,93,.15), 0 30px 60px -30px rgba(0,0,0,.15);
+  --shadow-surface-2: 0 10px 25px -5px rgba(50,50,93,.10), 0 5px 10px -5px rgba(0,0,0,.05);
+  --shadow-surface-3: 0 2px 4px rgba(0,0,0,.02);
 
   --animate-shimmer: shimmer 1.5s infinite;
   @keyframes shimmer {
@@ -140,6 +158,13 @@
   --sidebar-accent: oklch(0.18 0.03 250);
   --sidebar-accent-foreground: oklch(0.99 0.005 95);
   --sidebar-border: oklch(0.22 0.025 250);
+
+  /* Brand Semantic Colors (Dark) */
+  --study: oklch(0.75 0.2 300); 
+  --notebook: oklch(0.7 0.16 165); 
+  --quiz: oklch(0.75 0.2 25); 
+  --community: oklch(0.7 0.15 250); 
+  --leaderboard: oklch(0.85 0.18 85); 
 }
 
 @layer base {
@@ -167,6 +192,34 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-soft);
+}
+
+@utility surface-1 {
+  background: var(--color-card);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-surface-1);
+}
+
+@utility surface-2 {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface-2);
+}
+
+@utility surface-3 {
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-surface-3);
+}
+
+@utility surface-glass {
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.05);
 }
 
 @utility gradient-hero {
