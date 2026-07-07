@@ -52,12 +52,18 @@ export default function AdminRolesTab() {
   const loadInitialData = async () => {
     setLoading(true);
     try {
+<<<<<<< HEAD
       const [rolesRes, usersRes] = await Promise.all([
         communityRoleService.getAdminCommunityRoles(0, 100),
         userService.adminGetUsers({ page: 0, size: 200, sort: "newest" }),
       ]);
       if (rolesRes.success) setRoles(rolesRes.data.items);
       if (usersRes.success) setUsers(usersRes.data.items);
+=======
+      // FIXED SIGNATURE: Truyền dạng object để đồng bộ với định nghĩa trong Service
+      const res = await communityRoleService.getAdminCommunityRoles({ page: 0, size: 50 });
+      if (res.success) setRoles(res.data.items);
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     } catch (e) {
       console.error(e);
       Notify.failure("Không thể tải dữ liệu phân quyền");
@@ -121,7 +127,7 @@ export default function AdminRolesTab() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl hover:brightness-110 active:scale-95 transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer"
         >
           {showForm ? "Đóng form" : <><Plus size={18} /> Cấp quyền mới</>}
         </button>
@@ -166,6 +172,7 @@ export default function AdminRolesTab() {
             <h3 className="font-bold mb-4">Mẫu cấp quyền mới</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               <div>
+<<<<<<< HEAD
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Người dùng</label>
                 <select
                   value={userId}
@@ -178,6 +185,16 @@ export default function AdminRolesTab() {
                       #{user.id} - {user.fullName || user.email} ({user.email})
                     </option>
                   ))}
+=======
+                <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">User ID</label>
+                <input type="number" value={userId} onChange={e => setUserId(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none focus:border-primary/50" placeholder="VD: 2" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Loại vai trò</label>
+                <select value={roleType} onChange={e => setRoleType(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none cursor-pointer">
+                  <option value="MARKETPLACE_REVIEWER">Marketplace Reviewer</option>
+                  <option value="COMMUNITY_MODERATOR">Community Moderator</option>
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
                 </select>
               </div>
               <div>
@@ -197,6 +214,7 @@ export default function AdminRolesTab() {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Phạm vi</label>
+<<<<<<< HEAD
                 <select
                   value={scopeType}
                   onChange={e => {
@@ -205,12 +223,16 @@ export default function AdminRolesTab() {
                   }}
                   className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm"
                 >
+=======
+                <select value={scopeType} onChange={e => setScopeType(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none cursor-pointer">
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
                   <option value="SUBJECT">Môn học (Subject)</option>
                   <option value="GLOBAL">Toàn cầu (Global)</option>
                 </select>
               </div>
               {scopeType === "SUBJECT" && (
                 <div>
+<<<<<<< HEAD
                   <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Môn học</label>
                   <select
                     value={scopeId}
@@ -225,18 +247,22 @@ export default function AdminRolesTab() {
                       </option>
                     ))}
                   </select>
+=======
+                  <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Scope ID (Mã môn)</label>
+                  <input type="number" value={scopeId} onChange={e => setScopeId(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none focus:border-primary/50" placeholder="VD: 12" />
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
                 </div>
               )}
               <div>
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Ngày bắt đầu</label>
-                <input type="date" value={startAt} onChange={e => setStartAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm" />
+                <input type="date" value={startAt} onChange={e => setStartAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Ngày kết thúc (Bỏ trống nếu vĩnh viễn)</label>
-                <input type="date" value={endAt} onChange={e => setEndAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm" />
+                <input type="date" value={endAt} onChange={e => setEndAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none" />
               </div>
             </div>
-            <button type="submit" className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-lg hover:brightness-110">Lưu quyền</button>
+            <button type="submit" className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-lg hover:brightness-110 cursor-pointer">Lưu quyền</button>
           </motion.form>
         )}
       </AnimatePresence>
@@ -254,9 +280,9 @@ export default function AdminRolesTab() {
           </thead>
           <tbody className="divide-y divide-border/50">
             {loading ? (
-              <tr><td colSpan={5} className="py-12 text-center">Đang tải...</td></tr>
+              <tr><td colSpan={5} className="py-12 text-center">Đang tải cấu trúc vai trò thành viên...</td></tr>
             ) : roles.length === 0 ? (
-              <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">Chưa có vai trò nào được cấp.</td></tr>
+              <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">Chưu có vai trò nào được cấp phát trên hệ thống.</td></tr>
             ) : (
               roles.map(r => (
                 <tr key={r.id} className="hover:bg-muted/20">
@@ -296,7 +322,7 @@ export default function AdminRolesTab() {
                     {r.status === "ACTIVE" && (
                       <button
                         onClick={() => handleRevokeRole(r.id)}
-                        className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                        className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                         title="Thu hồi quyền"
                       >
                         <Trash2 size={16} />

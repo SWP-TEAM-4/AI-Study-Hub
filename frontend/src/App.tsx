@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useRef, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
 import OrbisLanding from "./components/LoginPage/OrbisLanding";
 import LoginPanel from "./components/LoginPage/LoginPanel";
@@ -25,40 +25,55 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
+<<<<<<< HEAD
 const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
+=======
+const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 
 export default function App() {
   const { isLoggedIn, login, logout, user } = useAuthStore();
-  const location = useLocation();
   const navigate = useNavigate();
 
-  // Handle fake login loading
-  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  // Cờ ref để biết vừa login xong – tránh navigate lặp
+  const justLoggedIn = useRef(false);
 
-  // Lấy role từ store (đã được persist, không cần parse localStorage thủ công)
+  // Lấy role từ store (persist, không cần parse localStorage thủ công)
   const userRole = user?.role ?? "STUDENT";
   const { data: capabilities, isLoading: capabilitiesLoading } = useCapabilities(isLoggedIn);
 
-  const handleLoginSuccess = (token?: string, userData?: any) => {
-    setIsLoginLoading(true);
+  /**
+   * ✅ FIX RACE CONDITION:
+   * Thay vì gọi navigate() ngay trong handleLoginSuccess (khi isLoggedIn chưa kịp
+   * cập nhật trong React tree), ta dùng useEffect theo dõi isLoggedIn.
+   * 
+   * Flow:
+   *   handleLoginSuccess() → login() [zustand sync] → React re-render với isLoggedIn=true
+   *   → useEffect chạy → navigate("/dashboard")
+   *   → Route guard `isLoggedIn ? <AppShell /> : <Navigate to="/" />` pass ✅
+   */
+  useEffect(() => {
+    if (isLoggedIn && justLoggedIn.current) {
+      justLoggedIn.current = false;
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isLoggedIn, navigate]);
 
-    // Lưu vào zustand store – user data là cấu trúc PHẲNG từ backend
+  const handleLoginSuccess = (token?: string, userData?: any) => {
+    // Đọc token và user từ tham số, hoặc fallback từ localStorage (đã được authService lưu)
     const authToken = token || localStorage.getItem("auth_token") || "";
-    const storedUser = userData || (
-      (() => {
-        try {
-          const s = localStorage.getItem("auth_user");
-          return s && s !== "undefined" ? JSON.parse(s) : null;
-        } catch { return null; }
-      })()
-    );
+    const storedUser = userData || (() => {
+      try {
+        const s = localStorage.getItem("auth_user");
+        return s && s !== "undefined" ? JSON.parse(s) : null;
+      } catch { return null; }
+    })();
 
     if (storedUser) {
+      justLoggedIn.current = true;
+      // Gọi login() → Zustand cập nhật isLoggedIn=true → React re-render → useEffect → navigate
       login(authToken, storedUser);
     }
-
-    setIsLoginLoading(false);
-    navigate("/dashboard", { replace: true });
   };
 
   const handleLogout = () => {
@@ -66,13 +81,16 @@ export default function App() {
     navigate("/", { replace: true });
   };
 
+<<<<<<< HEAD
   if (isLoginLoading || (isLoggedIn && capabilitiesLoading)) return <Loader />;
 
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   const landingElement = isLoggedIn ? (
     <Navigate to="/dashboard" replace />
   ) : (
     <div className="flex w-screen h-screen overflow-hidden bg-space relative">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -110,6 +128,7 @@ export default function App() {
         <Route path="/privacy-policy" element={landingElement} />
         <Route path="/cookie-settings" element={landingElement} />
 
+<<<<<<< HEAD
         <Route path="/login" element={authElement} />
         <Route path="/reset-password" element={authElement} />
         <Route path="/share/documents/:token" element={
@@ -117,8 +136,41 @@ export default function App() {
             <SharedDocumentPage />
           </Suspense>
         } />
+=======
+        <Route
+          path="/login"
+          element={
+            isLoggedIn ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <div className="flex w-screen h-screen overflow-hidden bg-space relative">
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full h-full flex items-center justify-center relative"
+                >
+                  <LoginPanel
+                    onLoginSuccess={(token, user) => handleLoginSuccess(token, user)}
+                    onClose={() => navigate("/")}
+                  />
+                </motion.div>
+              </div>
+            )
+          }
+        />
 
-        {/* Authenticated Routes wrapped in AppShell */}
+        <Route
+          path="/share/documents/:token"
+          element={
+            <Suspense fallback={<Loader />}>
+              <SharedDocumentPage shareToken="token-from-url" />
+            </Suspense>
+          }
+        />
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+
+        {/* Authenticated Routes – wrapped in AppShell */}
         <Route element={isLoggedIn ? <AppShell /> : <Navigate to="/" replace />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/notebooks" element={<NotebooksPage />} />
@@ -129,12 +181,18 @@ export default function App() {
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+<<<<<<< HEAD
           {(userRole === "ADMIN" || capabilities?.canModerateReports) && (
+=======
+          {/* {userRole === "ADMIN" && ( */}
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
             <>
               <Route path="/admin" element={<Navigate to={userRole === "ADMIN" ? "/admin/overview" : "/admin/reports"} replace />} />
               <Route path="/admin/:tab" element={<AdminPage />} />
             </>
+<<<<<<< HEAD
           )}
           {(capabilities?.canReviewMarketplace || userRole === "ADMIN") && (
             <Route path="/reviewer" element={
@@ -143,11 +201,15 @@ export default function App() {
               </Suspense>
             } />
           )}
+=======
+          {/* )} */}
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
         </Route>
 
-        {/* Catch-all for unknown routes */}
+        {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+
       <Toaster position="bottom-center" richColors theme="system" />
     </>
   );

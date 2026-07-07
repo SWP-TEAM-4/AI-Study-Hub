@@ -27,7 +27,11 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   const headers = new Headers(options.headers);
 
   if (token) {
+<<<<<<< HEAD
     const cleanToken = token.replace(/[\'"]+/g, "");
+=======
+    const cleanToken = token.replace(/['"]+/g, "");
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
 
@@ -38,6 +42,7 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
   let result: any = {};
+<<<<<<< HEAD
   try {
     result = text ? JSON.parse(text) : {};
   } catch {
@@ -46,6 +51,14 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
       message: response.ok ? "Backend trả về JSON không hợp lệ" : (text || "Lỗi giao tiếp API Notebook"),
       errorCode: "INVALID_RESPONSE",
     };
+=======
+  if (text && text.trim().length > 0) {
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = { message: text.substring(0, 200) };
+    }
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   }
 
   if (response.status === 401) {
@@ -61,7 +74,11 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   if (!response.ok) {
     throw {
       status: response.status,
+<<<<<<< HEAD
       message: result.message || "Loi giao tiep API Notebook",
+=======
+      message: result.message || "Lỗi giao tiếp API Notebook",
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       errorCode: result.errorCode || "NOTEBOOK_ERROR",
     };
   }
@@ -69,6 +86,7 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   return result;
 }
 
+<<<<<<< HEAD
 function getUserId(): number {
   try {
     const userStr = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
@@ -202,5 +220,40 @@ export const notebookService = {
       message: res.message,
       data: res.data ?? { deleted: true },
     };
+=======
+// ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
+
+export const notebookService = {
+  async getNotebooks(page = 0, size = 10): Promise<ApiResponse<PaginatedResponse<NotebookDTO>>> {
+    return await nbRequest<ApiResponse<PaginatedResponse<NotebookDTO>>>(`/notebooks?page=${page}&size=${size}`, {
+      method: "GET",
+    });
+  },
+
+  async getNotebookDetails(id: number): Promise<ApiResponse<NotebookDTO>> {
+    return await nbRequest(`/notebooks/${id}`, { method: "GET" });
+  },
+
+  async createNotebook(subjectId: number, title: string): Promise<ApiResponse<NotebookDTO>> {
+    return await nbRequest(`/notebooks`, {
+      method: "POST",
+      body: JSON.stringify({ subjectId, title }),
+    });
+  },
+
+  async updateNotebook(
+    id: number,
+    subjectId: number,
+    title: string
+  ): Promise<ApiResponse<NotebookDTO>> {
+    return await nbRequest(`/notebooks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ subjectId, title }),
+    });
+  },
+
+  async deleteNotebook(id: number): Promise<ApiResponse<{ deleted: boolean }>> {
+    return await nbRequest(`/notebooks/${id}`, { method: "DELETE" });
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   },
 };

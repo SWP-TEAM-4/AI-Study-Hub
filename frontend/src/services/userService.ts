@@ -1,7 +1,5 @@
 "use client";
 
-// ─── 1. SYSTEM INTERFACES & DTOS (MAPPED FROM ERD SCHEMA) ──────────────────────
-
 export interface UserDTO {
   id: number;
   email: string;
@@ -10,14 +8,25 @@ export interface UserDTO {
   currentSemesterCode?: string | null;
   currentSemesterName?: string | null;
   currentSemesterId: number | null;
+<<<<<<< HEAD
   comboCode?: string | null;
   comboName?: string | null;
+=======
+  currentSemesterCode: string | null;
+  currentSemesterName: string | null;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   comboId: number | null;
+  comboCode: string | null;
+  comboName: string | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
   isActive: boolean;
   createdAt: string;
+<<<<<<< HEAD
   updatedAt?: string | null;
+=======
+  updatedAt: string;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 }
 
 export interface PaginatedResponse<T> {
@@ -73,15 +82,13 @@ export interface TestHistoryDTO {
   createdAt: string;
 }
 
-// ─── 2. CORE REQUEST HELPER WITH AUTHENTICATION ───────────────────────────────────
-
 const BASE_URL = "/api";
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
   if (token) {
-    const cleanToken = token.replace(/['"]+/g, '');
+    const cleanToken = token.replace(/['"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
   if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -89,10 +96,15 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
-
-  // Dòng này cực kỳ quan trọng để xử lý phản hồi rỗng
   const textData = await response.text();
-  const result = textData ? JSON.parse(textData) : {};
+  let result: any = {};
+  if (textData && textData.trim().length > 0) {
+    try {
+      result = JSON.parse(textData);
+    } catch {
+      result = { message: textData.substring(0, 200) };
+    }
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -105,11 +117,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   if (!response.ok) {
-    throw { status: response.status, message: result.message || "Lỗi hệ thống" };
+    throw {
+      status: response.status,
+      message: result.message || "Lỗi hệ thống",
+      errorCode: result.errorCode,
+    };
   }
   return result as T;
 }
 
+<<<<<<< HEAD
 // ─── 3. INTERACTION UTILS TO CONSTRUCT PARAMS ───────────────────────────────────
 
 export interface AdminUserQuery {
@@ -127,12 +144,18 @@ export interface UserCapabilitiesDTO {
   canModerateReports: boolean;
 }
 
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 function buildQueryString(params?: {
   page?: number;
   size?: number;
   keyword?: string;
   sort?: string;
+<<<<<<< HEAD
   role?: UserDTO["role"];
+=======
+  role?: string;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   isActive?: boolean;
 }): string {
   const query = new URLSearchParams();
@@ -141,108 +164,118 @@ function buildQueryString(params?: {
   if (params?.keyword) query.append("keyword", params.keyword);
   if (params?.sort) query.append("sort", params.sort);
   if (params?.role) query.append("role", params.role);
+<<<<<<< HEAD
   if (params?.isActive !== undefined) query.append("isActive", String(params.isActive));
+=======
+  if (params?.isActive !== undefined) query.append("isActive", params.isActive.toString());
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   const str = query.toString();
   return str ? `?${str}` : "";
 }
 
-// ─── 4. CORE SERVICE IMPLEMENTATION ─────────────────────────────────────────────
-
 export const userService = {
-
   // ==========================================
-  // 🔐 PHÂN HỆ QUẢN TRỊ (ADMIN SCOPE)
+  // PHÂN HỆ QUẢN TRỊ (ADMIN SCOPE)
   // ==========================================
 
+<<<<<<< HEAD
   /**
    * 1. GET /api/admin/users - Admin lấy danh sách người dùng phân trang
    */
   async adminGetUsers(params?: AdminUserQuery) {
+=======
+  async adminGetUsers(params?: {
+    page?: number;
+    size?: number;
+    keyword?: string;
+    sort?: string;
+    role?: string;
+    isActive?: boolean;
+  }) {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     return request<{ success: boolean; message: string; data: PaginatedResponse<UserDTO> }>(
       `/admin/users${buildQueryString(params)}`
     );
   },
 
-  /**
-   * 2. GET /api/admin/users/{id} - Admin xem chi tiết thông tin một người dùng
-   */
   async adminGetUserById(id: number | string) {
     return request<{ success: boolean; message: string; data: UserDTO }>(`/admin/users/${id}`);
   },
 
-  /**
-   * 3. PATCH /api/admin/users/{id}/active - Admin bật hoặc tắt trạng thái hoạt động của người dùng
-   */
   async adminToggleUserActive(id: number | string, isActive: boolean) {
     return request<{ success: boolean; message: string; data: UserDTO }>(`/admin/users/${id}/active`, {
       method: "PATCH",
-      body: JSON.stringify({ isActive })
+      body: JSON.stringify({ isActive }),
     });
   },
 
-  /**
-   * 4. PATCH /api/admin/users/{id}/role - Admin thay đổi vai trò hệ thống của người dùng
-   */
   async adminUpdateUserRole(id: number | string, role: "STUDENT" | "REVIEWER" | "ADMIN") {
     return request<{ success: boolean; message: string; data: UserDTO }>(`/admin/users/${id}/role`, {
       method: "PATCH",
-      body: JSON.stringify({ role })
+      body: JSON.stringify({ role }),
     });
   },
 
-  /**
-   * 10. POST /api/admin/users/{userId}/badges/{badgeId} - Admin gán huy hiệu cho người dùng
-   */
   async adminAssignBadgeToUser(userId: number | string, badgeId: number | string) {
-    return request<{ success: boolean; message: string; data: BadgeDTO }>(`/admin/users/${userId}/badges/${badgeId}`, {
-      method: "POST"
-    });
+    return request<{ success: boolean; message: string; data: BadgeDTO }>(
+      `/admin/users/${userId}/badges/${badgeId}`,
+      { method: "POST" }
+    );
+  },
+
+  async adminGetAIUsageAnalytics() {
+    return request<{
+      success: boolean;
+      message: string;
+      data: {
+        totalRequests: number;
+        totalTokens: number;
+        estimatedCost: number;
+        actionCounts: Record<string, number>;
+      };
+    }>("/admin/analytics/ai-usage");
   },
 
   // ==========================================
-  // 🧑‍🎓 PHÂN HỆ NGƯỜI DÙNG CÁ NHÂN (STUDENT+)
+  // PHÂN HỆ NGƯỜI DÙNG CÁ NHÂN (STUDENT+)
   // ==========================================
 
-  /**
-   * 5. GET /api/users/me - Lấy hồ sơ của người dùng hiện tại
-   */
   async getMyProfile() {
     return request<{ success: boolean; message: string; data: UserDTO }>("/users/me");
   },
 
-  /**
-   * 6. PUT /api/users/me - Cập nhật hồ sơ của người dùng hiện tại
-   */
-  async updateMyProfile(profileData: Partial<Pick<UserDTO, "fullName" | "avatarUrl" | "currentSemesterId" | "comboId">>) {
+  async updateMyProfile(
+    profileData: Partial<Pick<UserDTO, "fullName" | "avatarUrl" | "currentSemesterId" | "comboId">>
+  ) {
     return request<{ success: boolean; message: string; data: UserDTO }>("/users/me", {
       method: "PUT",
-      body: JSON.stringify(profileData)
+      body: JSON.stringify(profileData),
     });
   },
 
-  /**
-   * 7. GET /api/users/me/activity-logs - Lấy lịch sử hoạt động của người dùng hiện tại
-   */
   async getMyActivityLogs(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
     return request<{ success: boolean; message: string; data: PaginatedResponse<ActivityLogDTO> }>(
       `/users/me/activity-logs${buildQueryString(params)}`
     );
   },
 
-  /**
-   * 8. PATCH /api/users/me/change-password - Đổi mật khẩu của người dùng hiện tại
-   */
   async changeMyPassword(passwordPayload: { oldPasswordInput: string; newPasswordInput: string }) {
     const contractPayload = {
+<<<<<<< HEAD
       currentPassword: passwordPayload.oldPasswordInput,
       newPassword: passwordPayload.newPasswordInput
+=======
+      oldPassword: passwordPayload.oldPasswordInput,
+      newPassword: passwordPayload.newPasswordInput,
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     };
     return request<{ success: boolean; message: string; data: null }>("/users/me/change-password", {
       method: "PATCH",
-      body: JSON.stringify(contractPayload)
+      body: JSON.stringify(contractPayload),
     });
   },
 
+<<<<<<< HEAD
   async getMyCapabilities() {
     return request<{ success: boolean; message: string; data: UserCapabilitiesDTO }>("/users/me/capabilities");
   },
@@ -255,6 +288,8 @@ export const userService = {
   /**
    * 9. GET /api/users/me/ai-usage - Lấy thống kê sử dụng AI của người dùng hiện tại
    */
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   async getMyAIUsage(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
     const res = await request<{ success: boolean; message: string; data: any }>(
       `/users/me/ai-usage${buildQueryString(params)}`
@@ -277,24 +312,19 @@ export const userService = {
     };
   },
 
-  /**
-   * 11. GET /api/users/me/badges - Lấy danh sách huy hiệu của người dùng hiện tại
-   */
   async getMyBadges(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
     return request<{ success: boolean; message: string; data: BadgeDTO[] }>(
       `/users/me/badges${buildQueryString(params)}`
     );
   },
 
-  /**
-   * 12. GET /api/users/me/tests - Lấy lịch sử làm bài test của người dùng hiện tại
-   */
   async getMyTestHistory(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
     return request<{ success: boolean; message: string; data: PaginatedResponse<TestHistoryDTO> }>(
       `/users/me/tests${buildQueryString(params)}`
     );
-  }
+  },
 };
+<<<<<<< HEAD
 
 // #,Phương thức & API Path,Tên hàm tương ứng trong userService,Chức năng trên giao diện
 // 1,GET /api/admin/users,adminGetUsers(params),Lấy danh sách thành viên phân trang + Tìm kiếm
@@ -311,3 +341,5 @@ export const userService = {
 // 10,GET /api/users/me/ai-usage,getMyAIUsage(),Lấy thống kê số lượt và hạn ngạch hỏi Trợ lý AI
 // 11,GET /api/users/me/badges,getMyBadges(),Lấy bộ sưu tập các huy hiệu cá nhân đã đạt được
 // 12,GET /api/users/me/tests,getMyTestHistory(),Lấy lịch sử điểm số các bài kiểm tra trắc nghiệm / Quiz
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b

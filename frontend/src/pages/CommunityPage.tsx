@@ -15,7 +15,13 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+<<<<<<< HEAD
 import { Loading, Notify } from "notiflix";
+=======
+import { marketItems } from "../lib/mock-data";
+import { communityService, ContributorDTO } from "../services/communityService";
+import CommunityDetailPage, { CommunityDetailItem } from "./CommunityDetailPage";
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 import CustomSelect from "../components/ui/CustomSelect";
 import { academicService, type SubjectDTO, type SemesterDTO } from "../services/academicService";
 import {
@@ -259,10 +265,128 @@ export default function CommunityPage() {
   const [clonedItems, setClonedItems] = useState<Record<string, CloneResultDTO>>({});
   const [loading, setLoading] = useState(true);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+<<<<<<< HEAD
 
   const subjectMap = useMemo(
     () => new Map(subjects.map((subject) => [subject.id, `${subject.code} · ${subject.name}`])),
     [subjects],
+=======
+  const [selectedItem, setSelectedItem] = useState<CommunityDetailItem | null>(null);
+  
+  // State quản lý danh sách Yêu thích & Theo dõi
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [followedUsers, setFollowedUsers] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (filters.category === "leaderboard" && contributors.length === 0) {
+      setLoadingLeaderboard(true);
+      communityService.getLeaderboardContributors().then((res) => {
+        if (res.success) setContributors(res.data.items);
+        setLoadingLeaderboard(false);
+      });
+    }
+  }, [filters.category]);
+
+  const list = useMemo(() => {
+    const dynamicDocs = (communityDocs || []).map((d: any) => ({
+      id: "doc_" + (d.targetId || d.id),
+      realId: (d.targetId || d.id),
+      kind: "doc",
+      title: d.title,
+      subject: d.subjectId ? `Môn #${d.subjectId}` : "Tài liệu chung",
+      author: d.creatorName || `User ${d.userId || d.targetId}`,
+      userId: d.userId || (d.targetId ? d.targetId + 200 : 0),
+      isVerified: (d.userId || d.targetId || 0) % 3 === 0,
+      rating: d.acceptPercentage ? (d.acceptPercentage / 20).toFixed(1) : "4.8",
+      downloads: d.downloadCount,
+    }));
+    const dynamicDecks = (communityDecks || []).map((d: any) => ({
+      id: "deck_" + d.targetId,
+      realId: d.targetId,
+      kind: "deck",
+      title: d.title,
+      subject: d.subjectId ? `Môn #${d.subjectId}` : "Flashcards",
+      author: d.creatorName,
+      userId: d.targetId + 100, // Mock userId cho deck
+      isVerified: d.targetId % 2 === 0,
+      rating: d.acceptPercentage ? (d.acceptPercentage / 20).toFixed(1) : "4.9",
+      downloads: d.downloadCount,
+    }));
+
+    const staticItems = marketItems
+      .filter((m) => m.kind !== "doc" && m.kind !== "deck")
+      .map((m) => ({ ...m, realId: m.id, userId: Number(m.id) + 200, isVerified: Number(m.id) % 2 === 0 }));
+
+    const mockSubjects = ["SWP391", "PRN212", "MAD101", "PRO192", "DBI202"];
+
+    let merged = [...dynamicDocs, ...dynamicDecks, ...staticItems].map((m) => {
+      // Mock Semester and Subject if they are generic strings
+      let sem = (m as any).semester;
+      let subj = m.subject;
+      if (!sem) {
+        sem = `S${(Number(m.realId) % 9) + 1}`;
+      }
+      if (subj.includes("Tài liệu") || subj.includes("Môn") || subj.includes("Flashcards")) {
+        subj = mockSubjects[Number(m.realId) % 5];
+      }
+      return { ...m, semester: sem, subject: subj };
+    });
+
+    if (filters.savedOnly) {
+      merged = merged.filter((m) => savedIds.includes(String(m.id)));
+    } 
+    
+    if (filters.category !== "all" && filters.category !== "leaderboard") {
+      merged = merged.filter((m) => m.kind === filters.category);
+    }
+
+    if (filters.semester !== "all") {
+      merged = merged.filter(m => m.semester === filters.semester);
+    }
+
+    if (filters.subject !== "all") {
+      merged = merged.filter(m => m.subject.includes(filters.subject));
+    }
+
+    if (filters.verified) {
+      merged = merged.filter(m => m.isVerified);
+    }
+
+    if (filters.search) {
+      merged = merged.filter(
+        (m) =>
+          m.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+          m.subject.toLowerCase().includes(filters.search.toLowerCase()),
+      );
+    }
+
+    // Sắp xếp
+    if (filters.sort === "downloaded") {
+      merged.sort((a, b) => b.downloads - a.downloads);
+    } else if (filters.sort === "rated") {
+      merged.sort((a, b) => parseFloat(String(b.rating)) - parseFloat(String(a.rating)));
+    } else if (filters.sort === "trending") {
+      merged.sort(
+        (a, b) =>
+          b.downloads * parseFloat(String(b.rating)) -
+          a.downloads * parseFloat(String(a.rating)),
+      );
+    } else if (filters.sort === "ai_picks") {
+      merged.sort((a, b) => {
+        const scoreA = (a.isVerified ? 5 : 0) + parseFloat(String(a.rating)) + (Number(a.realId) % 5);
+        const scoreB = (b.isVerified ? 5 : 0) + parseFloat(String(b.rating)) + (Number(b.realId) % 5);
+        return scoreB - scoreA;
+      });
+    }
+
+    return merged;
+  }, [filters, communityDocs, communityDecks, savedIds]);
+
+  const totalPages = Math.max(1, Math.ceil(list.length / itemsPerPage));
+  const paginatedList = useMemo(
+    () => list.slice(0, page * itemsPerPage),
+    [list, page, itemsPerPage],
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   );
 
   const categoryCounts = useMemo(() => {
@@ -408,6 +532,11 @@ export default function CommunityPage() {
       onClone={cloneItem}
     />
   );
+
+  // Show detail page if item selected
+  if (selectedItem) {
+    return <CommunityDetailPage item={selectedItem} onBack={() => setSelectedItem(null)} />;
+  }
 
   return (
     <motion.div
@@ -561,6 +690,7 @@ export default function CommunityPage() {
             {renderGrid(trendingItems.length ? trendingItems : items.slice(0, 8))}
           </section>
 
+<<<<<<< HEAD
           <section>
             <SectionHeader
               icon={<Star size={19} className="fill-amber-500 text-amber-500" />}
@@ -569,6 +699,60 @@ export default function CommunityPage() {
             />
             {renderGrid(topRatedItems.length ? topRatedItems : items.slice(0, 8))}
           </section>
+=======
+              return (
+                <motion.div
+                  key={m.id}
+                  layout
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="surface-card p-5 flex flex-col cursor-pointer group relative"
+                  onClick={() => {
+                    if ((m as any).realId) {
+                      setSelectedItem({
+                        id: (m as any).realId,
+                        type: m.kind === "doc" ? "DOCUMENT" : m.kind === "deck" ? "FLASHCARD_DECK" : "QUIZ",
+                        title: m.title,
+                        author: m.author,
+                        subject: m.subject,
+                        semester: (m as any).semester,
+                        rating: m.rating,
+                        downloads: m.downloads,
+                        isVerified: (m as any).isVerified,
+                        kind: m.kind as "doc" | "quiz" | "deck",
+                      });
+                    }
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div
+                      className="size-12 rounded-xl flex items-center justify-center"
+                      style={{ background: k.bgColor, color: k.iconColor }}
+                    >
+                      <Icon size={20} strokeWidth={1.5} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2.5 py-1 rounded-md bg-muted font-medium truncate max-w-[110px]">
+                        {m.subject}
+                      </span>
+                      {/* Nút lưu yêu thích */}
+                      <button
+                        className={`size-8 rounded-full flex items-center justify-center border transition-all ${
+                          isSaved 
+                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]' 
+                            : 'bg-muted/40 text-muted-foreground border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleBookmark(String(m.id));
+                        }}
+                        title={isSaved ? "Bỏ yêu thích" : "Lưu vào bộ sưu tập"}
+                      >
+                        <Bookmark size={14} className={isSaved ? "fill-current" : ""} />
+                      </button>
+                    </div>
+                  </div>
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 
           {filters.category === "all" && (
             <div className="space-y-8">
@@ -598,6 +782,7 @@ export default function CommunityPage() {
         </div>
       )}
 
+<<<<<<< HEAD
       {selectedItem && (
         <CommunityItemModal
           isOpen={!!selectedItem}
@@ -609,6 +794,9 @@ export default function CommunityPage() {
           onClone={cloneItem}
         />
       )}
+=======
+      {/* Detail page is rendered above when selectedItem is set */}
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     </motion.div>
   );
 }

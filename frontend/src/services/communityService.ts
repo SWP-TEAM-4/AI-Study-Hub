@@ -1,6 +1,6 @@
 import { ApiResponse, PaginatedResponse } from "./types";
 
-// ─── DTOS ───────────────────────────────────────────────────────────────────
+// ─── DTOS ────────────────────────────────────────────────────────────────────
 
 export interface ContributorDTO {
   rank: number;
@@ -30,7 +30,7 @@ async function communityRequest<T>(endpoint: string, options: RequestInit = {}):
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
   if (token) {
-    const cleanToken = token.replace(/['"]+/g, '');
+    const cleanToken = token.replace(/['"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
   if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE") {
@@ -39,7 +39,14 @@ async function communityRequest<T>(endpoint: string, options: RequestInit = {}):
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  if (text && text.trim().length > 0) {
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = { message: text.substring(0, 200) };
+    }
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -55,12 +62,13 @@ async function communityRequest<T>(endpoint: string, options: RequestInit = {}):
     throw {
       status: response.status,
       message: result.message || "Lỗi giao tiếp Community API",
-      errorCode: result.errorCode || "COMMUNITY_ERROR"
+      errorCode: result.errorCode || "COMMUNITY_ERROR",
     };
   }
   return result;
 }
 
+<<<<<<< HEAD
 // ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
 
 let mockMyReferral: ReferralDTO = {
@@ -71,54 +79,37 @@ let mockMyReferral: ReferralDTO = {
   rewardPoints: 0
 };
 
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
 
 export const communityService = {
   // 1. GET /api/community/leaderboard/contributors
+<<<<<<< HEAD
   async getLeaderboardContributors(page: number = 0, size: number = 10): Promise<ApiResponse<PaginatedResponse<ContributorDTO>>> {
     return communityRequest(`/community/leaderboard/contributors?page=${page}&size=${size}`, { method: "GET" });
+=======
+  async getLeaderboardContributors(
+    page: number = 0,
+    size: number = 10
+  ): Promise<ApiResponse<PaginatedResponse<ContributorDTO>>> {
+    return await communityRequest(
+      `/community/leaderboard/contributors?page=${page}&size=${size}`,
+      { method: "GET" }
+    );
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   },
 
   // 2. GET /api/referrals/me
   async getMyReferralInfo(): Promise<ApiResponse<ReferralDTO>> {
-    try {
-      return await communityRequest(`/referrals/me`, { method: "GET" });
-    } catch (err) {
-      console.warn("Fallback: Get My Referral Info", err);
-      return new Promise(resolve => setTimeout(() => {
-        resolve({ success: true, message: "Success", data: mockMyReferral });
-      }, 300));
-    }
+    return await communityRequest(`/referrals/me`, { method: "GET" });
   },
 
   // 3. POST /api/referrals/apply
   async applyReferralCode(referralCode: string): Promise<ApiResponse<ReferralDTO>> {
-    try {
-      return await communityRequest(`/referrals/apply`, {
-        method: "POST",
-        body: JSON.stringify({ referralCode })
-      });
-    } catch (err: any) {
-      console.warn("Fallback: Apply Referral Code", err);
-      return new Promise((resolve, reject) => setTimeout(() => {
-        // Logic mock validate code
-        if (!referralCode || referralCode.trim().length < 5) {
-          return reject({ message: "Mã giới thiệu không hợp lệ" });
-        }
-        if (referralCode.toUpperCase() === mockMyReferral.code) {
-          return reject({ message: "Không thể nhập mã của chính mình!" });
-        }
-        
-        // Cập nhật trạng thái
-        mockMyReferral = {
-          ...mockMyReferral,
-          appliedByUserId: 99, // ai đó
-          status: "APPLIED",
-          rewardPoints: mockMyReferral.rewardPoints + 20
-        };
-
-        resolve({ success: true, message: "Success", data: mockMyReferral });
-      }, 500));
-    }
-  }
+    return await communityRequest(`/referrals/apply`, {
+      method: "POST",
+      body: JSON.stringify({ referralCode }),
+    });
+  },
 };

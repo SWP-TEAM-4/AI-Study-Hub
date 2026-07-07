@@ -194,3 +194,4 @@ export const sampleForumPosts: ForumPost[] = [
   { id: "fp3", title: "Sự khác biệt giữa Dependency Injection và Service Locator trong PRN231", author: "Khoa Lê", subject: "PRN231", comments: 7, likes: 19, date: "2 ngày trước" },
   { id: "fp4", title: "Lộ trình học Java Web PRJ301 hiệu quả cho người mất gốc", author: "Trâm Trần", subject: "PRJ301", comments: 34, likes: 88, date: "1 tuần trước" },
 ];
+

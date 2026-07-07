@@ -11,6 +11,7 @@ export const documentKeys = {
 };
 
 // ─── FETCH WORKSPACE DOCUMENTS ───────────────────────────────────────────────
+<<<<<<< HEAD
 export function useDocuments(params: { keyword?: string; filters?: DocumentSearchFilters } = {}) {
   return useQuery({
     queryKey: documentKeys.workspace(params),
@@ -21,6 +22,33 @@ export function useDocuments(params: { keyword?: string; filters?: DocumentSearc
       return items.some((document) => document.processingStatus === "PENDING" || document.processingStatus === "PROCESSING") ? 2000 : false;
     },
     refetchIntervalInBackground: true,
+=======
+export function useDocuments(filters?: {
+  keyword?: string;
+  subjectId?: number;
+  fileType?: string;
+  visibility?: string;
+  processingStatus?: string;
+  sort?: string;
+}) {
+  const keyword = filters?.keyword ?? "";
+  const subjectId = filters?.subjectId;
+  const fileType = filters?.fileType;
+  const visibility = filters?.visibility;
+  const processingStatus = filters?.processingStatus;
+  const sort = filters?.sort;
+
+  return useQuery({
+    queryKey: [...documentKeys.workspace(), "filters", { keyword, subjectId, fileType, visibility, processingStatus, sort }],
+    queryFn: () => documentService.getWorkspaceDocuments(0, 50, keyword, {
+      subjectId,
+      fileType,
+      visibility,
+      processingStatus,
+      sort
+    }),
+    staleTime: 3 * 60 * 1000, // 3 phút cache
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     select: (data) => data?.data?.items ?? [],
   });
 }

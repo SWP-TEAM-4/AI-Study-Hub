@@ -135,8 +135,8 @@ export default function AdminBadgesTab() {
               <div
                 className="size-16 rounded-2xl grid place-items-center mb-3 shadow-sm relative z-10"
                 style={{
-                  background: `oklch(0.55 0.14 ${b.color || "165"} / 0.15)`,
-                  color: `oklch(0.45 0.14 ${b.color || "165"})`,
+                  background: `oklch(0.55 0.14 165 / 0.15)`,
+                  color: `oklch(0.45 0.14 165)`,
                 }}
               >
                 <Award size={28} />

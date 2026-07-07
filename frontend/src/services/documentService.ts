@@ -32,8 +32,13 @@ export interface DocumentDTO {
   aiVerdictNote: string | null;
   clonedFromId?: number | null;
   processingStatus: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
+  clonedFromId: number | null;
   createdAt: string;
+<<<<<<< HEAD
   updatedAt?: string | null;
+=======
+  updatedAt: string;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 }
 
 export interface MarketplaceDocumentDTO {
@@ -75,6 +80,7 @@ export interface UpdateDocumentRequest {
 }
 
 export interface ProcessDocumentRequest {
+<<<<<<< HEAD
   chunkSize: number;
   overlap: number;
 }
@@ -85,6 +91,11 @@ export interface ProcessDocumentResponse {
   chunkCount: number;
   chunks?: ChunkDTO[];
   message?: string;
+=======
+  chunkSize?: number;
+  overlap?: number;
+  mockText?: string;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 }
 
 export interface CreateTagRequest {
@@ -99,6 +110,7 @@ export interface ReviewDocumentRequest {
 }
 
 export interface ShareLinkDTO {
+<<<<<<< HEAD
   id?: number;
   documentId: number;
   ownerUserId?: number;
@@ -118,6 +130,40 @@ export interface ShareLinkDTO {
 
 export interface SharedDocumentDTO {
   documentId: number | null;
+=======
+  id: number;
+  documentId: number;
+  ownerUserId: number;
+  shareToken: string;
+  shareUrl: string;
+  downloadUrl: string;
+  allowPreview: boolean;
+  allowDownload: boolean;
+  expiresAt: string | null;
+  accessCount: number;
+  lastAccessedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  documentVisibility: "PRIVATE" | "PUBLIC_LINK";
+  enabled: boolean;
+  isEnabled: boolean;
+}
+
+export interface CreateShareLinkRequest {
+  allowPreview?: boolean;
+  allowDownload?: boolean;
+  expiresAt?: string | null;
+}
+
+export interface UpdateShareLinkRequest {
+  isEnabled?: boolean;
+  allowPreview?: boolean;
+  allowDownload?: boolean;
+  expiresAt?: string | null;
+}
+
+export interface SharedDocumentDTO {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   title: string;
   description: string | null;
   subjectId: number | null;
@@ -126,6 +172,8 @@ export interface SharedDocumentDTO {
   allowDownload: boolean;
   downloadUrl: string;
   expiresAt: string | null;
+  previewText: string | null;
+  previewSourcePage: number | null;
   createdAt: string;
   previewText?: string | null;
   previewSourcePage?: number | null;
@@ -176,13 +224,19 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     const cleanToken = token.replace(/['"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
-  if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE" && !(options.body instanceof FormData)) {
+  if (
+    !headers.has("Content-Type") &&
+    options.method !== "GET" &&
+    options.method !== "DELETE" &&
+    !(options.body instanceof FormData)
+  ) {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
   let result: any = {};
+<<<<<<< HEAD
   try {
     result = text ? JSON.parse(text) : {};
   } catch {
@@ -190,6 +244,14 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
       throw { status: response.status, message: text || "Backend trả về dữ liệu không hợp lệ", errorCode: "INVALID_RESPONSE" };
     }
     throw { status: response.status, message: "Backend trả về JSON không hợp lệ", errorCode: "INVALID_RESPONSE" };
+=======
+  if (text && text.trim().length > 0) {
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = { message: text.substring(0, 200) };
+    }
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   }
 
   if (response.status === 401) {
@@ -212,6 +274,7 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   return result;
 }
 
+<<<<<<< HEAD
 function normalizePaginatedResponse<T>(
   response: ApiResponse<PaginatedResponse<T> | SpringPage<T> | T[]>,
   page = 0,
@@ -351,12 +414,15 @@ async function createDownload(
   };
 }
 
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
 
 export const documentService = {
   // ─── 1. CHUNKS (RAG) ───
 
   async deleteDocumentChunks(documentId: number): Promise<ApiResponse<{ deleted: boolean }>> {
+<<<<<<< HEAD
     const res = await docRequest<ApiResponse<{ deleted?: boolean } | boolean | null>>(`/documents/${documentId}/chunks`, { method: "DELETE" });
     return {
       success: res.success,
@@ -367,13 +433,26 @@ export const documentService = {
 
   async getDocumentChunks(documentId: number): Promise<ApiResponse<ChunkDTO[]>> {
     return docRequest(`/documents/${documentId}/chunks`, { method: "GET" });
+=======
+    return await docRequest(`/documents/${documentId}/chunks`, { method: "DELETE" });
+  },
+
+  async getDocumentChunks(documentId: number): Promise<ApiResponse<ChunkDTO[]>> {
+    return await docRequest(`/documents/${documentId}/chunks`, { method: "GET" });
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   },
 
   async processDocumentChunks(
     documentId: number,
+<<<<<<< HEAD
     payload: ProcessDocumentRequest = { chunkSize: 800, overlap: 120 },
   ): Promise<ApiResponse<ProcessDocumentResponse>> {
     return docRequest(`/documents/${documentId}/process`, {
+=======
+    payload: ProcessDocumentRequest
+  ): Promise<ApiResponse<any>> {
+    return await docRequest(`/documents/${documentId}/process`, {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -381,6 +460,7 @@ export const documentService = {
 
   // ─── 2. COMMUNITY & MARKETPLACE ───
 
+<<<<<<< HEAD
   async getCommunityDocuments(page = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
     const query = new URLSearchParams({ page: String(page), size: String(size), sort: "latest" });
     if (keyword.trim()) query.set("keyword", keyword.trim());
@@ -406,11 +486,47 @@ export const documentService = {
 
   async cloneMarketplaceDocument(id: number, targetNotebookId?: number): Promise<ApiResponse<DocumentDTO>> {
     return docRequest(`/marketplace/documents/${id}/clone`, {
+=======
+  async getCommunityDocuments(
+    page = 0,
+    size = 10,
+    keyword = ""
+  ): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
+    return await docRequest(`/community/documents?page=${page}&size=${size}&keyword=${keyword}`, {
+      method: "GET",
+    });
+  },
+
+  async getTopCommunityDocuments(): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
+    return await docRequest(`/community/documents/top`, { method: "GET" });
+  },
+
+  async getCommunityDocumentDetails(id: number): Promise<ApiResponse<DocumentDTO>> {
+    return await docRequest(`/community/documents/${id}`, { method: "GET" });
+  },
+
+  async getMarketplaceDocuments(
+    page = 0,
+    size = 10,
+    keyword = ""
+  ): Promise<ApiResponse<PaginatedResponse<MarketplaceDocumentDTO>>> {
+    return await docRequest(`/marketplace/documents?page=${page}&size=${size}&keyword=${keyword}`, {
+      method: "GET",
+    });
+  },
+
+  async cloneMarketplaceDocument(
+    id: number,
+    targetNotebookId?: number
+  ): Promise<ApiResponse<DocumentDTO>> {
+    return await docRequest(`/marketplace/documents/${id}/clone`, {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       method: "POST",
       body: JSON.stringify({ targetNotebookId }),
     });
   },
 
+<<<<<<< HEAD
   async submitToMarketplace(id: number, note = "Submit for marketplace review"): Promise<ApiResponse<DocumentDTO>> {
     return docRequest(`/marketplace/documents/${id}/submit`, {
       method: "POST",
@@ -420,6 +536,20 @@ export const documentService = {
 
   async reviewMarketplaceDocument(id: number, payload: ReviewDocumentRequest): Promise<ApiResponse<any>> {
     return docRequest(`/reviewer/marketplace/DOCUMENT/${id}/vote`, {
+=======
+  async submitToMarketplace(id: number): Promise<ApiResponse<DocumentDTO>> {
+    return await docRequest(`/marketplace/documents/${id}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ note: "Submit for marketplace review" }),
+    });
+  },
+
+  async reviewMarketplaceDocument(
+    id: number,
+    payload: ReviewDocumentRequest
+  ): Promise<ApiResponse<any>> {
+    return await docRequest(`/admin/marketplace/documents/${id}/review`, {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -431,6 +561,7 @@ export const documentService = {
     page = 0,
     size = 50,
     keyword = "",
+<<<<<<< HEAD
     filters: DocumentSearchFilters = {},
   ): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
     const query = new URLSearchParams({
@@ -450,17 +581,54 @@ export const documentService = {
 
   async createDocumentMetadata(payload: CreateDocumentRequest): Promise<ApiResponse<DocumentDTO>> {
     return docRequest(`/documents`, {
+=======
+    options?: {
+      subjectId?: number;
+      fileType?: string;
+      visibility?: string;
+      processingStatus?: string;
+      sort?: string;
+    }
+  ): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("size", String(size));
+    if (keyword) params.set("keyword", keyword);
+    if (options?.subjectId != null) params.set("subjectId", String(options.subjectId));
+    if (options?.fileType) params.set("fileType", options.fileType);
+    if (options?.visibility) params.set("visibility", options.visibility);
+    if (options?.processingStatus) params.set("processingStatus", options.processingStatus);
+    if (options?.sort) params.set("sort", options.sort);
+    return await docRequest<ApiResponse<PaginatedResponse<DocumentDTO>>>(`/documents?${params.toString()}`, {
+      method: "GET",
+    });
+  },
+
+  async createDocumentMetadata(payload: CreateDocumentRequest): Promise<ApiResponse<DocumentDTO>> {
+    return await docRequest(`/documents`, {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
 
+<<<<<<< HEAD
   async uploadDocument(file: File, subjectId?: number, title?: string, description?: string, notebookId?: number): Promise<ApiResponse<DocumentDTO>> {
+=======
+  async uploadDocument(
+    file: File,
+    subjectId?: number,
+    title?: string,
+    description?: string,
+    notebookId?: number
+  ): Promise<ApiResponse<DocumentDTO>> {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     const formData = new FormData();
     formData.append("file", file);
     if (subjectId) formData.append("subjectId", subjectId.toString());
     if (title) formData.append("title", title);
     if (description) formData.append("description", description);
+<<<<<<< HEAD
     const response = await docRequest<ApiResponse<DocumentDTO>>(`/documents/upload`, {
       method: "POST",
       body: formData,
@@ -480,12 +648,29 @@ export const documentService = {
 
   async updateDocument(id: number, payload: UpdateDocumentRequest): Promise<ApiResponse<DocumentDTO>> {
     return docRequest(`/documents/${id}`, {
+=======
+    if (notebookId) formData.append("notebookId", notebookId.toString());
+
+    return await docRequest(`/documents/upload`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  async getDocumentDetails(id: number): Promise<ApiResponse<DocumentDTO>> {
+    return await docRequest(`/documents/${id}`, { method: "GET" });
+  },
+
+  async updateDocument(id: number, payload: Partial<CreateDocumentRequest>): Promise<ApiResponse<DocumentDTO>> {
+    return await docRequest(`/documents/${id}`, {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       method: "PUT",
       body: JSON.stringify(payload),
     });
   },
 
   async deleteDocument(id: number): Promise<ApiResponse<{ deleted: boolean }>> {
+<<<<<<< HEAD
     const res = await docRequest<ApiResponse<boolean | { deleted?: boolean } | null>>(`/documents/${id}`, { method: "DELETE" });
     return {
       success: res.success,
@@ -506,10 +691,14 @@ export const documentService = {
     }
     const download = await createDownload(response, fallbackTitle, fallbackFileType);
     return { blobUrl: download.blobUrl, fileName: download.fileName };
+=======
+    return await docRequest(`/documents/${id}`, { method: "DELETE" });
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   },
 
   // ─── 4. NOTEBOOK DOCUMENTS ───
 
+<<<<<<< HEAD
   async getNotebookDocuments(notebookId: number, page = 0, size = 10): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
     const res = await docRequest<ApiResponse<PaginatedResponse<DocumentDTO>>>(`/notebooks/${notebookId}/documents?page=${page}&size=${size}&sort=newest`, { method: "GET" });
     return normalizePaginatedResponse(res, page, size);
@@ -526,10 +715,33 @@ export const documentService = {
       message: res.message,
       data: typeof res.data === "boolean" ? { deleted: res.data } : { deleted: res.data?.deleted ?? true },
     };
+=======
+  async getNotebookDocuments(
+    notebookId: number,
+    page = 0,
+    size = 10
+  ): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
+    return await docRequest(`/notebooks/${notebookId}/documents?page=${page}&size=${size}`, { method: "GET" });
+  },
+
+  async addDocumentToNotebook(notebookId: number, documentId: number): Promise<ApiResponse<DocumentDTO>> {
+    return await docRequest(`/notebooks/${notebookId}/documents/${documentId}`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
+  async removeDocumentFromNotebook(
+    notebookId: number,
+    documentId: number
+  ): Promise<ApiResponse<{ deleted: boolean }>> {
+    return await docRequest(`/notebooks/${notebookId}/documents/${documentId}`, { method: "DELETE" });
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   },
 
   // ─── 5. TAGS ───
 
+<<<<<<< HEAD
   async getAllTags(): Promise<ApiResponse<PaginatedResponse<TagDTO>>> {
     const res = await docRequest<ApiResponse<TagDTO[] | PaginatedResponse<TagDTO>>>(`/tags`, { method: "GET" });
     return normalizePaginatedResponse(res, 0, 50);
@@ -537,11 +749,20 @@ export const documentService = {
 
   async createTag(payload: CreateTagRequest): Promise<ApiResponse<TagDTO>> {
     return docRequest(`/tags`, {
+=======
+  async getAllTags(): Promise<ApiResponse<TagDTO[]>> {
+    return await docRequest(`/tags`, { method: "GET" });
+  },
+
+  async createTag(payload: CreateTagRequest): Promise<ApiResponse<TagDTO>> {
+    return await docRequest(`/tags`, {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
 
+<<<<<<< HEAD
   async getDocumentTags(documentId: number): Promise<ApiResponse<PaginatedResponse<TagDTO>>> {
     const res = await docRequest<ApiResponse<TagDTO[] | PaginatedResponse<TagDTO>>>(`/documents/${documentId}/tags`, { method: "GET" });
     return normalizePaginatedResponse(res, 0, 50);
@@ -554,10 +775,26 @@ export const documentService = {
   async removeTagFromDocument(documentId: number, tagId: number): Promise<ApiResponse<{ deleted: boolean }>> {
     const res = await docRequest<ApiResponse<unknown>>(`/documents/${documentId}/tags/${tagId}`, { method: "DELETE" });
     return { success: res.success, message: res.message, data: { deleted: true } };
+=======
+  async getDocumentTags(documentId: number): Promise<ApiResponse<TagDTO[]>> {
+    return await docRequest(`/documents/${documentId}/tags`, { method: "GET" });
+  },
+
+  async addTagToDocument(documentId: number, tagId: number): Promise<ApiResponse<any>> {
+    return await docRequest(`/documents/${documentId}/tags/${tagId}`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
+  async removeTagFromDocument(documentId: number, tagId: number): Promise<ApiResponse<{ deleted: boolean }>> {
+    return await docRequest(`/documents/${documentId}/tags/${tagId}`, { method: "DELETE" });
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   },
 
   // ─── 6. DOCUMENT SHARE LINK ───
 
+<<<<<<< HEAD
   async createShareLink(documentId: number, payload: { expiresAt?: string | null; allowDownload: boolean; allowPreview?: boolean }): Promise<ApiResponse<ShareLinkDTO>> {
     const res = await docRequest<ApiResponse<BackendShareLinkResponse>>(`/documents/${documentId}/share-link`, {
       method: "POST",
@@ -653,5 +890,49 @@ export const documentService = {
         downloadUrl: download.blobUrl,
       },
     };
+=======
+  async createShareLink(documentId: number, payload: CreateShareLinkRequest): Promise<ApiResponse<ShareLinkDTO>> {
+    return await docRequest(`/documents/${documentId}/share-link`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getShareLinkStatus(documentId: number): Promise<ApiResponse<ShareLinkDTO>> {
+    return await docRequest(`/documents/${documentId}/share-link`, { method: "GET" });
+  },
+
+  async updateShareLink(
+    documentId: number,
+    payload: UpdateShareLinkRequest & { regenerateToken?: boolean }
+  ): Promise<ApiResponse<ShareLinkDTO>> {
+    return await docRequest(`/documents/${documentId}/share-link`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async revokeShareLink(documentId: number): Promise<ApiResponse<{ deleted: boolean; documentVisibility: string }>> {
+    return await docRequest(`/documents/${documentId}/share-link`, { method: "DELETE" });
+  },
+
+  async getPublicSharedDocument(shareToken: string): Promise<ApiResponse<SharedDocumentDTO>> {
+    return await docRequest(`/share/documents/${shareToken}`, { method: "GET" });
+  },
+
+  async downloadSharedDocument(
+    shareToken: string
+  ): Promise<
+    ApiResponse<{
+      documentId: number;
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      downloadUrl: string;
+      expiresInSeconds: number;
+    }>
+  > {
+    return await docRequest(`/share/documents/${shareToken}/download`, { method: "GET" });
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
   },
 };

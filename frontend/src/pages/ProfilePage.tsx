@@ -35,8 +35,9 @@ import { academicService, ComboDTO, SemesterDTO } from "../services/academicServ
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { useAuthStore } from "../store/useAuthStore";
 
-// ─── 🌐 1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
+// ───  1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
 
+<<<<<<< HEAD
 const emptyStats = {
   notebooks: 0,
   documents: 0,
@@ -44,6 +45,20 @@ const emptyStats = {
   flashcardDecks: 0,
 };
 
+=======
+const COMBO_MAJORS: Record<number, { major: string; spec: string }> = {
+  1: { major: "Kỹ thuật Phần mềm + AI", spec: "Trí tuệ nhân tạo (AI/ML)" },
+  2: { major: "Kinh doanh + Khoa học dữ liệu", spec: "Phân tích dữ liệu (Data Science)" },
+  3: { major: "Thiết kế đồ họa + UI/UX", spec: "Thiết kế trải nghiệm UI/UX" },
+};
+
+const statsConfig: { label: string; value: number; icon: LucideIcon }[] = [
+  { label: "Notebook", value: 5, icon: BookMarked },
+  { label: "Tài liệu", value: 42, icon: FileText },
+  { label: "Quiz đã làm", value: 28, icon: GraduationCap },
+];
+
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 // ─── 🧑‍🎓 2. MAIN PROFILE COMPONENT ──────────────────────────────────────────────
 
 interface ProfilePageProps {
@@ -102,7 +117,19 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     setIsLoading(true);
     setLoadError(null);
     try {
+<<<<<<< HEAD
       const profileRes = await userService.getMyProfile();
+=======
+      const [profileRes, badgesRes, testsRes, logsRes, aiRes, refRes, rolesRes] = await Promise.all([
+        userService.getMyProfile(),
+        userService.getMyBadges(),
+        userService.getMyTestHistory({ page: 0, size: 5 }),
+        userService.getMyActivityLogs({ page: 0, size: 3 }),
+        userService.getMyAIUsage(),
+        communityService.getMyReferralInfo().catch(() => null),
+        communityRoleService.getMyCommunityRoles().catch(() => null),
+      ]);
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 
       if (profileRes.success && profileRes.data) {
         setUserInfo(profileRes.data);
@@ -131,13 +158,14 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
           const colorMap = ["165", "35", "200", "75"];
           return {
             ...b,
-            color: b.color || colorMap[index % colorMap.length]
+            color: b.color || colorMap[index % colorMap.length],
           };
         });
         setBadges(mappedBadges);
       } else {
         setBadges([]);
       }
+<<<<<<< HEAD
 
       if (testsRes.status === "fulfilled" && testsRes.value.success && testsRes.value.data) {
         setTestHistory(testsRes.value.data.items || []);
@@ -167,6 +195,16 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     } catch (err: any) {
       setLoadError(err.message || "Không thể tải hồ sơ cá nhân từ backend.");
       Notify.failure(err.message || "Không thể tải hồ sơ cá nhân");
+=======
+      if (testsRes.success && testsRes.data) setTestHistory(testsRes.data.items || []);
+      if (logsRes.success && logsRes.data) setActivityLogs(logsRes.data.items || []);
+      if (aiRes.success && aiRes.data) setAiUsage(aiRes.data);
+      if (refRes?.success && refRes.data) setMyReferral(refRes.data);
+      if (rolesRes?.success && rolesRes.data) setMyRoles(rolesRes.data);
+    } catch (err: any) {
+      console.error("Error loading profile:", err);
+      Notify.failure(err.message || "Không thể tải dữ liệu hồ sơ");
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     } finally {
       setIsLoading(false);
     }

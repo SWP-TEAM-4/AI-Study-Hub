@@ -2,9 +2,13 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Bot, FileText, RefreshCw, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+<<<<<<< HEAD
 import { analyticsService } from "../../services/analyticsService";
 import { governanceService } from "../../services/governanceService";
 import { userService } from "../../services/userService";
+=======
+import { analyticsService, AIUsageAnalyticsDTO } from "../../services/analyticsService";
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
@@ -27,6 +31,7 @@ export default function AdminOverview() {
   const overviewQuery = useQuery({
     queryKey: ["adminOverview"],
     queryFn: async () => {
+<<<<<<< HEAD
       const [users, activeUsers, reviewers, admins, contents, reports, pendingReports, aiUsage] = await Promise.all([
         userService.adminGetUsers({ page: 0, size: 1 }),
         userService.adminGetUsers({ page: 0, size: 1, isActive: true }),
@@ -55,6 +60,10 @@ export default function AdminOverview() {
         pendingReports: pendingReports.data.totalElements,
         aiUsage: aiUsage.data,
       };
+=======
+      const res = await analyticsService.getAdminAIUsage();
+      return res.data;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     },
     staleTime: 30_000,
   });
@@ -127,6 +136,7 @@ export default function AdminOverview() {
         <DetailCard label={t("admin.overview.totalReports")} value={numberFormatter.format(data.totalReports)} />
       </section>
 
+<<<<<<< HEAD
       <section className="grid gap-6 xl:grid-cols-[2fr_1fr]">
         <div className="surface-card p-5">
           <div className="mb-4 text-left">
@@ -159,6 +169,47 @@ export default function AdminOverview() {
             <MetricRow label={t("admin.overview.quizzes")} value={numberFormatter.format(data.contentCounts.QUIZ ?? 0)} />
             <MetricRow label={t("admin.overview.flashcards")} value={numberFormatter.format(data.contentCounts.FLASHCARD_DECK ?? 0)} />
           </div>
+=======
+      <section className="surface-card p-5">
+        <div className="mb-4 text-left"><h2 className="font-display text-lg font-semibold text-foreground">{t("admin.overview.aiUsageDetails")}</h2></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">User ID</th>
+                <th className="px-4 py-3">Period</th>
+                <th className="px-4 py-3 text-right">Chat</th>
+                <th className="px-4 py-3 text-right">Quiz</th>
+                <th className="px-4 py-3 text-right">Flashcard</th>
+                <th className="px-4 py-3 text-right">Tokens</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={6} className="px-4 py-3">
+                      <div className="h-4 bg-muted animate-pulse rounded w-full"></div>
+                    </td>
+                  </tr>
+                ))
+              ) : !aiUsageData ? (
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground text-xs">{t("admin.overview.noData")}</td></tr>
+              ) : (
+                <>
+                  <tr className="hover:bg-muted/10">
+                    <td className="px-4 py-3 font-semibold">Tất cả người dùng</td>
+                    <td className="px-4 py-3 font-mono text-xs">Hệ thống</td>
+                    <td className="px-4 py-3 text-right">{aiUsageData.actionCounts?.CHAT_NORMAL || 0} lượt</td>
+                    <td className="px-4 py-3 text-right">{aiUsageData.actionCounts?.GENERATE_QUIZ || 0} lượt</td>
+                    <td className="px-4 py-3 text-right">{aiUsageData.actionCounts?.GENERATE_FLASHCARD || 0} lượt</td>
+                    <td className="px-4 py-3 text-right font-mono text-success font-bold">{aiUsageData.totalTokens?.toLocaleString() || 0}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
         </div>
       </section>
     </div>

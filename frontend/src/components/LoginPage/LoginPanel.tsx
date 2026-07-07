@@ -7,6 +7,7 @@ import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { authService, type AuthUser } from "../../services/authService";
+import { academicService } from "../../services/academicService";
 import { cn } from "../../lib/utils";
 import type { UserDTO } from "../../services/userService";
 
@@ -281,10 +282,16 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
     try {
       const response = await authService.forgotPassword(cleanEmail);
       if (response.success) {
+<<<<<<< HEAD
         const message = response.message || "Nếu email tồn tại, link đặt lại mật khẩu đã được gửi.";
         setResetMessage(message);
         setEmail("");
         Notify.success("Nếu email tồn tại, link đặt lại mật khẩu đã được gửi.");
+=======
+        setResetMessage(`Yêu cầu thành công. Vui lòng kiểm tra email để nhận hướng dẫn đặt lại mật khẩu.`);
+        Notify.success("Đã khởi tạo lệnh cấp lại mật khẩu!");
+        setTimeout(() => { setMode("login"); setResetMessage(""); setEmail(""); }, 4000);
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       }
     } catch (err: any) {
       Notify.failure(err.message || "Gửi yêu cầu khôi phục thất bại.");
