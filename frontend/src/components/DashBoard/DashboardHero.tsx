@@ -24,6 +24,7 @@ export function DashboardHero() {
       return { profile: profile.data, aiUsage: aiUsage.data, testCount: tests.data.totalElements };
     },
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   const profile = dashboardData?.profile;
@@ -138,6 +139,11 @@ export function DashboardHero() {
                   initials
                 )}
               </div>
+              <span
+                className="absolute -bottom-1 -right-1 size-4 rounded-full bg-green-500 border-2 border-card shadow"
+                aria-label="Đang hoạt động"
+                role="status"
+              />
             </div>
           </div>
 

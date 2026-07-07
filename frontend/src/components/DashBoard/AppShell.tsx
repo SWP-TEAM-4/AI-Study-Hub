@@ -37,7 +37,8 @@ import {
   Globe2,
   BellRing,
   CircleUserRound,
-  ShieldCheck
+  ShieldCheck,
+  Flag
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
@@ -55,6 +56,7 @@ const nav = [
   { path: "/quiz", labelKey: "appShell.nav.quiz", icon: Gamepad2 },
   { path: "/flashcards", labelKey: "appShell.nav.flashcards", icon: Layers },
   { path: "/community", labelKey: "appShell.nav.community", icon: Globe2 },
+  { path: "/my-reports", labelKey: "appShell.nav.myReports", icon: Flag },
   { path: "/notifications", labelKey: "appShell.nav.notifications", icon: BellRing },
   { path: "/profile", labelKey: "appShell.nav.profile", icon: CircleUserRound },
   { path: "/admin", labelKey: "appShell.nav.admin", icon: ShieldCheck },
@@ -343,7 +345,7 @@ export function AppShell() {
                 <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
                   Cá nhân
                 </div>
-                {nav.slice(6, 8).map((item) => {
+                {nav.slice(6, 9).map((item) => {
                   const active = location.pathname === item.path;
                   const Icon = item.icon;
                   return (
@@ -383,7 +385,7 @@ export function AppShell() {
                   <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
                     Quản trị
                   </div>
-                  {nav.slice(8).map((item) => {
+                  {nav.slice(9).map((item) => {
                     const active = location.pathname === item.path;
                     const Icon = item.icon;
                     return (

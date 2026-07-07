@@ -121,7 +121,7 @@ export default function AdminRolesTab() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl hover:brightness-110 active:scale-95 transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer"
         >
           {showForm ? "Đóng form" : <><Plus size={18} /> Cấp quyền mới</>}
         </button>
@@ -229,14 +229,14 @@ export default function AdminRolesTab() {
               )}
               <div>
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Ngày bắt đầu</label>
-                <input type="date" value={startAt} onChange={e => setStartAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm" />
+                <input type="date" value={startAt} onChange={e => setStartAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Ngày kết thúc (Bỏ trống nếu vĩnh viễn)</label>
-                <input type="date" value={endAt} onChange={e => setEndAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm" />
+                <input type="date" value={endAt} onChange={e => setEndAt(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none" />
               </div>
             </div>
-            <button type="submit" className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-lg hover:brightness-110">Lưu quyền</button>
+            <button type="submit" className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-lg hover:brightness-110 cursor-pointer">Lưu quyền</button>
           </motion.form>
         )}
       </AnimatePresence>
@@ -254,9 +254,9 @@ export default function AdminRolesTab() {
           </thead>
           <tbody className="divide-y divide-border/50">
             {loading ? (
-              <tr><td colSpan={5} className="py-12 text-center">Đang tải...</td></tr>
+              <tr><td colSpan={5} className="py-12 text-center">Đang tải cấu trúc vai trò thành viên...</td></tr>
             ) : roles.length === 0 ? (
-              <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">Chưa có vai trò nào được cấp.</td></tr>
+              <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">Chưu có vai trò nào được cấp phát trên hệ thống.</td></tr>
             ) : (
               roles.map(r => (
                 <tr key={r.id} className="hover:bg-muted/20">
@@ -296,7 +296,7 @@ export default function AdminRolesTab() {
                     {r.status === "ACTIVE" && (
                       <button
                         onClick={() => handleRevokeRole(r.id)}
-                        className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                        className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                         title="Thu hồi quyền"
                       >
                         <Trash2 size={16} />

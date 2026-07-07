@@ -163,6 +163,7 @@ export const authService = {
 
   /**
    * 4. POST /api/auth/reset-password - Đặt lại mật khẩu bảo mật mới bằng mã xác thực Reset Token
+   * Backend gửi token qua email, client gửi lại { token, newPassword }
    */
   async resetPassword(resetToken: string, newPassword: string) {
     return authRequest<{ success: boolean; message: string; data?: ResetPasswordResponseData | EmptyApiResponseData }>(

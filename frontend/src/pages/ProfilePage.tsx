@@ -35,7 +35,7 @@ import { academicService, ComboDTO, SemesterDTO } from "../services/academicServ
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { useAuthStore } from "../store/useAuthStore";
 
-// ─── 🌐 1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
+// ───  1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
 
 const emptyStats = {
   notebooks: 0,
@@ -131,7 +131,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
           const colorMap = ["165", "35", "200", "75"];
           return {
             ...b,
-            color: b.color || colorMap[index % colorMap.length]
+            color: b.color || colorMap[index % colorMap.length],
           };
         });
         setBadges(mappedBadges);

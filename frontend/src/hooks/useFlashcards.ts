@@ -14,7 +14,7 @@ export const flashcardKeys = {
 export function useFlashcardDecks() {
   return useQuery({
     queryKey: flashcardKeys.decks(),
-    queryFn: () => flashcardService.getMyFlashcardDecks(0, 50),
+    queryFn: () => flashcardService.getMyFlashcardDecks({ page: 0, size: 50 }),
     staleTime: 5 * 60 * 1000, // 5 phút cache
     select: (data) => data?.data?.items ?? [],
   });

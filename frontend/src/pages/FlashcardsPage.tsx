@@ -3,13 +3,15 @@ import { BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag, Tra
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import FlashcardStudyPage from "./FlashcardStudyPage";
+import FlashcardDetailPage from "./FlashcardDetailPage";
 import { Notify, Confirm } from "notiflix";
 import CustomSelect from "../components/ui/CustomSelect";
-import { 
-  useFlashcardDecks, 
+import {
+  useFlashcardDecks,
   useGenerateFlashcardDeck,
   useDeleteFlashcardDeck
 } from "../hooks/useFlashcards";
+import { FlashcardDeckDTO } from "../services/flashcardService";
 import { SkeletonCard } from "../components/ui/SkeletonCard";
 import { flashcardService, FlashcardDeckDTO, FlashcardDeckPayload, FlashcardProgressDTO } from "../services/flashcardService";
 import { useSubjects } from "../hooks/useSubjects";
@@ -169,6 +171,16 @@ export default function FlashcardsPage() {
     );
   }
 
+  if (detailDeck) {
+    return (
+      <FlashcardDetailPage
+        deck={detailDeck}
+        onBack={() => setDetailDeck(null)}
+        onStudy={() => { setActiveDeckId(detailDeck.id.toString()); setDetailDeck(null); }}
+      />
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -282,7 +294,7 @@ export default function FlashcardsPage() {
             className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
           />
         </div>
-        
+
         <div className="flex flex-wrap md:flex-nowrap gap-3 w-full lg:w-auto">
           <CustomSelect
             value={filterSubject}

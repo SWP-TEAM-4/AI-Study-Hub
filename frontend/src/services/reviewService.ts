@@ -40,30 +40,31 @@ async function safeRequest<T>(endpoint: string, options: RequestInit = {}): Prom
   return result;
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T | any;
-}
+export type ReviewTargetType = "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK";
 
-export interface ActivityLogDTO {
+export interface ReviewDTO {
   id: number;
-  actorId: number;
-  action: string;
-  targetType: string;
+  targetType: ReviewTargetType;
   targetId: number;
-  metadata: Record<string, any>;
+  rating: number;
+  content: string;
+  reviewerId: number;
+  reviewerName: string;
+  reviewerAvatarUrl: string | null;
   createdAt: string;
 }
 
-export const activityLogService = {
-  adminGetActivityLogs: async (params?: { page?: number; size?: number; keyword?: string; sort?: string }) => {
-    const queryParams = new URLSearchParams();
-    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
-    if (params?.size !== undefined) queryParams.append("size", params.size.toString());
-    if (params?.keyword) queryParams.append("keyword", params.keyword);
-    if (params?.sort) queryParams.append("sort", params.sort);
-    const qs = queryParams.toString();
-    return await safeRequest(`/admin/activity-logs${qs ? '?' + qs : ''}`);
+export const reviewService = {
+  async getReviews(targetType: ReviewTargetType, targetId: number, page = 0, size = 10) {
+    return await safeRequest(`/community/reviews?targetType=${targetType}&targetId=${targetId}&page=${page}&size=${size}`, { method: "GET" });
+  },
+  async createReview(payload: { targetType: ReviewTargetType; targetId: number; rating: number; content: string }) {
+    return await safeRequest(`/community/reviews`, { method: "POST", body: JSON.stringify(payload) });
+  },
+  async updateReview(id: number, payload: { targetType: ReviewTargetType; targetId: number; rating: number; content: string }) {
+    return await safeRequest(`/community/reviews/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+  },
+  async deleteReview(id: number) {
+    return await safeRequest(`/community/reviews/${id}`, { method: "DELETE" });
   },
 };

@@ -48,7 +48,7 @@ export interface ReviewDTO {
 
 const BASE_URL = "/api";
 
-async function govRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function safeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
   if (token) {
@@ -62,7 +62,10 @@ async function govRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  if (text && text.trim().length > 0) {
+    try { result = JSON.parse(text); } catch { result = { message: text.substring(0, 200) }; }
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {

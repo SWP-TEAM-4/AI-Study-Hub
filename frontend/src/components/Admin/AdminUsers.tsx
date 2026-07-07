@@ -298,6 +298,15 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         </div>
         {children}
       </div>
+      
+      {/* Gợi ý phân trang nhỏ gọn phía dưới */}
+      {totalElements > 10 && (
+        <div className="flex justify-end gap-2 text-xs font-medium pr-2">
+          <button disabled={currentPage === 0} onClick={() => setCurrentPage(p => p - 1)} className="px-3 h-8 rounded-lg bg-muted border border-border disabled:opacity-45">Trước</button>
+          <span className="h-8 flex items-center px-2">Trang {currentPage + 1}</span>
+          <button disabled={usersList.length < 10} onClick={() => setCurrentPage(p => p + 1)} className="px-3 h-8 rounded-lg bg-muted border border-border disabled:opacity-45">Sau</button>
+        </div>
+      )}
     </div>
   );
 }

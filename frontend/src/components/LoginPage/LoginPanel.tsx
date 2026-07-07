@@ -7,6 +7,7 @@ import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { authService, type AuthUser } from "../../services/authService";
+import { academicService } from "../../services/academicService";
 import { cn } from "../../lib/utils";
 import type { UserDTO } from "../../services/userService";
 

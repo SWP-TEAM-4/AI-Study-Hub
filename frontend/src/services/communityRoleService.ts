@@ -1,13 +1,11 @@
 import { ApiResponse, PaginatedResponse } from "./types";
 
-// ─── DTOS ───────────────────────────────────────────────────────────────────
-
 export interface CommunityRoleDTO {
   id: number;
   userId: number;
   grantedByUserId: number;
-  roleType: string; // e.g. "MARKETPLACE_REVIEWER", "MODERATOR", etc.
-  scopeType: string; // e.g. "SUBJECT", "GLOBAL"
+  roleType: string;
+  scopeType: string;
   scopeId: number | null;
   startAt: string;
   endAt: string | null;
@@ -24,7 +22,17 @@ export interface GrantRoleRequest {
   endAt: string | null;
 }
 
-// ─── BASE CONFIG ─────────────────────────────────────────────────────────────
+export interface AdminCommunityRoleParams {
+  keyword?: string;
+  userId?: number;
+  roleType?: string;
+  status?: string;
+  scopeType?: string;
+  scopeId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
 
 const BASE_URL = "/api";
 

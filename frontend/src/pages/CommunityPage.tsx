@@ -409,6 +409,11 @@ export default function CommunityPage() {
     />
   );
 
+  // Show detail page if item selected
+  if (selectedItem) {
+    return <CommunityDetailPage item={selectedItem} onBack={() => setSelectedItem(null)} />;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}

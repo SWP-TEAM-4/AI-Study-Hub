@@ -13,9 +13,12 @@ import { academicService, SemesterDTO } from "../services/academicService";
 import { notebookService, NotebookDTO } from "../services/notebookService";
 
 const levelStyles: Record<string, string> = {
-  Easy: "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25",
-  Medium: "bg-amber-500/12 text-amber-300 border border-amber-500/25",
-  Hard: "bg-rose-500/12 text-rose-300 border border-rose-500/25",
+  EASY: "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25",
+  MEDIUM: "bg-amber-500/12 text-amber-300 border border-amber-500/25",
+  HARD: "bg-rose-500/12 text-rose-300 border border-rose-500/25",
+  MIDTERM: "bg-blue-500/12 text-blue-300 border border-blue-500/25",
+  FINAL: "bg-purple-500/12 text-purple-300 border border-purple-500/25",
+  PRACTICE: "bg-teal-500/12 text-teal-300 border border-teal-500/25",
 };
 
 export default function QuizPage() {
@@ -343,10 +346,11 @@ export default function QuizPage() {
             onChange={setFilterLevel}
             className="flex-1 md:flex-none w-full md:w-[170px]"
             data={[
-              { label: t("filters.allLevels"), value: "all" },
-              { label: t("filters.easy"), value: "Easy" },
-              { label: t("filters.medium"), value: "Medium" },
-              { label: t("filters.hard"), value: "Hard" }
+              { label: t("Tất cả"), value: "all" },
+              { label: "MIDTERM", value: "MIDTERM" },
+              { label: "FINAL", value: "FINAL" },
+              { label: "PRACTICE", value: "PRACTICE" },
+              { label: "QUIZ", value: "QUIZ" }
             ]}
           />
           <CustomSelect
@@ -399,9 +403,9 @@ export default function QuizPage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium mr-2">{quiz.subject || "No Subject"}</span>
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${levelStyles[quiz.level || "Medium"] || levelStyles.Medium}`}>
-                    {quiz.level || "Medium"}
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted font-medium mr-2">{quiz.subjectName || "No Subject"}</span>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${levelStyles[quiz.examType || "PRACTICE"] || levelStyles.PRACTICE}`}>
+                    {quiz.examType || "PRACTICE"}
                   </span>
                 </div>
                 
@@ -424,16 +428,16 @@ export default function QuizPage() {
                 </div>
               </div>
               <h3 className="font-display text-lg font-semibold">{quiz.title}</h3>
-              <div className="mt-2 text-sm text-muted-foreground">{quiz.questions} {t('pages.quiz.questions')}</div>
+              <div className="mt-2 text-sm text-muted-foreground">{t('pages.quiz.questions')}: {quiz.downloadCount || 0}</div>
 
               <div className="mt-4 mb-4 flex items-center justify-between p-3 rounded-lg bg-muted/40">
                 <div>
                   <div className="text-xs text-muted-foreground">{t('pages.quiz.bestScore')}</div>
-                  <div className="font-bold text-lg">{quiz.bestScore || 0}/100</div>
+                  <div className="font-bold text-lg">{quiz.acceptPercentage || 0}%</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Lần làm</div>
-                  <div className="font-bold text-lg">{quiz.attempts || 0}</div>
+                  <div className="text-xs text-muted-foreground">Lượt tải</div>
+                  <div className="font-bold text-lg">{quiz.downloadCount || 0}</div>
                 </div>
               </div>
 

@@ -32,6 +32,7 @@ export interface DocumentDTO {
   aiVerdictNote: string | null;
   clonedFromId?: number | null;
   processingStatus: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
+  clonedFromId: number | null;
   createdAt: string;
   updatedAt?: string | null;
 }
@@ -126,6 +127,8 @@ export interface SharedDocumentDTO {
   allowDownload: boolean;
   downloadUrl: string;
   expiresAt: string | null;
+  previewText: string | null;
+  previewSourcePage: number | null;
   createdAt: string;
   previewText?: string | null;
   previewSourcePage?: number | null;
@@ -176,7 +179,12 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     const cleanToken = token.replace(/['"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
-  if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE" && !(options.body instanceof FormData)) {
+  if (
+    !headers.has("Content-Type") &&
+    options.method !== "GET" &&
+    options.method !== "DELETE" &&
+    !(options.body instanceof FormData)
+  ) {
     headers.set("Content-Type", "application/json");
   }
 

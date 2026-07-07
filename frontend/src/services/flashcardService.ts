@@ -97,8 +97,6 @@ async function flashcardRequest<T>(endpoint: string, options: RequestInit = {}):
       localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
-    throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
-  }
 
   if (!response.ok) {
     throw {
