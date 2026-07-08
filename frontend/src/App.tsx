@@ -25,8 +25,16 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
+<<<<<<< HEAD
 const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
 const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
+=======
+<<<<<<< HEAD
+const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
+=======
+const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
 export default function App() {
   const isLoginLoading = false;
@@ -79,8 +87,16 @@ export default function App() {
     navigate("/", { replace: true });
   };
 
+<<<<<<< HEAD
   if (isLoginLoading || (isLoggedIn && capabilitiesLoading)) return <Loader />;
 
+=======
+<<<<<<< HEAD
+  if (isLoginLoading || (isLoggedIn && capabilitiesLoading)) return <Loader />;
+
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   const landingElement = isLoggedIn ? (
     <Navigate to="/dashboard" replace />
   ) : (
@@ -123,6 +139,10 @@ export default function App() {
         <Route path="/privacy-policy" element={landingElement} />
         <Route path="/cookie-settings" element={landingElement} />
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
         <Route path="/login" element={authElement} />
         <Route path="/reset-password" element={authElement} />
         <Route path="/share/documents/:token" element={
@@ -130,6 +150,42 @@ export default function App() {
             <SharedDocumentPage />
           </Suspense>
         } />
+<<<<<<< HEAD
+=======
+=======
+        <Route
+          path="/login"
+          element={
+            isLoggedIn ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <div className="flex w-screen h-screen overflow-hidden bg-space relative">
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full h-full flex items-center justify-center relative"
+                >
+                  <LoginPanel
+                    onLoginSuccess={(token, user) => handleLoginSuccess(token, user)}
+                    onClose={() => navigate("/")}
+                  />
+                </motion.div>
+              </div>
+            )
+          }
+        />
+
+        <Route
+          path="/share/documents/:token"
+          element={
+            <Suspense fallback={<Loader />}>
+              <SharedDocumentPage shareToken="token-from-url" />
+            </Suspense>
+          }
+        />
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
         {/* Authenticated Routes – wrapped in AppShell */}
         <Route element={isLoggedIn ? <AppShell /> : <Navigate to="/" replace />}>
@@ -144,11 +200,23 @@ export default function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+<<<<<<< HEAD
           {(userRole === "ADMIN" || capabilities?.canModerateReports) && (
+=======
+<<<<<<< HEAD
+          {(userRole === "ADMIN" || capabilities?.canModerateReports) && (
+=======
+          {/* {userRole === "ADMIN" && ( */}
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
             <>
               <Route path="/admin" element={<Navigate to={userRole === "ADMIN" ? "/admin/overview" : "/admin/reports"} replace />} />
               <Route path="/admin/:tab" element={<AdminPage />} />
             </>
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
           )}
           {(capabilities?.canReviewMarketplace || userRole === "ADMIN") && (
             <Route path="/reviewer" element={
@@ -157,6 +225,12 @@ export default function App() {
               </Suspense>
             } />
           )}
+<<<<<<< HEAD
+=======
+=======
+          {/* )} */}
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
         </Route>
 
         {/* Catch-all */}

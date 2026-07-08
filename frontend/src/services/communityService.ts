@@ -68,6 +68,10 @@ async function communityRequest<T>(endpoint: string, options: RequestInit = {}):
   return result;
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 // ─── MOCK DATA FALLBACKS ─────────────────────────────────────────────────────
 
 let mockMyReferral: ReferralDTO = {
@@ -78,12 +82,33 @@ let mockMyReferral: ReferralDTO = {
   rewardPoints: 0
 };
 
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────────────
 
 export const communityService = {
   // 1. GET /api/community/leaderboard/contributors
+<<<<<<< HEAD
   async getLeaderboardContributors(page: number = 0, size: number = 10): Promise<ApiResponse<PaginatedResponse<ContributorDTO>>> {
     return communityRequest(`/community/leaderboard/contributors?page=${page}&size=${size}`, { method: "GET" });
+=======
+<<<<<<< HEAD
+  async getLeaderboardContributors(page: number = 0, size: number = 10): Promise<ApiResponse<PaginatedResponse<ContributorDTO>>> {
+    return communityRequest(`/community/leaderboard/contributors?page=${page}&size=${size}`, { method: "GET" });
+=======
+  async getLeaderboardContributors(
+    page: number = 0,
+    size: number = 10
+  ): Promise<ApiResponse<PaginatedResponse<ContributorDTO>>> {
+    return await communityRequest(
+      `/community/leaderboard/contributors?page=${page}&size=${size}`,
+      { method: "GET" }
+    );
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   },
 
   // 2. GET /api/referrals/me

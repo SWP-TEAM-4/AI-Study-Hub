@@ -51,9 +51,21 @@ export default function QuizPage() {
   const filtered = useMemo(
     () => {
       let result = list.filter((x) => {
+<<<<<<< HEAD
         const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subjectName || "").toLowerCase().includes(q.toLowerCase());
         const matchSubject = filterSubject === "all" || x.subjectName === filterSubject;
         const matchLevel = filterLevel === "all" || x.examType === filterLevel;
+=======
+<<<<<<< HEAD
+        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subject || "").toLowerCase().includes(q.toLowerCase());
+        const matchSubject = filterSubject === "all" || String(x.subjectId ?? "") === filterSubject;
+        const matchLevel = filterLevel === "all" || x.level === filterLevel;
+=======
+        const matchSearch = x.title.toLowerCase().includes(q.toLowerCase()) || (x.subjectName || "").toLowerCase().includes(q.toLowerCase());
+        const matchSubject = filterSubject === "all" || x.subjectName === filterSubject;
+        const matchLevel = filterLevel === "all" || x.examType === filterLevel;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
         const matchStatus = filterStatus === "all" || x.marketStatus === filterStatus;
         return matchSearch && matchSubject && matchLevel && matchStatus;
       });

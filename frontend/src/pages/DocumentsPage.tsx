@@ -101,7 +101,21 @@ export default function DocumentsPage() {
   }, [q, type, filterSubject, filterVisibility, filterStatus, sortBy]);
 
   // Fetch using Custom Hook
+<<<<<<< HEAD
   const { data: list = [], isLoading, refetch } = useDocuments(documentQueryParams);
+=======
+<<<<<<< HEAD
+  const { data: list = [], isLoading, refetch } = useDocuments(documentQueryParams);
+=======
+  const { data: list = [], isLoading } = useDocuments({
+    keyword: q,
+    subjectId: filterSubject !== "all" ? Number(filterSubject) : undefined,
+    visibility: filterVisibility !== "all" ? filterVisibility : undefined,
+    processingStatus: filterStatus !== "all" ? filterStatus : undefined,
+    sort: sortBy === "newest" ? "createdAt,desc" : sortBy === "oldest" ? "createdAt,asc" : undefined,
+  });
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   const deleteMutation = useDeleteDocument();
 
   // Upload using Custom Hook
@@ -408,7 +422,15 @@ export default function DocumentsPage() {
     setShareForm({ allowPreview: true, allowDownload: true, expiresAt: "" });
     try {
       const res = await documentService.getShareLinkStatus(doc.id);
+<<<<<<< HEAD
       if (res.success && res.data && res.data.isEnabled) {
+=======
+<<<<<<< HEAD
+      if (res.success && res.data && res.data.isEnabled) {
+=======
+      if (res.success && res.data && res.data.documentVisibility === "PUBLIC_LINK") {
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
         setShareInfo(res.data);
         setShareForm({
           allowPreview: res.data.allowPreview,

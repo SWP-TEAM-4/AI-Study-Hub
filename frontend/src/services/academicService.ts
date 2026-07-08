@@ -102,7 +102,19 @@ async function publicRequest<T>(endpoint: string): Promise<T> {
 export const academicService = {
   // ================= SEMESTERS =================
   getSemesters: async (): Promise<ApiResponse<SemesterDTO[]>> => {
+<<<<<<< HEAD
     return academicRequest<ApiResponse<SemesterDTO[]>>(`/semesters`, { method: "GET" });
+=======
+<<<<<<< HEAD
+    return academicRequest<ApiResponse<SemesterDTO[]>>(`/semesters`, { method: "GET" });
+=======
+    try {
+      return await publicRequest<ApiResponse<SemesterDTO[]>>("/semesters");
+    } catch {
+      return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Success", data: [...mockSemesters] }), 300));
+    }
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   },
   adminCreateSemester: async (data: Omit<SemesterDTO, "id">): Promise<ApiResponse<SemesterDTO>> => {
     return new Promise(resolve => setTimeout(() => {
@@ -158,7 +170,19 @@ export const academicService = {
 
   // ================= COMBOS =================
   getCombos: async (): Promise<ApiResponse<ComboDTO[]>> => {
+<<<<<<< HEAD
     return academicRequest<ApiResponse<ComboDTO[]>>(`/combos`, { method: "GET" });
+=======
+<<<<<<< HEAD
+    return academicRequest<ApiResponse<ComboDTO[]>>(`/combos`, { method: "GET" });
+=======
+    try {
+      return await publicRequest<ApiResponse<ComboDTO[]>>("/combos");
+    } catch {
+      return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Success", data: [...mockCombos] }), 300));
+    }
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   },
   adminCreateCombo: async (data: Omit<ComboDTO, "id">): Promise<ApiResponse<ComboDTO>> => {
     return new Promise(resolve => setTimeout(() => {

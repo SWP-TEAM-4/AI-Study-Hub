@@ -55,6 +55,10 @@ function toQuery(params: Record<string, string | number | undefined | null>) {
 
 export interface QuizDTO {
   id: number;
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   notebookId?: number | null;
   notebookTitle?: string | null;
   subjectId?: number | null;
@@ -81,6 +85,31 @@ export interface QuizDTO {
   questions?: number;
   bestScore?: number;
   attempts?: number;
+<<<<<<< HEAD
+=======
+=======
+  notebookId: number | null;
+  notebookTitle: string | null;
+  subjectId: number | null;
+  subjectName: string | null;
+  creatorId: number;
+  creatorFullName: string | null;
+  title: string;
+  description: string | null;
+  academicTermId: number | null;
+  academicTermName: string | null;
+  examType: string | null;
+  visibility: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+  marketStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  downloadCount: number;
+  reviewCount: number;
+  acceptPercentage: number;
+  aiVerdictNote: string | null;
+  clonedFromId: number | null;
+  createdAt: string;
+  updatedAt: string;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 }
 
 export interface QuizPayload {
@@ -156,6 +185,10 @@ export interface TestResultItemDTO {
   explanation?: string | null;
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 export interface UserTestHistoryDTO {
   id: number;
   quizId: number;
@@ -166,6 +199,15 @@ export interface UserTestHistoryDTO {
   status: "IN_PROGRESS" | "COMPLETED";
   createdAt?: string;
 }
+<<<<<<< HEAD
+=======
+=======
+let mockQuizzes: QuizDTO[] = [
+  { id: 801, notebookId: null, notebookTitle: "", subjectId: null, subjectName: "SWP391", creatorId: 1, creatorFullName: "You", title: "Kiến trúc ứng dụng web Java", description: "Ôn tập Servlet/JSP", academicTermId: null, academicTermName: "", examType: "MIDTERM", visibility: "PRIVATE", marketStatus: "NONE", downloadCount: 0, reviewCount: 0, acceptPercentage: 0, aiVerdictNote: null, clonedFromId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 802, notebookId: null, notebookTitle: "", subjectId: null, subjectName: "SWR302", creatorId: 1, creatorFullName: "You", title: "Lập trình điều khiển mạch ESP32", description: "Sensor & IoT logic", academicTermId: null, academicTermName: "", examType: "FINAL", visibility: "PRIVATE", marketStatus: "NONE", downloadCount: 0, reviewCount: 0, acceptPercentage: 0, aiVerdictNote: null, clonedFromId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+];
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
 function normalizeQuiz(quiz: QuizDTO): QuizDTO {
   return {
@@ -247,12 +289,64 @@ export const quizService = {
     return { ...res, data: normalizeQuiz(res.data) };
   },
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   async updateQuiz(id: number, payload: QuizPayload): Promise<ApiResponse<QuizDTO>> {
     const res = await qRequest<ApiResponse<QuizDTO>>(`/quizzes/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
     });
     return { ...res, data: normalizeQuiz(res.data) };
+<<<<<<< HEAD
+=======
+=======
+  // ─── 2. QUIZ MANAGEMENT (CRUD QUIZ) ────────────────────────────────────────
+
+  async getQuizzes(params?: {
+    keyword?: string;
+    subjectId?: number;
+    notebookId?: number;
+    academicTermId?: number;
+    examType?: string;
+    visibility?: string;
+    marketStatus?: string;
+    page?: number;
+    size?: number;
+    sort?: string;
+  }): Promise<ApiResponse<PaginatedResponse<QuizDTO>>> {
+    try {
+      const query = new URLSearchParams();
+      if (params?.keyword) query.set("keyword", params.keyword);
+      if (params?.subjectId != null) query.set("subjectId", String(params.subjectId));
+      if (params?.notebookId != null) query.set("notebookId", String(params.notebookId));
+      if (params?.academicTermId != null) query.set("academicTermId", String(params.academicTermId));
+      if (params?.examType) query.set("examType", params.examType);
+      if (params?.visibility) query.set("visibility", params.visibility);
+      if (params?.marketStatus) query.set("marketStatus", params.marketStatus);
+      query.set("page", String(params?.page ?? 0));
+      query.set("size", String(params?.size ?? 10));
+      query.set("sort", params?.sort ?? "createdAt,desc");
+      const res = await qRequest<ApiResponse<PaginatedResponse<QuizDTO>>>(`/quizzes?${query.toString()}`);
+      if (!res.data || !res.data.items || res.data.items.length === 0) {
+        return {
+          success: true, message: "Success (Mock)",
+          data: { items: mockQuizzes, page: params?.page ?? 0, size: params?.size ?? 10, totalElements: mockQuizzes.length, totalPages: 1 }
+        };
+      }
+      return res;
+    } catch {
+      return new Promise((res) => setTimeout(() => {
+        res({
+          success: true,
+          message: "Success",
+          data: { items: mockQuizzes, page: params?.page ?? 0, size: params?.size ?? 10, totalElements: mockQuizzes.length, totalPages: 1 }
+        });
+      }, 400));
+    }
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   },
 
   async deleteQuiz(id: number): Promise<ApiResponse<void>> {

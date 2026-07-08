@@ -46,6 +46,10 @@ export interface LoginResponseData {
   createdAt: string;
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 export interface ForgotPasswordResponseData {
   resetTokenPreview?: string;
   expiredAt?: string;
@@ -54,6 +58,13 @@ export interface ForgotPasswordResponseData {
 export interface ResetPasswordResponseData {
   passwordChanged: boolean;
 }
+<<<<<<< HEAD
+=======
+=======
+// Backend trả về ApiResponse<Void> — không có data field.
+// Frontend chỉ cần biết thành công/thất bại qua `success`.
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
 export type EmptyApiResponseData = null | undefined;
 
@@ -92,11 +103,75 @@ export async function authRequest<T>(endpoint: string, bodyPayload: any): Promis
       throw error;
     }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
     throw {
       status: 0,
       message: "Không kết nối được backend xác thực. Vui lòng kiểm tra server API.",
       errorCode: "NETWORK_ERROR",
     };
+<<<<<<< HEAD
+=======
+=======
+    // 🛡️ NẾU BACKEND CHƯA SẴN SÀNG (LỖI KẾT NỐI/NETWORK ERROR), TỰ ĐỘNG CUNG CẤP FALLBACK
+    if (endpoint === "/auth/login") {
+      const email = bodyPayload.email;
+      // Mock data khớp cấu trúc PHẲNG của backend (AuthResponse.java)
+      return {
+        success: true,
+        message: "Login successful",
+        data: {
+          accessToken: "eyJhbGciOiJIUzI1NiJ9.mock-token",
+          tokenType: "Bearer",
+          userId: 1,
+          email: email,
+          fullName: email.includes("khoa") ? "Lê Trần Anh Khoa" : "Nguyen Van A",
+          avatarUrl: null,
+          role: email.includes("admin") ? "ADMIN" : (email.includes("reviewer") ? "REVIEWER" : "STUDENT"),
+          reputationPoints: 120,
+          createdAt: "2026-06-12T21:30:00"
+        }
+      } as unknown as T;
+    }
+
+    if (endpoint === "/auth/register") {
+      return {
+        success: true,
+        message: "Register successfully",
+        data: {
+          id: 1,
+          email: bodyPayload.email,
+          fullName: bodyPayload.fullName || "Nguyen Van A",
+          avatarUrl: "https://cdn.example.com/avatar/a.png",
+          currentSemesterId: bodyPayload.currentSemesterId || 3,
+          comboId: bodyPayload.comboId || 2,
+          role: "STUDENT",
+          reputationPoints: 120,
+          isActive: true,
+          createdAt: "2026-06-12T21:30:00"
+        }
+      } as unknown as T;
+    }
+
+    if (endpoint === "/auth/forgot-password") {
+      return {
+        success: true,
+        message: "Reset token has been sent to your email. (Mock)"
+      } as unknown as T;
+    }
+
+    if (endpoint === "/auth/reset-password") {
+      return {
+        success: true,
+        message: "Password reset successfully"
+      } as unknown as T;
+    }
+
+    throw error;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   }
 }
 
@@ -136,8 +211,18 @@ export const authService = {
     email: string;
     password: string;
     fullName: string;
+<<<<<<< HEAD
     currentSemesterId?: number | null;
     comboId?: number | null;
+=======
+<<<<<<< HEAD
+    currentSemesterId?: number | null;
+    comboId?: number | null;
+=======
+    currentSemesterId?: number;
+    comboId?: number;
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   }) {
     const res = await authRequest<{ success: boolean; message: string; data: LoginResponseData }>(
       "/auth/register",
@@ -155,7 +240,15 @@ export const authService = {
    * 3. POST /api/auth/forgot-password - Tạo token đặt lại mật khẩu khi sinh viên quên thông tin truy cập
    */
   async forgotPassword(email: string) {
+<<<<<<< HEAD
     return authRequest<{ success: boolean; message: string; data?: ForgotPasswordResponseData | EmptyApiResponseData }>(
+=======
+<<<<<<< HEAD
+    return authRequest<{ success: boolean; message: string; data?: ForgotPasswordResponseData | EmptyApiResponseData }>(
+=======
+    return authRequest<{ success: boolean; message: string; data?: undefined }>(
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       "/auth/forgot-password",
       { email }
     );
@@ -165,10 +258,23 @@ export const authService = {
    * 4. POST /api/auth/reset-password - Đặt lại mật khẩu bảo mật mới bằng mã xác thực Reset Token
    * Backend gửi token qua email, client gửi lại { token, newPassword }
    */
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   async resetPassword(resetToken: string, newPassword: string) {
     return authRequest<{ success: boolean; message: string; data?: ResetPasswordResponseData | EmptyApiResponseData }>(
       "/auth/reset-password",
       { token: resetToken, newPassword }
+<<<<<<< HEAD
+=======
+=======
+  async resetPassword(token: string, newPassword: string) {
+    return authRequest<{ success: boolean; message: string; data?: undefined }>(
+      "/auth/reset-password",
+      { token, newPassword }
+>>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+>>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
     );
   },
 
