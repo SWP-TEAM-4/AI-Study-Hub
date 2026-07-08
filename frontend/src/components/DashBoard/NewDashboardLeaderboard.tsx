@@ -22,7 +22,7 @@ function Avatar({ user, size = "size-10" }: { user: any; size?: string }) {
   );
 }
 
-const springConfig = { type: "spring", stiffness: 380, damping: 30 };
+const springConfig = { type: "spring" as const, stiffness: 380, damping: 30 };
 
 export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,7 +33,7 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
     queryKey: ["leaderboard"],
     queryFn: async () => {
       const response = await userService.getTopContributors();
-      return response.data || [];
+      return response.data?.items || [];
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -60,7 +60,7 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
     return <SkeletonCard />;
   }
 
-  const points = profileData?.points || 0;
+  const points = (profileData as any)?.points || 0;
   const testCount = testHistory?.totalElements || 0;
 
   // LESA Stickers List
@@ -157,7 +157,7 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
             <div className="flex-1 grid place-items-center text-[15px] font-bold text-[#475569]">Chưa có dữ liệu học tập.</div>
           ) : (
             <div className="flex flex-col gap-4 relative z-10">
-              {top3.map((user, idx) => {
+              {top3.map((user: any, idx: number) => {
                 const isFirst = idx === 0;
                 return (
                   <motion.div 
@@ -310,7 +310,7 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
               </div>
               
               <div className="relative max-h-[60vh] space-y-3 overflow-y-auto p-8 scrollbar-hide">
-                {contributors.map((user, idx) => (
+                {contributors.map((user: any, idx: number) => (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

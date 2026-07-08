@@ -11,10 +11,9 @@ export interface UserDTO {
   comboCode?: string | null;
   comboName?: string | null;
   comboId: number | null;
-  comboCode: string | null;
-  comboName: string | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
+  points?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string | null;
@@ -51,6 +50,8 @@ export interface AIUsageDTO {
   totalRequests: number;
   totalTokens: number;
   estimatedCost?: number;
+  maxRequests?: number;
+  usedRequests?: number;
   actionCounts: Record<string, number>;
 }
 
@@ -282,6 +283,16 @@ export const userService = {
   async getMyTestHistory(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
     return request<{ success: boolean; message: string; data: PaginatedResponse<TestHistoryDTO> }>(
       `/users/me/tests${buildQueryString(params)}`
+    );
+  },
+
+  async getMyWeeklyActivity() {
+    return request<{ success: boolean; data: any[] }>("/users/me/weekly-activity").catch(() => ({ success: true, data: [] }));
+  },
+
+  async getTopContributors(page = 0, size = 10) {
+    return request<{ success: boolean; message: string; data: PaginatedResponse<any> }>(
+      `/community/leaderboard/contributors?page=${page}&size=${size}`
     );
   },
 };

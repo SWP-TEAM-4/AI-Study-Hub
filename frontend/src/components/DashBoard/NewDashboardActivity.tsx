@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Layers, SquareCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { userService } from "../../services/userService";
+import { flashcardService } from "../../services/flashcardService";
 import { SkeletonCard } from "../ui/SkeletonCard";
 
 export const NewDashboardActivity = memo(function NewDashboardActivity() {
@@ -16,11 +17,11 @@ export const NewDashboardActivity = memo(function NewDashboardActivity() {
     queryFn: async () => {
       const [tests, flashcards] = await Promise.all([
         userService.getMyTestHistory({ page: 0, size: 3, sort: "newest" }),
-        userService.getMyFlashcards({ page: 0, size: 3, sort: "newest" }),
+        flashcardService.getMyFlashcardDecks(0, 3),
       ]);
       return {
-        quizzes: tests.data.content || [],
-        decks: flashcards.data.content || [],
+        quizzes: tests.data.items || [],
+        decks: flashcards.data.items || [],
       };
     },
     staleTime: 5 * 60 * 1000,
@@ -48,7 +49,7 @@ export const NewDashboardActivity = memo(function NewDashboardActivity() {
           <EmptyState text="Chưa có bài kiểm tra nào đâu bé ơi!" />
         ) : (
           <div className="divide-y divide-[#eff4ff] -mt-2">
-            {quizzes.map((quiz) => (
+            {quizzes.map((quiz: any) => (
               <div
                 key={quiz.id}
                 className="flex items-center justify-between py-4 hover:bg-[#eff4ff]/30 transition-[background-color] group px-4 rounded-2xl"
@@ -84,7 +85,7 @@ export const NewDashboardActivity = memo(function NewDashboardActivity() {
           <EmptyState text="Chưa có thẻ từ vựng nào hết!" />
         ) : (
           <div className="divide-y divide-[#eff4ff] -mt-2">
-            {decks.map((deck) => (
+            {decks.map((deck: any) => (
               <div
                 key={deck.id}
                 className="flex items-center justify-between py-4 hover:bg-[#eff4ff]/30 transition-[background-color] group px-4 rounded-2xl"

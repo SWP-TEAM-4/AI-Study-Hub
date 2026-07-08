@@ -14,7 +14,7 @@ export default function AdminLogs() {
   const { data, isLoading } = useQuery({
     queryKey: ["adminLogs", logPage, logKeyword, logSort],
     queryFn: async () => {
-      const res = await activityLogService.adminGetActivityLogs({ page: logPage, size: 10, keyword: logKeyword, sort: logSort });
+      const res = (await activityLogService.adminGetActivityLogs({ page: logPage, size: 10, keyword: logKeyword, sort: logSort })) as any;
       return res.data;
     },
   });

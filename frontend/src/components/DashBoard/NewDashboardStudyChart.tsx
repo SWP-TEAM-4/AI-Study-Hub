@@ -24,7 +24,7 @@ const containerVariants = {
     transition: {
       duration: 0.5,
       staggerChildren: 0.08,
-      ease: "easeOut",
+      ease: "easeOut" as const,
     },
   },
 };
@@ -83,12 +83,12 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
   // Fallback to mock data if API is empty or loading
   const chartData = apiWeekActivity && apiWeekActivity.length > 0 ? apiWeekActivity : mockWeekActivity;
 
-  const totalMinutes = chartData.reduce((acc, curr) => acc + curr.minutes, 0);
+  const totalMinutes = chartData.reduce((acc: number, curr: any) => acc + curr.minutes, 0);
   const avgMinutes = Math.round(totalMinutes / chartData.length);
-  const maxMinutes = Math.max(...chartData.map(d => d.minutes));
+  const maxMinutes = Math.max(...chartData.map((d: any) => d.minutes));
 
   // Find the index of the peak day to place the cart when not hovered
-  const peakIdx = chartData.findIndex(d => d.minutes === maxMinutes);
+  const peakIdx = chartData.findIndex((d: any) => d.minutes === maxMinutes);
 
   // Custom Dot renderer for Rollercoaster concept
   const RenderCustomDot = (props: any) => {
@@ -261,7 +261,7 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
         </div>
 
         <div className="flex shrink-0 flex-col sm:items-end gap-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-[#dcfce7] border border-[#8ad5b3]/30 px-4 py-2 text-[13px] font-extrabold text-[#166534] font-serif">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-[#dcfce7] px-4 py-2 text-[13px] font-extrabold text-[#166534] font-serif">
             +24% TIẾN BỘ!
           </div>
           <p className="text-[13px] font-bold text-[#475569]">
@@ -295,7 +295,7 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
             margin={{ top: 40, right: 10, left: -24, bottom: 0 }}
             onMouseMove={(state) => {
               if (state && state.activeTooltipIndex !== undefined && state.activeTooltipIndex !== null) {
-                setActiveIdx(state.activeTooltipIndex);
+                setActiveIdx(state.activeTooltipIndex as number);
               }
             }}
             onMouseLeave={() => {

@@ -26,8 +26,10 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
 const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
+const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
 
 export default function App() {
+  const isLoginLoading = false;
   const { isLoggedIn, login, logout, user } = useAuthStore();
   const navigate = useNavigate();
 

@@ -97,6 +97,7 @@ async function flashcardRequest<T>(endpoint: string, options: RequestInit = {}):
       localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
+  }
 
   if (!response.ok) {
     throw {

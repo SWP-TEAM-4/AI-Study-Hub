@@ -151,8 +151,8 @@ export default function DocumentsPage() {
     try {
       await documentService.updateDocument(editModalDoc.id, {
         title: editForm.title.trim(),
-        description: editForm.description.trim() || null,
-        subjectId: editForm.subjectId ? Number(editForm.subjectId) : null,
+        description: editForm.description.trim() || undefined,
+        subjectId: editForm.subjectId ? Number(editForm.subjectId) : undefined,
         visibility: editForm.visibility,
       });
       Notify.success("Đã cập nhật tài liệu.");
@@ -179,8 +179,8 @@ export default function DocumentsPage() {
         documentService.getAllTags(),
         documentService.getDocumentTags(doc.id),
       ]);
-      setAvailableTags(allResponse.data.items);
-      setDocumentTags((current) => ({ ...current, [doc.id]: currentResponse.data.items }));
+      setAvailableTags((allResponse.data as any)?.items || []);
+      setDocumentTags((current) => ({ ...current, [doc.id]: currentResponse.data?.items || [] }));
     } catch (err: any) {
       Notify.failure("Không thể tải tag: " + (err.message || "Unknown error"));
     } finally {

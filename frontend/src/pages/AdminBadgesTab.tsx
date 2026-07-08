@@ -20,7 +20,7 @@ export default function AdminBadgesTab() {
   const loadBadges = async () => {
     setIsLoading(true);
     try {
-      const res = await badgeService.getBadges();
+      const res = (await badgeService.getBadges()) as any;
       if (res.success && res.data) {
         setBadges(res.data);
       }
@@ -39,7 +39,7 @@ export default function AdminBadgesTab() {
     }
     setIsSubmitting(true);
     try {
-      const res = await badgeService.createBadge(formData);
+      const res = (await badgeService.createBadge(formData)) as any;
       if (res.success && res.data) {
         Notify.success("Tạo huy hiệu thành công!");
         setBadges([res.data, ...badges]);

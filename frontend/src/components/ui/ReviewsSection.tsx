@@ -172,7 +172,7 @@ export function ReviewsSection({ targetType, targetId }: ReviewsSectionProps) {
   const loadReviews = useCallback(async (p = 0, replace = true) => {
     setIsLoading(true);
     try {
-      const res = await reviewService.getReviews(targetType, targetId, p, 5);
+      const res = (await reviewService.getReviews(targetType, targetId, p, 5)) as any;
       if (res.success) {
         const items = res.data.items;
         setReviews(prev => replace ? items : [...prev, ...items]);
@@ -205,7 +205,7 @@ export function ReviewsSection({ targetType, targetId }: ReviewsSectionProps) {
     if (!authUser) return Notify.warning("Bạn cần đăng nhập để đánh giá.");
     setIsSubmitting(true);
     try {
-      const res = await reviewService.createReview({ targetType, targetId, rating, content });
+      const res = (await reviewService.createReview({ targetType, targetId, rating, content })) as any;
       if (res.success) {
         Notify.success("Đã gửi đánh giá thành công!");
         setContent("");
@@ -236,11 +236,11 @@ export function ReviewsSection({ targetType, targetId }: ReviewsSectionProps) {
     if (!editContent.trim()) return Notify.warning("Nội dung không được để trống.");
     setIsSubmitting(true);
     try {
-      const res = await reviewService.updateReview(editReview.id, {
+      const res = (await reviewService.updateReview(editReview.id, {
         targetType, targetId,
         rating: editRating,
         content: editContent
-      });
+      })) as any;
       if (res.success) {
         Notify.success("Đã cập nhật đánh giá!");
         setReviews(prev => prev.map(r => r.id === editReview.id ? res.data : r));
@@ -389,7 +389,7 @@ export function ReviewsSection({ targetType, targetId }: ReviewsSectionProps) {
               <ReviewCard
                 key={review.id}
                 review={review}
-                currentUserId={authUser?.id}
+                currentUserId={authUser?.userId ?? (authUser as any)?.id}
                 onEdit={(r) => { setEditReview(r); setEditRating(r.rating); setEditContent(r.content); }}
                 onDelete={handleDelete}
               />

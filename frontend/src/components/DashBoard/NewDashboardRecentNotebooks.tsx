@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Database, Download, FileText, Server } from "lucide-react";
 import { motion } from "framer-motion";
 import { userService } from "../../services/userService";
+import { communityMarketplaceService } from "../../services/communityMarketplaceService";
 import { NewDashboard3DBook } from "./NewDashboard3DBook";
 import { SkeletonCard } from "../ui/SkeletonCard";
 import { useNotebooks } from "../../hooks/useNotebooks";
@@ -93,8 +94,8 @@ export const NewDashboardRecentNotebooks = memo(function NewDashboardRecentNoteb
   const { data: documents = [], isLoading: isLoadingDocuments } = useQuery({
     queryKey: ["recentDocuments"],
     queryFn: async () => {
-      const response = await userService.getSharedDocuments({ page: 0, size: 3, sort: "download" });
-      return response.data.content || [];
+      const response = await communityMarketplaceService.browse({ category: "documents", page: 0, size: 3, sort: "downloadCount" });
+      return response.data?.items || [];
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -183,7 +184,7 @@ export const NewDashboardRecentNotebooks = memo(function NewDashboardRecentNoteb
             <div className="absolute bottom-[10px] right-6 w-3 h-6 bg-gradient-to-b from-[#ffe66d] to-[#d9a507] rounded-b-sm shadow-md pointer-events-none" />
 
             {/* Pastel Yellow Wood shelf board */}
-            <div className="absolute bottom-[26px] left-6 right-6 h-5 bg-gradient-to-r from-[#ffe66d] to-[#fde047] rounded-md border-t-4 border-[#e2c62d] shadow-[0_4px_10px_rgba(0,0,0,0.15)] pointer-events-none flex flex-col justify-start">
+            <div className="absolute bottom-[26px] left-6 right-6 h-5 bg-gradient-to-r from-[#ffe66d] to-[#fde047] rounded-md border-t border-[#e2c62d]/40 shadow-[0_4px_10px_rgba(0,0,0,0.15)] pointer-events-none flex flex-col justify-start">
               {/* White inlaid highlight stripe */}
               <div className="h-[2px] bg-white/60 w-full mt-[1px]" />
             </div>
@@ -216,7 +217,7 @@ export const NewDashboardRecentNotebooks = memo(function NewDashboardRecentNoteb
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white border-4 border-[#89cff0]/20 rounded-3xl p-6 shadow-inner">
-             {documents.map((doc, idx) => (
+             {documents.map((doc: any, idx: number) => (
               <motion.div
                 key={doc.id}
                 initial={{ opacity: 0 }}

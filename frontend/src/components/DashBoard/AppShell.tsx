@@ -78,6 +78,85 @@ const adminNav = [
 import { MobileBottomNav } from "./MobileBottomNav";
 import { MobileHeader } from "./MobileHeader";
 
+const ChameleonMascot = ({ color }: { color: string }) => (
+  <svg width="48" height="48" viewBox="0 0 100 100" className="drop-shadow-lg scale-110 origin-bottom">
+    {/* Banch */}
+    <path d="M 10 75 Q 50 85 90 70" fill="none" stroke="#78350f" strokeWidth="6" strokeLinecap="round" />
+    <path d="M 30 80 Q 40 90 50 85" fill="none" stroke="#78350f" strokeWidth="4" strokeLinecap="round" />
+    
+    {/* Curly Tail */}
+    <path d="M 25 70 C 5 70 5 45 25 45 C 35 45 40 55 35 60 C 25 65 20 55 25 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" className="transition-colors duration-500" />
+    
+    {/* Body */}
+    <path d="M 25 70 C 40 70 55 70 65 65 C 75 60 75 40 65 35 C 50 30 35 30 25 45 Z" fill={color} className="transition-colors duration-500" />
+    
+    {/* Head */}
+    <path d="M 60 55 C 75 60 90 55 90 40 C 90 25 70 20 60 30 Z" fill={color} className="transition-colors duration-500" />
+    
+    {/* Eye */}
+    <circle cx="75" cy="35" r="7" fill="white" />
+    <circle cx="77" cy="35" r="3" fill="#0f172a" />
+    
+    {/* Spikes on back */}
+    <path d="M 30 40 L 32 30 L 38 38 L 44 28 L 50 37 L 58 29 L 62 36" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="transition-colors duration-500" />
+    
+    {/* Little legs */}
+    <path d="M 40 68 L 35 78 M 55 65 L 50 75" fill="none" stroke={color} strokeWidth="5" strokeLinecap="round" className="transition-colors duration-500" />
+  </svg>
+);
+
+const colors = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#d946ef", "#f43f5e"];
+const getRandomColor = (path: string) => {
+  // Use path length to deterministically pick a color so it's consistent
+  return colors[path.length % colors.length];
+};
+
+const NavItem = ({ active, icon: Icon, label, onClick, pathOrId }: { active: boolean, icon: any, label: string, onClick: () => void, pathOrId: string }) => {
+  const color = getRandomColor(pathOrId);
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex items-center w-full px-3.5 py-2.5 mb-0.5 gap-3.5 rounded-xl text-[14px] font-bold transition-all group outline-none cursor-pointer overflow-visible"
+    >
+      {active && (
+        <motion.span
+          layoutId="nav-pill"
+          className="absolute inset-0 rounded-xl shadow-inner shadow-black/20"
+          style={{ backgroundColor: color }}
+          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+        />
+      )}
+      {!active && (
+        <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      )}
+      <Icon
+        size={21}
+        strokeWidth={active ? 2.5 : 2.5}
+        className="relative z-10 transition-colors duration-200 shrink-0"
+        style={{ color: active ? "#ffffff" : "rgba(138, 213, 179, 0.8)" }}
+      />
+      <span
+        className={`relative z-10 transition-all duration-300 whitespace-nowrap overflow-hidden tracking-wide
+          lg:w-0 lg:opacity-0 lg:group-hover/sidebar:w-auto lg:group-hover/sidebar:opacity-100 lg:group-hover/sidebar:ml-1
+          w-auto opacity-100
+          ${active ? "text-white" : "text-[#c2eadd] group-hover:text-white"}
+        `}
+      >
+        {label}
+      </span>
+      {active && (
+        <motion.div
+          layoutId="chameleon"
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 pointer-events-none drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)] hidden lg:block lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-300"
+          transition={{ type: "spring", stiffness: 350, damping: 25 }}
+        >
+          <ChameleonMascot color={color} />
+        </motion.div>
+      )}
+    </button>
+  );
+};
+
 export function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,7 +168,7 @@ export function AppShell() {
   const [displayInitials, setDisplayInitials] = useState("AK");
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
-  // Lấy user info từ zustand store (không parse localStorage thủ công)
+  // Lấy user info từ zustand store
   const { user: authUser } = useAuthStore();
   const userRole = authUser?.role ?? "STUDENT";
   const { data: capabilities } = useCapabilities();
@@ -98,19 +177,11 @@ export function AppShell() {
 
   // Mobile Drawer & Sidebar Toggle State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("sidebarCollapsed") === "true";
-    }
-    return false;
-  });
+  // We no longer use isSidebarCollapsed for desktop since it's hover based, but keep it for legacy compat if needed.
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const toggleSidebar = () => {
-    setIsSidebarCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("sidebarCollapsed", String(next));
-      return next;
-    });
+    setIsMobileMenuOpen((prev) => !prev);
   };
 
   // Dark Mode State
@@ -213,7 +284,16 @@ export function AppShell() {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground antialiased selection:bg-primary/20 app-shell-font">
+    <div className="min-h-screen flex bg-[#f8fafc] text-foreground antialiased selection:bg-[#8ad5b3]/30 font-quicksand">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800;900&family=Quicksand:wght@400;600;700&display=swap');
+          .font-nunito { font-family: 'Nunito', sans-serif; }
+          .font-quicksand { font-family: 'Quicksand', sans-serif; }
+          .chameleon-sidebar-nav::-webkit-scrollbar { display: none; }
+          .chameleon-sidebar-nav { -ms-overflow-style: none; scrollbar-width: none; }
+        `
+      }} />
       <MobileHeader />
       <MobileBottomNav />
 
@@ -230,33 +310,35 @@ export function AppShell() {
         )}
       </AnimatePresence>
 
-      {/* Spacer giữ chỗ cho layout, sẽ giãn ra cùng lúc với Sidebar để đẩy nội dung sang phải */}
-      <div className={`hidden lg:block shrink-0 transition-all duration-300 ${isSidebarCollapsed ? "w-0" : "w-64"}`} />
+      {/* Spacer giữ chỗ cho layout */}
+      <div className="hidden lg:block shrink-0 w-[112px]" />
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-screen w-64 shrink-0 flex-col bg-[var(--color-ink)] text-[var(--color-cream)] border-r border-white/5 transition-transform duration-300 ease-in-out flex ${isMobileMenuOpen ? "translate-x-0" : (isSidebarCollapsed ? "-translate-x-full" : "translate-x-0")
-          }`}>
+        className={`fixed z-50 flex flex-col bg-[#0d4a22] text-[#e6f7ed] transition-all duration-400 ease-out group/sidebar peer/sidebar chameleon-sidebar shadow-[8px_0_24px_rgba(13,74,34,0.15)]
+          top-0 left-0 h-screen w-64 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0 lg:top-1/2 lg:-translate-y-1/2 lg:left-6 lg:h-auto lg:py-4 lg:w-[80px] lg:hover:w-[280px] lg:rounded-2xl
+        `}>
 
-        <div className="py-6 flex items-center px-6 gap-3 border-b border-white/5 relative">
+        <div className="py-4 flex items-center px-4.5 gap-3.5 relative shrink-0">
           <button
             onClick={() => setIsMobileMenuOpen(false)}
             className="absolute right-4 top-1/2 -translate-y-1/2 lg:hidden text-white/50 hover:text-white"
           >
             <X size={20} />
           </button>
-          <div className="size-9 rounded-xl overflow-hidden shadow-sm shadow-primary/20 bg-neutral-800 flex items-center justify-center shrink-0">
+          <div className="size-8 rounded-lg overflow-hidden shadow-sm shadow-primary/20 bg-neutral-800 flex items-center justify-center shrink-0">
             <img
               src="./public/images/MindSpace1.png"
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="min-w-0 overflow-hidden whitespace-nowrap">
+          <div className="min-w-0 overflow-hidden whitespace-nowrap lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-300">
             <div className="text-base font-semibold leading-tight tracking-tight text-white">AI Study</div>
             <div className="text-xs opacity-70 font-medium text-[var(--color-cream)]">Learning Hub</div>
           </div>
         </div>
 
-        <nav className="flex-1 py-4 space-y-0.5 overflow-y-auto custom-scrollbar px-3">
+        <nav className="flex-1 py-2 space-y-0.5 overflow-y-auto chameleon-sidebar-nav px-3">
           {isAdminPath ? (
             <>
               <button
@@ -266,219 +348,95 @@ export function AppShell() {
                 <ArrowLeft size={18} /> {t("appShell.backToDashboard")}
               </button>
               <div className="h-px bg-white/10 my-3 mx-2" />
-              {visibleAdminNav.map((item) => {
-                const active = activeAdminTab === item.id;
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleAdminTabClick(item.id)}
-                    className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="admin-nav-pill"
-                        className="absolute inset-0 rounded-xl bg-white/10"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
-                    <Icon
-                      size={18}
-                      className="relative z-10 transition-colors duration-200 shrink-0"
-                      style={{
-                        color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                      }}
-                    />
-                    <span
-                      className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                        }`}
-                    >
-                      {t(item.labelKey)}
-                    </span>
-                  </button>
-                );
-              })}
+              {visibleAdminNav.map((item) => (
+                <NavItem
+                  key={item.id}
+                  active={activeAdminTab === item.id}
+                  icon={item.icon}
+                  label={t(item.labelKey)}
+                  onClick={() => handleAdminTabClick(item.id)}
+                  pathOrId={item.id}
+                />
+              ))}
             </>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Menu Chính */}
               <div>
-                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:h-0 lg:group-hover/sidebar:h-auto overflow-hidden transition-all duration-300">
                   Menu chính
                 </div>
-                {nav.slice(0, 6).map((item) => {
-                  const active = location.pathname === item.path;
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => navigate(item.path)}
-                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                    >
-                      {active && (
-                        <motion.span
-                          layoutId="nav-pill"
-                          className="absolute inset-0 rounded-xl bg-white/10"
-                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                        />
-                      )}
-                      <Icon
-                        size={18}
-                        className="relative z-10 transition-colors duration-200 shrink-0"
-                        style={{
-                          color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                        }}
-                      />
-                      <span
-                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                          }`}
-                      >
-                        {t(item.labelKey)}
-                      </span>
-                    </button>
-                  );
-                })}
+                {nav.slice(0, 6).map((item) => (
+                  <NavItem
+                    key={item.path}
+                    active={location.pathname === item.path}
+                    icon={item.icon}
+                    label={t(item.labelKey)}
+                    onClick={() => navigate(item.path)}
+                    pathOrId={item.path}
+                  />
+                ))}
               </div>
 
               {/* Cá nhân */}
               <div>
-                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:h-0 lg:group-hover/sidebar:h-auto overflow-hidden transition-all duration-300">
                   Cá nhân
                 </div>
-                {nav.slice(6, 9).map((item) => {
-                  const active = location.pathname === item.path;
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => navigate(item.path)}
-                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                    >
-                      {active && (
-                        <motion.span
-                          layoutId="nav-pill"
-                          className="absolute inset-0 rounded-xl bg-white/10"
-                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                        />
-                      )}
-                      <Icon
-                        size={18}
-                        className="relative z-10 transition-colors duration-200 shrink-0"
-                        style={{
-                          color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                        }}
-                      />
-                      <span
-                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                          }`}
-                      >
-                        {t(item.labelKey)}
-                      </span>
-                    </button>
-                  );
-                })}
+                {nav.slice(6, 9).map((item) => (
+                  <NavItem
+                    key={item.path}
+                    active={location.pathname === item.path}
+                    icon={item.icon}
+                    label={t(item.labelKey)}
+                    onClick={() => navigate(item.path)}
+                    pathOrId={item.path}
+                  />
+                ))}
               </div>
 
               {/* Quản trị */}
               {userRole === "ADMIN" && (
                 <div>
-                  <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                  <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:h-0 lg:group-hover/sidebar:h-auto overflow-hidden transition-all duration-300">
                     Quản trị
                   </div>
-                  {nav.slice(9).map((item) => {
-                    const active = location.pathname === item.path;
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={item.path}
-                        onClick={() => navigate(item.path)}
-                        className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                      >
-                        {active && (
-                          <motion.span
-                            layoutId="nav-pill"
-                            className="absolute inset-0 rounded-xl bg-white/10"
-                            transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                          />
-                        )}
-                        <Icon
-                          size={18}
-                          className="relative z-10 transition-colors duration-200 shrink-0"
-                          style={{
-                            color: active ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                          }}
-                        />
-                        <span
-                          className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${active ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                            }`}
-                        >
-                          {t(item.labelKey)}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {nav.slice(9).map((item) => (
+                    <NavItem
+                      key={item.path}
+                      active={location.pathname === item.path}
+                      icon={item.icon}
+                      label={t(item.labelKey)}
+                      onClick={() => navigate(item.path)}
+                      pathOrId={item.path}
+                    />
+                  ))}
                 </div>
               )}
 
               {/* Kiểm duyệt */}
               {(userRole === "ADMIN" || capabilities?.canReviewMarketplace || canModerateReports) && (
                 <div>
-                  <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                  <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:h-0 lg:group-hover/sidebar:h-auto overflow-hidden transition-all duration-300">
                     Kiểm duyệt
                   </div>
                   {(userRole === "ADMIN" || capabilities?.canReviewMarketplace) && (
-                    <button
+                    <NavItem
+                      active={location.pathname === "/reviewer"}
+                      icon={ShieldCheck}
+                      label={t("appShell.nav.reviewer", "Kiểm duyệt marketplace")}
                       onClick={() => navigate("/reviewer")}
-                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                    >
-                      {location.pathname === "/reviewer" && (
-                        <motion.span
-                          layoutId="nav-pill"
-                          className="absolute inset-0 rounded-xl bg-white/10"
-                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                        />
-                      )}
-                      <ShieldCheck
-                        size={18}
-                        className="relative z-10 transition-colors duration-200 shrink-0"
-                        style={{
-                          color: location.pathname === "/reviewer" ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                        }}
-                      />
-                      <span
-                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${location.pathname === "/reviewer" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                          }`}
-                      >
-                        {t("appShell.nav.reviewer", "Kiểm duyệt marketplace")}
-                      </span>
-                    </button>
+                      pathOrId="/reviewer"
+                    />
                   )}
                   {canModerateReports && (
-                    <button
+                    <NavItem
+                      active={location.pathname === "/admin/reports"}
+                      icon={AlertTriangle}
+                      label="Báo cáo vi phạm"
                       onClick={() => navigate("/admin/reports")}
-                      className="relative flex items-center w-full px-3 py-2.5 mb-0.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer"
-                    >
-                      {location.pathname === "/admin/reports" && (
-                        <motion.span
-                          layoutId="nav-pill"
-                          className="absolute inset-0 rounded-xl bg-white/10"
-                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                        />
-                      )}
-                      <AlertTriangle
-                        size={18}
-                        className="relative z-10 transition-colors duration-200 shrink-0"
-                        style={{
-                          color: location.pathname === "/admin/reports" ? "var(--color-primary)" : "rgba(245,242,234,0.6)"
-                        }}
-                      />
-                      <span
-                        className={`relative z-10 transition-colors duration-200 whitespace-nowrap overflow-hidden ${location.pathname === "/admin/reports" ? "font-semibold text-white" : "text-[var(--color-cream)] opacity-60 group-hover:opacity-100"
-                          }`}
-                      >
-                        Báo cáo vi phạm
-                      </span>
-                    </button>
+                      pathOrId="/admin/reports"
+                    />
                   )}
                 </div>
               )}
@@ -486,28 +444,26 @@ export function AppShell() {
           )}
 
           {/* Nút Phản Hồi (Nằm dưới cùng Sidebar) */}
-          <div className="mt-8 px-3">
-            <button
+          <div className="mt-6">
+            <NavItem
+              active={false}
+              icon={MessageSquare}
+              label={t("appShell.sendFeedback", "Gửi phản hồi")}
               onClick={() => { setIsFeedbackOpen(true); setIsMobileMenuOpen(false); }}
-              className="relative flex items-center w-full px-3 py-2.5 gap-3 rounded-xl text-sm transition-all group outline-none cursor-pointer bg-white/5 hover:bg-white/10 border border-white/5"
-            >
-              <MessageSquare
-                size={18}
-                className="relative z-10 transition-colors duration-200 shrink-0 text-orange-400"
-              />
-              <span className="relative z-10 font-semibold text-white/90 group-hover:text-white transition-colors duration-200">
-                {t("appShell.sendFeedback", "Gửi phản hồi")}
-              </span>
-            </button>
+              pathOrId="/feedback"
+            />
           </div>
         </nav>
       </aside>
 
-      {/* ── 2. KHU VỰC HIỂN THỊ NỘI DUNG CHÍNH BÊN PHẢI ── */}
-      <div className="flex-1 min-w-0 flex flex-col bg-background/50">
+      {/* Backdrop overlay for desktop sidebar hover */}
+      <div className="hidden lg:block fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px] transition-all duration-400 opacity-0 peer-hover/sidebar:opacity-100 pointer-events-none" />
 
-        <header className="sticky top-0 z-30 backdrop-blur-xl bg-background/60 border-b border-border/40 shadow-sm">
-          <div className="flex items-center gap-3 px-6 lg:px-8 h-16 justify-between">
+      {/* ── 2. KHU VỰC HIỂN THỊ NỘI DUNG CHÍNH BÊN PHẢI ── */}
+      <div className="flex-1 min-w-0 flex flex-col bg-transparent">
+
+        <header className="sticky top-0 lg:top-4 z-30 lg:mb-4 transition-all duration-400 w-full max-w-[1200px] mx-auto px-4 md:px-6 lg:px-8">
+          <div className="backdrop-blur-xl bg-white/80 lg:border border-border/40 lg:shadow-sm lg:rounded-2xl flex items-center gap-3 px-4 lg:px-6 h-14 lg:h-16 justify-between border-b lg:border-b-0 lg:ml-[200px]">
 
             <div className="flex-1 min-w-[120px] max-w-2xl relative flex items-center gap-4">
               {/* Nút Hamburger cho phép Toggle Sidebar trên Desktop và Mobile */}
@@ -516,7 +472,7 @@ export function AppShell() {
                   if (window.innerWidth < 1024) setIsMobileMenuOpen(true);
                   else toggleSidebar();
                 }}
-                className="p-2 -ml-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors outline-none cursor-pointer"
+                className="p-2 -ml-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors outline-none cursor-pointer lg:hidden"
                 title="Toggle Menu"
               >
                 <Menu size={20} />

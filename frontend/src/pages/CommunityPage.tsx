@@ -26,7 +26,7 @@ import {
   type MarketplaceItemDTO,
   type ContributorDTO,
 } from "../services/communityMarketplaceService";
-import CommunityItemModal from "./CommunityItemModal";
+import CommunityDetailPage from "./CommunityDetailPage";
 
 type CategoryFilter = CommunityCategory | "leaderboard";
 
@@ -411,7 +411,18 @@ export default function CommunityPage() {
 
   // Show detail page if item selected
   if (selectedItem) {
-    return <CommunityDetailPage item={selectedItem} onBack={() => setSelectedItem(null)} />;
+    const detailItem = {
+      id: selectedItem.targetId,
+      type: selectedItem.targetType,
+      title: selectedItem.title,
+      author: selectedItem.creatorName || "Ẩn danh",
+      subject: selectedItem.subjectId ? (subjectMap.get(selectedItem.subjectId) || `Môn #${selectedItem.subjectId}`) : "Chưa gắn môn",
+      downloads: selectedItem.downloadCount || 0,
+      rating: ratingFromAcceptPercentage(selectedItem.acceptPercentage) || 0,
+      kind: (selectedItem.targetType === "DOCUMENT" ? "doc" : selectedItem.targetType === "QUIZ" ? "quiz" : "deck") as "doc" | "quiz" | "deck",
+      isVerified: true,
+    };
+    return <CommunityDetailPage item={detailItem} onBack={() => setSelectedItem(null)} />;
   }
 
   return (
@@ -601,18 +612,6 @@ export default function CommunityPage() {
             {renderGrid(items)}
           </section>
         </div>
-      )}
-
-      {selectedItem && (
-        <CommunityItemModal
-          isOpen={!!selectedItem}
-          onClose={() => setSelectedItem(null)}
-          item={selectedItem}
-          subjectLabel={
-            selectedItem.subjectId ? subjectMap.get(selectedItem.subjectId) ?? `Môn #${selectedItem.subjectId}` : "Chưa gắn môn"
-          }
-          onClone={cloneItem}
-        />
       )}
     </motion.div>
   );

@@ -28,7 +28,7 @@ export function NewDashboardUpcomingMissions() {
   }
 
   const remainingRequests = dashboardData?.aiUsage
-    ? Math.max(0, (dashboardData.aiUsage.maxRequests || 0) - (dashboardData.aiUsage.usedRequests || 0))
+    ? Math.max(0, ((dashboardData.aiUsage as any).maxRequests || 0) - ((dashboardData.aiUsage as any).usedRequests || 0))
     : 0;
 
   // 5 Road Map Milestones
@@ -40,7 +40,7 @@ export function NewDashboardUpcomingMissions() {
       status: "completed", // Completed milestone
       icon: Compass,
       path: "/notebooks",
-      colorClass: "bg-[#ecfdf5] text-[#059669] border-[#10b981] border-b-4",
+      colorClass: "bg-[#ecfdf5] text-[#065f46] border-[#10b981] border-b-4",
       shadowClass: "shadow-[0_4px_0_rgba(16,185,129,0.2)]",
       pos: { left: "8%", top: "60%" },
       tooltip: null
@@ -111,13 +111,13 @@ export function NewDashboardUpcomingMissions() {
       </div>
 
       {/* Tactile Paper Sticker Container for Roadmap */}
-      <div className="relative w-full min-h-[340px] bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#fef9f3] border-4 border-[#89cff0] rounded-3xl p-8 shadow-[0_8px_0_rgba(137,207,240,0.25)] overflow-hidden select-none">
+      <div className="relative w-full min-h-[340px] bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#fef9f3] rounded-3xl pt-16 pb-8 px-8 shadow-sm select-none">
         {/* Playful Dashed Stitched Border */}
         <div className="absolute inset-2 md:inset-3 border-4 border-dashed border-[#ffffff]/60 rounded-2xl pointer-events-none z-0" />
         
         {/* Winding road SVG path behind milestones */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <svg className="w-[105%] h-full overflow-visible" viewBox="0 0 1000 200" preserveAspectRatio="none">
+          <svg className="w-full h-full overflow-visible" viewBox="0 0 1000 200" preserveAspectRatio="none">
             {/* Soft Shadow path */}
             <path 
               d="M 80 120 C 180 50, 200 50, 280 50 C 360 50, 420 120, 500 120 C 580 120, 640 50, 720 50 C 800 50, 820 120, 900 120" 

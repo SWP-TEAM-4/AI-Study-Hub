@@ -190,34 +190,34 @@ export function NewDashboard3DBook({
 
         {/* Front Cover (Tactile Sticker Page) */}
         <div
-          className="book-cover absolute inset-0 w-full h-full rounded-r-xl flex flex-col justify-between p-3.5 text-white transition-transform duration-500 ease-out shadow-md"
+          className="book-cover absolute inset-0 w-full h-full rounded-r-xl flex flex-col justify-between p-3.5 text-[#0d1c2e] transition-transform duration-500 ease-out shadow-md"
           style={{
             backgroundColor: color,
             transformOrigin: "left center",
             borderRadius: "4px 12px 12px 4px",
-            borderLeft: "6px solid rgba(255, 255, 255, 0.4)", // Spiral spine
+            backgroundImage: `linear-gradient(to right, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.02) 8px, rgba(255,255,255,0.15) 12px, rgba(255,255,255,0) 16px)`,
             backfaceVisibility: "hidden",
             transform: "translateZ(0px)",
           }}
         >
           {/* Cute White Dashed Border */}
-          <div className="absolute inset-1 border-[1.5px] border-dashed border-white/40 rounded-lg pointer-events-none" />
+          <div className="absolute inset-1 border-[1.5px] border-dashed border-[#0d1c2e]/15 rounded-lg pointer-events-none" />
 
           <div className="flex flex-col gap-1 relative z-10">
-            <span className="text-[8px] font-extrabold text-white/90 uppercase tracking-wide">{subjectCode || "BÀI HỌC"}</span>
-            <h3 className="text-[12px] font-extrabold tracking-tight leading-tight line-clamp-4 text-white drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.15)]">
+            <span className="text-[8px] font-extrabold text-[#0d1c2e]/75 uppercase tracking-wide">{subjectCode || "BÀI HỌC"}</span>
+            <h3 className="text-[12px] font-extrabold tracking-tight leading-tight line-clamp-4 text-[#0d1c2e] drop-shadow-[0_0.5px_1px_rgba(255,255,255,0.4)]">
               {title}
             </h3>
           </div>
 
           {/* Star sticker emblem */}
-          <div className="absolute top-[48%] left-[50%] -translate-x-[50%] -translate-y-[50%] text-white/30 pointer-events-none">
-            <Star size={28} className="fill-white/20 stroke-[1.5]" />
+          <div className="absolute top-[48%] left-[50%] -translate-x-[50%] -translate-y-[50%] text-[#0d1c2e]/10 pointer-events-none">
+            <Star size={28} className="fill-[#0d1c2e]/5 stroke-[1.5]" />
           </div>
 
-          <div className="flex justify-between items-center relative z-10 text-[8px] font-extrabold text-white/90">
+          <div className="flex justify-between items-center relative z-10 text-[8px] font-extrabold text-[#0d1c2e]/75">
             <span className="truncate max-w-[65px] italic">{dateText || "Của bé"}</span>
-            <span className="shrink-0 flex items-center gap-0.5 bg-white/20 px-1.5 py-0.5 rounded-full">
+            <span className="shrink-0 flex items-center gap-0.5 bg-black/5 px-1.5 py-0.5 rounded-full">
               ⭐ {documentCount}
             </span>
           </div>

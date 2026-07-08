@@ -55,6 +55,8 @@ async function analyticsRequest<T>(endpoint: string, options: RequestInit = {}):
   return result as T;
 }
 
+const request = analyticsRequest;
+
 export const analyticsService = {
   adminGetAiUsage: async () => {
     return request<{ success: boolean; message: string; data: AdminAiUsageDTO }>(

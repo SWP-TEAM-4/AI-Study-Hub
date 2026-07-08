@@ -31,6 +31,8 @@ export interface CommentDTO {
   parentCommentId?: number | null;
   createdAt: string;
   authorName?: string;
+  authorId?: number;
+  replies?: CommentDTO[];
 }
 
 export interface ReviewDTO {
@@ -86,6 +88,8 @@ async function safeRequest<T>(endpoint: string, options: RequestInit = {}): Prom
   }
   return result;
 }
+
+const govRequest = safeRequest;
 
 function toQuery(params: Record<string, string | number | undefined | null>) {
   const query = new URLSearchParams();

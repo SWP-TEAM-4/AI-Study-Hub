@@ -68,7 +68,7 @@ function CommentCard({
   onEdit: (comment: CommentDTO) => void;
   onReply: (id: number) => void;
 }) {
-  const isOwner = currentUserId === comment.authorId;
+  const isOwner = currentUserId === (comment.authorId ?? comment.userId);
   const ago = (() => {
     const diff = Date.now() - new Date(comment.createdAt).getTime();
     const m = Math.floor(diff / 60000);
@@ -167,18 +167,18 @@ function CommentsSection({
     (async () => {
       setIsLoading(true);
       try {
-        const res = await governanceService.getComments(targetType, targetId);
-        if (res.success) setComments(res.data.items);
+        const res = await governanceService.getComments(targetId);
+        if (res.success) setComments(Array.isArray(res.data) ? res.data : (res.data as any).items || []);
       } catch { }
       finally { setIsLoading(false); }
     })();
-  }, [targetType, targetId]);
+  }, [targetId]);
 
   const handlePost = async () => {
     if (!commentText.trim()) return;
     setIsSubmitting(true);
     try {
-      const res = await governanceService.createComment(targetType, targetId, commentText);
+      const res = await governanceService.createComment(targetId, commentText);
       if (res.success) {
         setComments(prev => [res.data, ...prev]);
         setCommentText("");

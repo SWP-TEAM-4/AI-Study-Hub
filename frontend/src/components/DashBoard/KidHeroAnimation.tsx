@@ -11,7 +11,7 @@ export function KidHeroAnimation() {
       transition: {
         duration: 2.2,
         repeat: Infinity,
-        ease: "easeInOut",
+        ease: "easeInOut" as const,
       },
     },
   };
@@ -23,7 +23,7 @@ export function KidHeroAnimation() {
       transition: {
         duration: 1.6,
         repeat: Infinity,
-        ease: "easeInOut",
+        ease: "easeInOut" as const,
       },
     },
   };
@@ -35,7 +35,7 @@ export function KidHeroAnimation() {
       transition: {
         duration: 3.5,
         repeat: Infinity,
-        ease: "easeInOut",
+        ease: "easeInOut" as const,
         repeatDelay: 2
       },
     },

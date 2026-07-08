@@ -11,7 +11,6 @@ import {
   useGenerateFlashcardDeck,
   useDeleteFlashcardDeck
 } from "../hooks/useFlashcards";
-import { FlashcardDeckDTO } from "../services/flashcardService";
 import { SkeletonCard } from "../components/ui/SkeletonCard";
 import { flashcardService, FlashcardDeckDTO, FlashcardDeckPayload, FlashcardProgressDTO } from "../services/flashcardService";
 import { useSubjects } from "../hooks/useSubjects";
@@ -25,6 +24,7 @@ export default function FlashcardsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
+  const [detailDeck, setDetailDeck] = useState<FlashcardDeckDTO | null>(null);
   const { data: decksList = [], isLoading, refetch } = useFlashcardDecks();
   const generateMutation = useGenerateFlashcardDeck();
   const isGenerating = generateMutation.isPending;
@@ -203,7 +203,7 @@ export default function FlashcardsPage() {
                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">Tên bộ thẻ</label>
                 <input
                   value={deckForm.title}
-                  onChange={(e) => setDeckForm((prev) => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) => setDeckForm((prev: FlashcardDeckPayload) => ({ ...prev, title: e.target.value }))}
                   className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
                 />
               </div>
@@ -212,7 +212,7 @@ export default function FlashcardsPage() {
                   <label className="text-xs font-semibold text-muted-foreground mb-1 block">Môn học</label>
                   <select
                     value={deckForm.subjectId ?? ""}
-                    onChange={(e) => setDeckForm((prev) => ({ ...prev, subjectId: toNullableNumber(e.target.value) }))}
+                    onChange={(e) => setDeckForm((prev: FlashcardDeckPayload) => ({ ...prev, subjectId: toNullableNumber(e.target.value) }))}
                     className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
                     disabled={isLoadingSubjects}
                   >
@@ -228,7 +228,7 @@ export default function FlashcardsPage() {
                   <label className="text-xs font-semibold text-muted-foreground mb-1 block">Notebook</label>
                   <select
                     value={deckForm.notebookId ?? ""}
-                    onChange={(e) => setDeckForm((prev) => ({ ...prev, notebookId: toNullableNumber(e.target.value) }))}
+                    onChange={(e) => setDeckForm((prev: FlashcardDeckPayload) => ({ ...prev, notebookId: toNullableNumber(e.target.value) }))}
                     className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
                   >
                     <option value="">Không gắn notebook</option>
@@ -243,7 +243,7 @@ export default function FlashcardsPage() {
                   <label className="text-xs font-semibold text-muted-foreground mb-1 block">Hiển thị</label>
                   <select
                     value={deckForm.visibility || "PRIVATE"}
-                    onChange={(e) => setDeckForm((prev) => ({ ...prev, visibility: e.target.value as FlashcardDeckPayload["visibility"] }))}
+                    onChange={(e) => setDeckForm((prev: FlashcardDeckPayload) => ({ ...prev, visibility: e.target.value as FlashcardDeckPayload["visibility"] }))}
                     className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
                   >
                     <option value="PRIVATE">PRIVATE</option>

@@ -32,7 +32,6 @@ export interface DocumentDTO {
   aiVerdictNote: string | null;
   clonedFromId?: number | null;
   processingStatus: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
-  clonedFromId: number | null;
   createdAt: string;
   updatedAt?: string | null;
 }
@@ -127,11 +126,9 @@ export interface SharedDocumentDTO {
   allowDownload: boolean;
   downloadUrl: string;
   expiresAt: string | null;
-  previewText: string | null;
-  previewSourcePage: number | null;
-  createdAt: string;
   previewText?: string | null;
   previewSourcePage?: number | null;
+  createdAt: string;
 }
 
 type SpringPage<T> = {

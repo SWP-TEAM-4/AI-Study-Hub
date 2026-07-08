@@ -37,7 +37,7 @@ export function NewDashboardHero() {
   const userName = profile?.fullName?.split(" ")?.pop() || "bạn nhỏ";
 
   // Calculate Level and XP based on points (200 points per level)
-  const points = profile?.points || 0;
+  const points = (profile as any)?.points || 0;
   const level = Math.floor(points / 200) + 1;
   const currentXp = points % 200;
   const maxXp = 200;
@@ -124,7 +124,7 @@ export function NewDashboardHero() {
 
           <div className="flex flex-col sm:flex-row gap-6 max-w-2xl">
             {/* Mascot Companion Speech Bubble */}
-            <div className="group relative flex-1 p-5 bg-white border-2 border-[#8ad5b3] rounded-3xl shadow-[0_6px_0_rgba(138,213,179,0.12)] flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] cursor-default">
+            <div className="group relative flex-1 p-5 bg-[#8ad5b3]/12 rounded-3xl flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] cursor-default">
               <img 
                 src="/images/lesa_mouse.png" 
                 alt="Mascot Mouse" 
@@ -134,11 +134,11 @@ export function NewDashboardHero() {
                 <span className="text-[#166534] font-extrabold">{greeting.status}:</span> {greeting.text}
               </div>
               {/* Balloon tip */}
-              <div className="absolute left-6 top-[-10px] w-4 h-4 bg-white border-t-2 border-l-2 border-[#8ad5b3] rotate-45" />
+              <div className="absolute left-6 top-[-8px] w-4 h-4 bg-[#fbfdfc] rotate-45 z-0" />
             </div>
 
             {/* LESA Magic Potion XP Tube */}
-            <div className="p-4 bg-white border-2 border-[#8ad5b3]/40 rounded-3xl shadow-[0_6px_0_rgba(138,213,179,0.12)] flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] shrink-0 min-w-[210px] select-none">
+            <div className="p-4 bg-[#8ad5b3]/12 rounded-3xl flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] shrink-0 min-w-[210px] select-none">
               <div className="relative shrink-0">
                 <svg className="w-14 h-16 drop-shadow-[0_2px_4px_rgba(0,0,0,0.06)]" viewBox="0 0 100 120">
                   {/* Potion Base Liquid (Background fill) */}
@@ -204,7 +204,7 @@ export function NewDashboardHero() {
         >
           <button
             onClick={() => navigate("/quiz")}
-            className="group relative px-8 py-4 rounded-full font-bold text-white bg-[#89cff0] border-b-4 border-[#0d6683] hover:bg-[#a6dcf8] active:translate-y-[2px] active:border-b-[2px] transition-[transform,background-color] shadow-[0_6px_0_rgba(13,102,131,0.25)] hover:scale-[1.03] duration-150 text-lg font-serif"
+            className="group relative px-8 py-4 rounded-full font-bold text-[#0a4b61] bg-[#89cff0] border-b-4 border-[#0d6683] hover:bg-[#a6dcf8] active:translate-y-[2px] active:border-b-[2px] transition-[transform,background-color] shadow-[0_6px_0_rgba(13,102,131,0.25)] hover:scale-[1.03] duration-150 text-lg font-serif"
           >
             Bắt Đầu Học Tập 
           </button>

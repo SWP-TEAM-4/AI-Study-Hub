@@ -23,7 +23,7 @@ export default function AdminSystemConfigTab() {
   const loadConfigs = async () => {
     setIsLoading(true);
     try {
-      const res = await systemConfigService.getAdminConfigs();
+      const res = (await systemConfigService.getAdminConfigs()) as any;
       if (res.success && res.data) {
         setConfigs(res.data);
       }
@@ -42,7 +42,7 @@ export default function AdminSystemConfigTab() {
     }
     setIsSubmitting(true);
     try {
-      const res = await systemConfigService.createConfig(formData);
+      const res = (await systemConfigService.createConfig(formData)) as any;
       if (res.success && res.data) {
         Notify.success("Tạo cấu hình thành công!");
         setConfigs([res.data, ...configs]);
@@ -62,7 +62,7 @@ export default function AdminSystemConfigTab() {
       return;
     }
     try {
-      const res = await systemConfigService.updateConfig(id, editData);
+      const res = (await systemConfigService.updateConfig(id, editData)) as any;
       if (res.success && res.data) {
         Notify.success("Cập nhật thành công!");
         setConfigs(configs.map(c => c.id === id ? res.data! : c));
@@ -76,7 +76,7 @@ export default function AdminSystemConfigTab() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa cấu hình này? Hệ thống có thể gặp lỗi nếu thiếu cấu hình quan trọng.")) return;
     try {
-      const res = await systemConfigService.deleteConfig(id);
+      const res = (await systemConfigService.deleteConfig(id)) as any;
       if (res.success) {
         Notify.success("Xóa cấu hình thành công!");
         setConfigs(configs.filter(c => c.id !== id));
