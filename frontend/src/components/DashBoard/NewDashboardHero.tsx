@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { userService } from "../../services/userService";
@@ -11,6 +11,7 @@ import { SkeletonCard } from "../ui/SkeletonCard";
 
 export function NewDashboardHero() {
   const navigate = useNavigate();
+  const [isMascotHovered, setIsMascotHovered] = useState(false);
 
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ["dashboardHero"],
@@ -68,9 +69,21 @@ export function NewDashboardHero() {
   const greeting = getMascotGreeting();
 
   return (
-    <section className="relative px-8 py-10 md:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[360px] bg-[#fef9f3] border-4 border-[#89cff0] rounded-3xl shadow-[0_8px_0_rgba(137,207,240,0.25)] select-none overflow-hidden">
-      {/* Playful Dashed Stitched Border */}
-      <div className="absolute inset-2 md:inset-3 border-4 border-dashed border-[#89cff0]/40 rounded-2xl pointer-events-none z-0" />
+    <section 
+      style={{ willChange: "transform" }}
+      className="relative px-8 py-10 md:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[360px]
+      bg-white/40 dark:bg-white/[0.04]
+      backdrop-blur-md
+      border-4 border-[#89cff0] dark:border-[#34d399]/40
+      rounded-[32px]
+      shadow-[0_8px_32px_rgba(137,207,240,0.15)] dark:shadow-[0_8px_32px_rgba(52,211,153,0.08)]
+      select-none overflow-hidden
+    ">
+      {/* Dashed stitched border inside to match onboarding tour */}
+      <div className="absolute inset-1.5 border-4 border-dashed border-[#89cff0]/30 dark:border-[#34d399]/20 rounded-[24px] pointer-events-none z-0" />
+
+      {/* Subtle inner glow ring */}
+      <div className="absolute inset-0 rounded-[32px] bg-gradient-to-br from-white/60 via-transparent to-transparent dark:from-white/5 dark:via-transparent dark:to-transparent pointer-events-none z-0" />
 
       {/* Red Bookmark Ribbon (Aligned to grid boundary) */}
       <div 
@@ -107,38 +120,43 @@ export function NewDashboardHero() {
           </div> */}
 
           {/* Welcome Headline */}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-[#0d1c2e] tracking-tight mb-4 leading-tight font-serif">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 leading-tight font-serif">
             {isLoading ? (
-              <span className="inline-block w-64 h-16 bg-slate-100 rounded-3xl animate-pulse" />
+              <span className="inline-block w-64 h-16 bg-slate-100 dark:bg-slate-800 rounded-3xl animate-pulse" />
             ) : (
-              <>
-                Chào <span className="text-[#0d6683] font-quicksand tracking-tight">{userName}</span>!
-              </>
+              <motion.span 
+                animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                style={{ backgroundSize: "200% auto" }}
+                className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-[#0d6683] to-slate-900 dark:from-white dark:via-[#34d399] dark:to-white inline-block drop-shadow-sm dark:drop-shadow-[0_2px_10px_rgba(52,211,153,0.3)]"
+              >
+                Chào <span className="font-quicksand tracking-tight">{userName}</span>!
+              </motion.span>
             )}
           </h1>
 
           {/* Description */}
-          <p className="text-[#475569] text-lg md:text-xl max-w-xl leading-relaxed font-medium mb-8">
+          <p className="text-muted-foreground dark:text-slate-200 text-lg md:text-xl max-w-xl leading-relaxed font-medium mb-8 drop-shadow-sm">
             Hôm nay mình cùng khám phá những bài học thú vị nhé. Học mà chơi, chơi mà học là cách tốt nhất!
           </p>
 
           <div className="flex flex-col sm:flex-row gap-6 max-w-2xl">
             {/* Mascot Companion Speech Bubble */}
-            <div className="group relative flex-1 p-5 bg-[#8ad5b3]/12 rounded-3xl flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] cursor-default">
+            <div className="group relative flex-1 p-5 bg-black/5 dark:bg-white/5 rounded-3xl flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] cursor-default backdrop-blur-sm">
               <img 
                 src="/images/lesa_mouse.png" 
                 alt="Mascot Mouse" 
                 className="w-12 h-12 object-contain shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" 
               />
-              <div className="text-[15px] font-bold text-[#0d1c2e] leading-relaxed">
-                <span className="text-[#166534] font-extrabold">{greeting.status}:</span> {greeting.text}
+              <div className="text-[15px] font-bold text-foreground dark:text-white leading-relaxed">
+                <span className="text-[#166534] dark:text-[#34d399] font-extrabold">{greeting.status}:</span> {greeting.text}
               </div>
               {/* Balloon tip */}
-              <div className="absolute left-6 top-[-8px] w-4 h-4 bg-[#fbfdfc] rotate-45 z-0" />
+              <div className="absolute left-6 top-[-8px] w-4 h-4 bg-white/60 dark:bg-white/10 rotate-45 z-0" />
             </div>
 
             {/* LESA Magic Potion XP Tube */}
-            <div className="p-4 bg-[#8ad5b3]/12 rounded-3xl flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] shrink-0 min-w-[210px] select-none">
+            <div className="p-4 bg-black/5 dark:bg-white/5 rounded-3xl flex items-center gap-4 transition-transform duration-300 hover:scale-[1.02] shrink-0 min-w-[210px] select-none backdrop-blur-sm">
               <div className="relative shrink-0">
                 <svg className="w-14 h-16 drop-shadow-[0_2px_4px_rgba(0,0,0,0.06)]" viewBox="0 0 100 120">
                   {/* Potion Base Liquid (Background fill) */}
@@ -181,15 +199,15 @@ export function NewDashboardHero() {
                 </svg>
               </div>
               <div className="flex flex-col justify-center">
-                <span className="text-[11px] font-extrabold text-[#166534] uppercase tracking-wider">Bình Ma Thuật</span>
-                <span className="text-[17px] font-extrabold text-[#0d1c2e] leading-tight">Cấp độ {level}</span>
-                <div className="mt-1 w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/50">
+                <span className="text-[11px] font-extrabold text-[#166534] dark:text-[#34d399] uppercase tracking-wider dark:drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">Bình Ma Thuật</span>
+                <span className="text-[17px] font-extrabold text-foreground dark:text-white leading-tight">Cấp độ {level}</span>
+                <div className="mt-1 w-full bg-black/10 dark:bg-white/10 h-2.5 rounded-full overflow-hidden shadow-inner">
                   <div
-                    className="bg-gradient-to-r from-[#8ad5b3] to-[#166534] h-full rounded-full transition-all duration-500"
+                    className="bg-gradient-to-r from-[#8ad5b3] to-[#166534] dark:from-[#34d399] dark:to-[#10b981] h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(52,211,153,0.5)]"
                     style={{ width: `${xpPercent}%` }}
                   />
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 mt-1">{currentXp}/{maxXp} XP</span>
+                <span className="text-[10px] font-bold text-muted-foreground dark:text-slate-300 mt-1">{currentXp}/{maxXp} XP</span>
               </div>
             </div>
           </div>
@@ -204,7 +222,7 @@ export function NewDashboardHero() {
         >
           <button
             onClick={() => navigate("/quiz")}
-            className="group relative px-8 py-4 rounded-full font-bold text-[#0a4b61] bg-[#89cff0] border-b-4 border-[#0d6683] hover:bg-[#a6dcf8] active:translate-y-[2px] active:border-b-[2px] transition-[transform,background-color] shadow-[0_6px_0_rgba(13,102,131,0.25)] hover:scale-[1.03] duration-150 text-lg font-serif"
+            className="group relative px-8 py-4 rounded-full font-bold text-[#0a4b61] dark:text-white bg-[#89cff0] dark:bg-gradient-to-r dark:from-indigo-500 dark:to-purple-600 border-b-4 border-[#0d6683] dark:border-indigo-800 hover:bg-[#a6dcf8] dark:hover:from-indigo-400 dark:hover:to-purple-500 active:translate-y-[2px] active:border-b-[2px] transition-[transform,background-color] shadow-[0_6px_0_rgba(13,102,131,0.25)] dark:shadow-[0_0_25px_rgba(99,102,241,0.6)] hover:scale-[1.03] duration-150 text-lg font-serif"
           >
             Bắt Đầu Học Tập 
           </button>
@@ -212,11 +230,16 @@ export function NewDashboardHero() {
       </div>
 
       {/* Animated Lottie Mascot right side */}
-      <div className="lg:col-span-5 relative w-full flex justify-center items-center h-[320px] md:h-[400px]">
+      <div 
+        className="lg:col-span-5 relative w-full flex justify-center items-center h-[320px] md:h-[400px] cursor-pointer"
+        onMouseEnter={() => setIsMascotHovered(true)}
+        onMouseLeave={() => setIsMascotHovered(false)}
+      >
         <DotLottiePlayer
           src="/animal.lottie"
           autoplay
           loop
+          speed={isMascotHovered ? 1 : 0}
           className="w-full h-full max-w-[340px] md:max-w-[400px]"
         />
       </div>

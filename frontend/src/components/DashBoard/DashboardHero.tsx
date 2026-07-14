@@ -3,31 +3,17 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-<<<<<<< HEAD
-import { ArrowRight, BookOpen, GraduationCap, Users } from "lucide-react";
-=======
-import { Flame, GraduationCap, Users, BookOpen, Zap, Target, ArrowUpRight, TrendingUp } from "lucide-react";
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
+import { Flame, GraduationCap, Users, BookOpen, Zap, Target, ArrowUpRight, TrendingUp, Bot } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { userService } from "../../services/userService";
 import { motion } from "framer-motion";
 
-<<<<<<< HEAD
-=======
-const stats = [
-  { label: "Ngày học liên tiếp", value: "7", icon: Flame, color: "text-orange-500", bg: "bg-orange-500/10 dark:bg-orange-500/15", border: "border-orange-500/20" },
-  { label: "Bài hoàn thành", value: "24", icon: Target, color: "text-blue-500", bg: "bg-blue-500/10 dark:bg-blue-500/15", border: "border-blue-500/20" },
-  { label: "XP tuần này", value: "1,240", icon: Zap, color: "text-violet-500", bg: "bg-violet-500/10 dark:bg-violet-500/15", border: "border-violet-500/20" },
-];
-
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
 export function DashboardHero() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const springConfig: any = { type: "spring", damping: 20, stiffness: 100 };
 
-<<<<<<< HEAD
-  const { data: dashboardData, isLoading } = useQuery({
+  const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ["dashboardHero"],
     queryFn: async () => {
       const [profile, aiUsage, tests] = await Promise.all([
@@ -37,77 +23,25 @@ export function DashboardHero() {
       ]);
       return { profile: profile.data, aiUsage: aiUsage.data, testCount: tests.data.totalElements };
     },
-=======
-  const { data: profileRes, isLoading, error } = useQuery({
-    queryKey: ["userProfile"],
-    queryFn: () => userService.getMyProfile(),
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-<<<<<<< HEAD
   const profile = dashboardData?.profile;
-  const userName = profile?.fullName?.split(" ")?.pop() || "bạn";
-  const fullName = profile?.fullName || "";
-  const avatarUrl = profile?.avatarUrl || null;
-  const initials = fullName
-    ? fullName
-        .trim()
-        .split(" ")
-        .filter(Boolean)
-        .map((word: string) => word[0])
-        .slice(-2)
-        .join("")
-        .toUpperCase()
-=======
-  const userName = error ? "bạn" : (profileRes?.data?.fullName?.split(" ")?.pop() || "bạn");
-  const fullName = error ? "" : (profileRes?.data?.fullName || "");
-  const avatarUrl = error ? null : (profileRes?.data?.avatarUrl || null);
+  const userName = error ? "bạn" : (profile?.fullName?.split(" ")?.pop() || "bạn");
+  const fullName = error ? "" : (profile?.fullName || "");
+  const avatarUrl = error ? null : (profile?.avatarUrl || null);
   const initials = fullName
     ? fullName.trim().split(" ").filter(Boolean).map((w: string) => w[0]).slice(-2).join("").toUpperCase()
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
     : "U";
 
   const stats = [
-    { label: "Điểm uy tín", value: profile?.reputationPoints ?? 0, color: "bg-yellow-50 text-yellow-600" },
-    { label: "Lượt làm bài", value: dashboardData?.testCount ?? 0, color: "bg-blue-50 text-blue-600" },
-    { label: "Tương tác AI", value: dashboardData?.aiUsage.totalRequests ?? 0, color: "bg-purple-50 text-purple-600" },
+    { label: "Điểm uy tín", value: profile?.reputationPoints ?? 0, icon: Flame, color: "text-orange-500", bg: "bg-orange-500/10 dark:bg-orange-500/15", border: "border-orange-500/20" },
+    { label: "Lượt làm bài", value: dashboardData?.testCount ?? 0, icon: Target, color: "text-blue-500", bg: "bg-blue-500/10 dark:bg-blue-500/15", border: "border-blue-500/20" },
+    { label: "Tương tác AI", value: dashboardData?.aiUsage?.totalRequests ?? 0, icon: Bot, color: "text-violet-500", bg: "bg-violet-500/10 dark:bg-violet-500/15", border: "border-violet-500/20" },
   ];
 
-  const telemetry = [
-    profile?.currentSemesterName || profile?.currentSemesterCode,
-    profile?.comboName || profile?.comboCode,
-    profile?.role,
-  ].filter((item): item is string => Boolean(item));
-
   return (
-<<<<<<< HEAD
-    <section className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
-        {/* Left Content */}
-        <div className="lg:col-span-2 p-12 flex flex-col justify-between">
-          {/* Greeting */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <p className="text-sm font-semibold text-gray-500 mb-6">
-              {profile?.currentSemesterCode || "Learning Journey"}
-            </p>
-            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
-              {isLoading ? (
-                <span className="inline-block w-96 h-16 bg-gray-200 rounded-xl animate-pulse" />
-              ) : (
-                <>
-                  Chào mừng trở lại
-                  <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
-                    {userName === "User" ? "bạn" : userName}
-                  </span>
-                </>
-=======
     <section
       aria-label="Trang chủ học tập"
       className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm"
@@ -127,7 +61,7 @@ export function DashboardHero() {
               className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600 dark:text-orange-400 select-none"
             >
               <Flame size={13} aria-hidden="true" className="shrink-0" />
-              <span>{t("dashboard.hero.streak") || "Chuỗi học 7 ngày liên tiếp"}</span>
+              <span>{t("dashboard.hero.streak") || "Hành trình học tập"}</span>
               <TrendingUp size={11} aria-hidden="true" className="shrink-0 opacity-70" />
             </motion.div>
 
@@ -143,65 +77,8 @@ export function DashboardHero() {
                 >
                   {t("dashboard.hero.greeting", { name: userName === "User" ? "bạn" : userName })}
                 </motion.span>
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
               )}
             </h1>
-            <p className="text-lg text-gray-600 max-w-2xl leading-relaxed">
-              Tiếp tục hành trình học tập của bạn. Luyện tập với quiz hoặc mở sổ tay để ôn tập.
-            </p>
-          </motion.div>
-
-<<<<<<< HEAD
-          {/* Action Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="flex flex-wrap gap-3 mt-8"
-          >
-            <button
-              onClick={() => navigate("/quiz")}
-              className="px-8 py-3 bg-gray-900 text-white rounded-full font-semibold hover:bg-black transition-colors flex items-center gap-2"
-            >
-              <GraduationCap size={18} />
-              Luyện tập
-              <ArrowRight size={16} />
-            </button>
-            <button
-              onClick={() => navigate("/notebooks")}
-              className="px-8 py-3 bg-gray-100 text-gray-900 rounded-full font-semibold hover:bg-gray-200 transition-colors flex items-center gap-2"
-            >
-              <BookOpen size={18} />
-              Sổ tay
-            </button>
-            <button
-              onClick={() => navigate("/community")}
-              className="px-8 py-3 bg-gray-100 text-gray-900 rounded-full font-semibold hover:bg-gray-200 transition-colors flex items-center gap-2"
-            >
-              <Users size={18} />
-              Cộng đồng
-            </button>
-          </motion.div>
-        </div>
-
-        {/* Right Profile Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-gradient-to-br from-gray-50 to-gray-100 p-12 flex flex-col justify-between border-l border-gray-200 lg:border-l-0"
-        >
-          {/* Header */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Hồ sơ</p>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8">{fullName || "MindSpace"}</h2>
-
-            {/* Avatar */}
-            <div className="w-32 h-32 rounded-2xl bg-white shadow-lg flex items-center justify-center mb-8 mx-auto lg:mx-0">
-              <div className="w-28 h-28 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white text-4xl font-bold flex items-center justify-center overflow-hidden">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-=======
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -263,7 +140,6 @@ export function DashboardHero() {
               <div className="size-20 lg:size-24 rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/20 to-violet-500/20 flex items-center justify-center text-xl lg:text-2xl font-bold text-primary shadow-lg shadow-primary/10 overflow-hidden">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={`Ảnh đại diện của ${fullName}`} className="w-full h-full object-cover" />
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
                 ) : (
                   initials
                 )}
@@ -274,45 +150,6 @@ export function DashboardHero() {
                 role="status"
               />
             </div>
-<<<<<<< HEAD
-          </div>
-
-          {/* Info Badges */}
-          <div className="space-y-2">
-            {telemetry.length === 0 ? (
-              <p className="text-xs text-gray-500 text-center py-2">Chưa cập nhật thông tin</p>
-            ) : (
-              telemetry.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center justify-between bg-white rounded-lg px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm"
-                >
-                  <span>{item}</span>
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                </div>
-              ))
-            )}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="border-t border-gray-200 grid grid-cols-3 divide-x divide-gray-200">
-        {stats.map((stat) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="p-8 text-center"
-          >
-            <div className="text-4xl font-bold text-gray-900 mb-2">
-              {Number(stat.value).toLocaleString()}
-            </div>
-            <div className="text-sm font-medium text-gray-600">{stat.label}</div>
-          </motion.div>
-        ))}
-=======
           </motion.div>
         </div>
 
@@ -333,14 +170,13 @@ export function DashboardHero() {
                   <Icon size={16} className={stat.color} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-base font-bold text-foreground tabular-nums leading-none">{stat.value}</div>
+                  <div className="text-base font-bold text-foreground tabular-nums leading-none">{(stat.value).toLocaleString()}</div>
                   <div className="text-[10px] text-muted-foreground leading-tight truncate mt-0.5">{stat.label}</div>
                 </div>
               </div>
             );
           })}
         </motion.div>
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
       </div>
     </section>
   );

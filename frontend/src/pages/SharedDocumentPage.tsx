@@ -113,15 +113,7 @@ export default function SharedDocumentPage({ shareToken: shareTokenProp }: Share
                   <span className="px-2.5 py-1 rounded-md bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/30">
                     {doc?.fileType || "DOCUMENT"}
                   </span>
-<<<<<<< HEAD
-                  {doc?.subjectId && (
-=======
-<<<<<<< HEAD
-                  {doc?.subjectId && (
-=======
                   {doc?.subjectId != null && (
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                     <span className="px-2.5 py-1 rounded-md bg-muted border border-border/50 text-muted-foreground text-[10px] font-bold uppercase">
                       Môn #{doc.subjectId}
                     </span>
@@ -131,14 +123,7 @@ export default function SharedDocumentPage({ shareToken: shareTokenProp }: Share
                   {doc?.title}
                 </h1>
                 <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-<<<<<<< HEAD
                   <div className="flex items-center gap-1.5"><User size={14} /> Tài liệu chia sẻ công khai</div>
-=======
-<<<<<<< HEAD
-                  <div className="flex items-center gap-1.5"><User size={14} /> Tài liệu chia sẻ công khai</div>
-=======
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                   <div className="flex items-center gap-1.5"><HardDrive size={14} /> {formatSize(doc?.fileSize || 0)}</div>
                 </div>
               </div>

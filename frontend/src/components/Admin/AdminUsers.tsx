@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 import { useEffect, useState } from "react";
 import { Award, ChevronLeft, ChevronRight, Eye, RefreshCw, Search, UserCheck, UserMinus, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,15 +12,6 @@ function getErrorMessage(error: unknown, fallback: string) {
     ? String((error as { message?: unknown }).message ?? fallback)
     : fallback;
 }
-<<<<<<< HEAD
-=======
-=======
-import { useState, useEffect } from "react";
-import { Search, UserCheck, UserMinus, Award } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { userService, UserDTO } from "../../services/userService";
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
 export default function AdminUsers() {
   const { t } = useTranslation();
@@ -32,10 +19,6 @@ export default function AdminUsers() {
   const [searchInput, setSearchInput] = useState("");
   const [keyword, setKeyword] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   const [role, setRole] = useState<UserRole | "">("");
   const [active, setActive] = useState<"" | "true" | "false">("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -80,58 +63,11 @@ export default function AdminUsers() {
   const refreshUsers = async () => {
     await queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
     await queryClient.invalidateQueries({ queryKey: ["adminOverview"] });
-<<<<<<< HEAD
-=======
-=======
-  const [usersList, setUsersList] = useState<UserDTO[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalElements, setTotalElements] = useState(0);
-
-  // Gọi API lấy danh sách user thực tế từ Backend khi chuyển trang hoặc gõ tìm kiếm
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      try {
-        const res = await userService.adminGetUsers({
-          page: currentPage,
-          size: 10,
-          keyword: searchKeyword
-        });
-        if (res.success && res.data) {
-          setUsersList(res.data.items);
-          setTotalElements(res.data.totalElements);
-        }
-      } catch (err: any) {
-        console.error("Lỗi lấy danh sách thành viên từ API:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Cơ chế debounce nhẹ nếu cần, hoặc gọi trực tiếp qua dependency array
-    fetchUsers();
-  }, [currentPage, searchKeyword]);
-
-  const handleToggleActive = async (userId: number, currentStatus: boolean) => {
-    try {
-      const res = await userService.adminToggleUserActive(userId, !currentStatus);
-      if (res.success && res.data) {
-        setUsersList(prev => prev.map(u => u.id === userId ? res.data! : u));
-      }
-    } catch (err: any) { 
-      alert(err.message || "Lỗi khóa tài khoản"); 
-    }
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   };
 
   const handleToggleActive = async (user: UserDTO) => {
     setBusyUserId(user.id);
     try {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       await userService.adminToggleUserActive(user.id, !user.isActive);
       Notify.success(t("admin.users.updateSuccess"));
       await refreshUsers();
@@ -139,17 +75,6 @@ export default function AdminUsers() {
       Notify.failure(getErrorMessage(error, t("admin.users.updateError")));
     } finally {
       setBusyUserId(null);
-<<<<<<< HEAD
-=======
-=======
-      const res = await userService.adminUpdateUserRole(userId, newRole);
-      if (res.success && res.data) {
-        setUsersList(prev => prev.map(u => u.id === userId ? res.data! : u));
-      }
-    } catch (err: any) { 
-      alert(err.message || "Lỗi cập nhật quyền hạn"); 
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
     }
   };
 
@@ -157,10 +82,6 @@ export default function AdminUsers() {
     if (newRole === user.role) return;
     setBusyUserId(user.id);
     try {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       await userService.adminUpdateUserRole(user.id, newRole);
       Notify.success(t("admin.users.updateSuccess"));
       await refreshUsers();
@@ -171,15 +92,6 @@ export default function AdminUsers() {
       Notify.failure(getErrorMessage(error, t("admin.users.updateError")));
     } finally {
       setBusyUserId(null);
-<<<<<<< HEAD
-=======
-=======
-      const res = await userService.adminAssignBadgeToUser(userId, 2);
-      if (res.success) alert("Đã gán huy hiệu danh giá thành công! 🎖️");
-    } catch (err: any) { 
-      alert(`Không thể gán: ${err.message || "Lỗi không xác định"}`); 
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
     }
   };
 
@@ -235,10 +147,6 @@ export default function AdminUsers() {
           <option value="false">{t("admin.users.locked")}</option>
         </select>
       </div>
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
       <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
@@ -290,53 +198,6 @@ export default function AdminUsers() {
                       disabled={busyUserId === user.id}
                       onChange={(event) => handleRoleChange(user, event.target.value as UserRole)}
                       className="bg-muted text-foreground text-xs font-bold rounded-lg px-2 py-1 disabled:opacity-50"
-<<<<<<< HEAD
-=======
-=======
-      
-      <div className="surface-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground border-b border-border/50">
-            <tr>
-              <th className="text-left px-5 py-3.5">{t("admin.users.member")}</th>
-              <th className="text-left px-5 py-3.5">{t("admin.users.role")}</th>
-              <th className="text-left px-5 py-3.5">{t("admin.users.status")}</th>
-              <th className="px-5 py-3.5 text-right">{t("admin.users.actions")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/60">
-            {loading ? (
-              <tr>
-                <td colSpan={4} className="py-12 text-center text-muted-foreground">
-                  <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  Đang tải danh sách thành viên hệ thống...
-                </td>
-              </tr>
-            ) : usersList.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="py-12 text-center text-muted-foreground">
-                  Không tìm thấy thành viên nào phù hợp.
-                </td>
-              </tr>
-            ) : (
-              usersList.map((user: UserDTO) => (
-                <tr key={user.id} className="hover:bg-muted/20">
-                  <td className="px-5 py-3 flex items-center gap-3">
-                    <div className="size-9 rounded-xl bg-ink text-white font-bold text-xs grid place-items-center">
-                      {user.fullName.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="text-left">
-                      <div className="font-semibold text-foreground">{user.fullName}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono">{user.email}</div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-left">
-                    <select 
-                      value={user.role} 
-                      onChange={(e) => handleRoleChange(user.id, e.target.value as any)} 
-                      className="bg-muted text-foreground text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                     >
                       <option value="STUDENT">STUDENT</option>
                       <option value="REVIEWER">REVIEWER</option>
@@ -344,24 +205,12 @@ export default function AdminUsers() {
                     </select>
                   </td>
                   <td className="px-5 py-3 text-left">
-<<<<<<< HEAD
                     <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium uppercase ${user.isActive ? "bg-emerald-500/12 text-emerald-500 border border-emerald-500/25" : "bg-rose-500/12 text-rose-500 border border-rose-500/25"}`}>
-=======
-<<<<<<< HEAD
-                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium uppercase ${user.isActive ? "bg-emerald-500/12 text-emerald-500 border border-emerald-500/25" : "bg-rose-500/12 text-rose-500 border border-rose-500/25"}`}>
-=======
-                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium uppercase ${user.isActive ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : "bg-rose-500/12 text-rose-300 border border-rose-500/25"}`}>
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                       {user.isActive ? t("admin.users.active") : t("admin.users.locked")}
                     </span>
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-1.5">
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                       <ActionButton title={t("admin.users.viewDetails")} onClick={() => setSelectedUserId(user.id)}><Eye size={13} /></ActionButton>
                       <ActionButton title={t("admin.users.assignBadge")} onClick={() => setBadgeUser(user)}><Award size={13} /></ActionButton>
                       <button
@@ -370,24 +219,11 @@ export default function AdminUsers() {
                         onClick={() => handleToggleActive(user)}
                         className={`size-8 rounded-lg grid place-items-center disabled:opacity-50 ${user.isActive ? "bg-rose-500/12 text-rose-500 border border-rose-500/25" : "bg-emerald-500/12 text-emerald-500 border border-emerald-500/25"}`}
                       >
-<<<<<<< HEAD
-=======
-=======
-                      <button onClick={() => handleRewardBadge(user.id)} className="size-8 rounded-lg border border-border grid place-items-center hover:text-primary transition-colors cursor-pointer" title="Tặng huy hiệu">
-                        <Award size={13} />
-                      </button>
-                      <button onClick={() => handleToggleActive(user.id, user.isActive)} className={`size-8 rounded-lg grid place-items-center ${user.isActive ? "bg-rose-500/12 text-rose-300 border border-rose-500/25" : "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25"} cursor-pointer`} title={user.isActive ? "Khóa tài khoản" : "Kích hoạt tài khoản"}>
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                         {user.isActive ? <UserMinus size={13} /> : <UserCheck size={13} />}
                       </button>
                     </div>
                   </td>
                 </tr>
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
               ))}
             </tbody>
           </table>
@@ -461,22 +297,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           <button onClick={onClose} className="grid size-8 place-items-center rounded-lg hover:bg-muted" aria-label="Close"><X size={17} /></button>
         </div>
         {children}
-<<<<<<< HEAD
-=======
-=======
-              ))
-            )}
-          </tbody>
-        </table>
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       </div>
     </div>
   );
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 }
 
 function UserDetails({ user }: { user: UserDTO }) {
@@ -501,9 +324,3 @@ function UserDetails({ user }: { user: UserDTO }) {
     </div>
   );
 }
-<<<<<<< HEAD
-=======
-=======
-}
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929

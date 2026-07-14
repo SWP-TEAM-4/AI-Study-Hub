@@ -25,39 +25,23 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
-<<<<<<< HEAD
 const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
 const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
-=======
-<<<<<<< HEAD
-const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
-=======
-const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
+
+// ── Landing page switcher: set VITE_ACTIVE_LANDING="corporate" to show new page ──
+const CorporateLanding = lazy(() => import("./components/LoginPage/CorporateLanding"));
+const ACTIVE_LANDING = (import.meta as any).env.VITE_ACTIVE_LANDING ?? "orbis";
 
 export default function App() {
   const isLoginLoading = false;
   const { isLoggedIn, login, logout, user } = useAuthStore();
   const navigate = useNavigate();
 
-  // Cờ ref để biết vừa login xong – tránh navigate lặp
   const justLoggedIn = useRef(false);
 
-  // Lấy role từ store (persist, không cần parse localStorage thủ công)
   const userRole = user?.role ?? "STUDENT";
   const { data: capabilities, isLoading: capabilitiesLoading } = useCapabilities(isLoggedIn);
 
-  /**
-   * ✅ FIX RACE CONDITION:
-   * Thay vì gọi navigate() ngay trong handleLoginSuccess (khi isLoggedIn chưa kịp
-   * cập nhật trong React tree), ta dùng useEffect theo dõi isLoggedIn.
-   * 
-   * Flow:
-   *   handleLoginSuccess() → login() [zustand sync] → React re-render với isLoggedIn=true
-   *   → useEffect chạy → navigate("/dashboard")
-   *   → Route guard `isLoggedIn ? <AppShell /> : <Navigate to="/" />` pass ✅
-   */
   useEffect(() => {
     if (isLoggedIn && justLoggedIn.current) {
       justLoggedIn.current = false;
@@ -66,7 +50,6 @@ export default function App() {
   }, [isLoggedIn, navigate]);
 
   const handleLoginSuccess = (token?: string, userData?: any) => {
-    // Đọc token và user từ tham số, hoặc fallback từ localStorage (đã được authService lưu)
     const authToken = token || localStorage.getItem("auth_token") || "";
     const storedUser = userData || (() => {
       try {
@@ -77,26 +60,19 @@ export default function App() {
 
     if (storedUser) {
       justLoggedIn.current = true;
-      // Gọi login() → Zustand cập nhật isLoggedIn=true → React re-render → useEffect → navigate
       login(authToken, storedUser);
     }
   };
 
   const handleLogout = () => {
-    logout(); // store.logout() đã xóa localStorage
+    logout();
     navigate("/", { replace: true });
   };
 
-<<<<<<< HEAD
   if (isLoginLoading || (isLoggedIn && capabilitiesLoading)) return <Loader />;
 
-=======
-<<<<<<< HEAD
-  if (isLoginLoading || (isLoggedIn && capabilitiesLoading)) return <Loader />;
+  const LandingComponent = ACTIVE_LANDING === "corporate" ? CorporateLanding : OrbisLanding;
 
-=======
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   const landingElement = isLoggedIn ? (
     <Navigate to="/dashboard" replace />
   ) : (
@@ -110,10 +86,13 @@ export default function App() {
         <style>{`
           .hide-scrollbar::-webkit-scrollbar { display: none; }
         `}</style>
-        <OrbisLanding onLoginClick={() => navigate("/login")} />
+        <Suspense fallback={<Loader />}>
+          <LandingComponent onLoginClick={() => navigate("/login")} />
+        </Suspense>
       </motion.div>
     </div>
   );
+
   const authElement = isLoggedIn ? (
     <Navigate to="/dashboard" replace />
   ) : (
@@ -131,6 +110,7 @@ export default function App() {
       </motion.div>
     </div>
   );
+
   return (
     <>
       <Routes>
@@ -138,54 +118,17 @@ export default function App() {
         <Route path="/" element={landingElement} />
         <Route path="/privacy-policy" element={landingElement} />
         <Route path="/cookie-settings" element={landingElement} />
-
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
         <Route path="/login" element={authElement} />
         <Route path="/reset-password" element={authElement} />
-        <Route path="/share/documents/:token" element={
-          <Suspense fallback={<Loader />}>
-            <SharedDocumentPage />
-          </Suspense>
-        } />
-<<<<<<< HEAD
-=======
-=======
-        <Route
-          path="/login"
-          element={
-            isLoggedIn ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <div className="flex w-screen h-screen overflow-hidden bg-space relative">
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                  className="w-full h-full flex items-center justify-center relative"
-                >
-                  <LoginPanel
-                    onLoginSuccess={(token, user) => handleLoginSuccess(token, user)}
-                    onClose={() => navigate("/")}
-                  />
-                </motion.div>
-              </div>
-            )
-          }
-        />
 
         <Route
           path="/share/documents/:token"
           element={
             <Suspense fallback={<Loader />}>
-              <SharedDocumentPage shareToken="token-from-url" />
+              <SharedDocumentPage />
             </Suspense>
           }
         />
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
         {/* Authenticated Routes – wrapped in AppShell */}
         <Route element={isLoggedIn ? <AppShell /> : <Navigate to="/" replace />}>
@@ -195,28 +138,17 @@ export default function App() {
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/quiz" element={<QuizPage />} />
+          <Route path="/quiz/history" element={<QuizPage />} />
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-<<<<<<< HEAD
           {(userRole === "ADMIN" || capabilities?.canModerateReports) && (
-=======
-<<<<<<< HEAD
-          {(userRole === "ADMIN" || capabilities?.canModerateReports) && (
-=======
-          {/* {userRole === "ADMIN" && ( */}
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
             <>
               <Route path="/admin" element={<Navigate to={userRole === "ADMIN" ? "/admin/overview" : "/admin/reports"} replace />} />
               <Route path="/admin/:tab" element={<AdminPage />} />
             </>
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
           )}
           {(capabilities?.canReviewMarketplace || userRole === "ADMIN") && (
             <Route path="/reviewer" element={
@@ -225,12 +157,7 @@ export default function App() {
               </Suspense>
             } />
           )}
-<<<<<<< HEAD
-=======
-=======
-          {/* )} */}
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
+          <Route path="/admin/reports" element={<MyReportsPage />} />
         </Route>
 
         {/* Catch-all */}

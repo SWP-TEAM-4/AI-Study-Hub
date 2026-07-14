@@ -113,7 +113,7 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
 
   return (
     <>
-      <div className="relative flex h-full min-h-[380px] flex-col overflow-hidden rounded-3xl bg-white border-2 border-[#fcdf46]/40 p-8 shadow-[0_8px_0_rgba(252,223,70,0.15)] transition-all hover:scale-[1.01] group select-none">
+      <div className="surface-card relative flex h-full min-h-[380px] flex-col overflow-hidden p-8 transition-all hover:scale-[1.01] group select-none">
         
         {/* Card Header with tabs */}
         <div className="relative z-10 mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
@@ -122,8 +122,8 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
               onClick={() => setActiveTab("ranking")}
               className={`text-lg font-extrabold pb-1 transition-all font-serif ${
                 activeTab === "ranking" 
-                  ? "text-[#0d1c2e] border-b-4 border-[#fcdf46]" 
-                  : "text-slate-400 border-b-4 border-transparent hover:text-slate-600"
+                  ? "text-foreground border-b-4 border-[#fcdf46]" 
+                  : "text-muted-foreground border-b-4 border-transparent hover:text-foreground"
               }`}
             >
               Vinh Danh
@@ -132,8 +132,8 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
               onClick={() => setActiveTab("stickers")}
               className={`text-lg font-extrabold pb-1 transition-all font-serif ${
                 activeTab === "stickers" 
-                  ? "text-[#0d1c2e] border-b-4 border-[#fcdf46]" 
-                  : "text-slate-400 border-b-4 border-transparent hover:text-slate-600"
+                  ? "text-foreground border-b-4 border-[#fcdf46]" 
+                  : "text-muted-foreground border-b-4 border-transparent hover:text-foreground"
               }`}
             >
               Sổ Sticker 🧸
@@ -144,7 +144,7 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
             <button 
               onClick={() => setIsOpen(true)} 
               disabled={contributors.length === 0} 
-              className="text-[14px] font-bold text-[#0d6683] hover:text-[#0a4e65] disabled:opacity-40 font-serif"
+              className="text-[13px] font-bold text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
             >
               Tất cả &rarr;
             </button>

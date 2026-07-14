@@ -61,33 +61,33 @@ const QuickStats = ({ notebooks, subjects }: any) => {
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 max-w-7xl mx-auto w-full relative z-10">
-       <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl border-2 border-slate-200/60 shadow-[0_4px_15px_rgba(0,0,0,0.02)] flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
-          <div className="w-14 h-14 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
+       <motion.div variants={itemVariants} className="surface-card p-5 rounded-2xl flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
+          <div className="w-14 h-14 bg-blue-50 dark:bg-blue-500/10 rounded-xl border border-blue-100 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
              <Book size={24} strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Tổng Sổ Tay</p>
-            <h4 className="text-3xl font-black text-slate-900">{notebooks.length}</h4>
+            <p className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-1">Tổng Sổ Tay</p>
+            <h4 className="text-3xl font-black text-foreground">{notebooks.length}</h4>
           </div>
        </motion.div>
        
-       <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl border-2 border-slate-200/60 shadow-[0_4px_15px_rgba(0,0,0,0.02)] flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
-          <div className="w-14 h-14 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-center text-amber-500 shrink-0 group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-white transition-all duration-300">
+       <motion.div variants={itemVariants} className="surface-card p-5 rounded-2xl flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
+          <div className="w-14 h-14 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-100 dark:border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400 shrink-0 group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-white transition-all duration-300">
              <FolderOpen size={24} strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Tổng Tài Liệu</p>
-            <h4 className="text-3xl font-black text-slate-900">{totalDocs}</h4>
+            <p className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-1">Tổng Tài Liệu</p>
+            <h4 className="text-3xl font-black text-foreground">{totalDocs}</h4>
           </div>
        </motion.div>
        
-       <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl border-2 border-slate-200/60 shadow-[0_4px_15px_rgba(0,0,0,0.02)] flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
-          <div className="w-14 h-14 bg-rose-50 rounded-xl border border-rose-100 flex items-center justify-center text-rose-500 shrink-0 group-hover:scale-110 group-hover:bg-rose-400 group-hover:text-white transition-all duration-300">
+       <motion.div variants={itemVariants} className="surface-card p-5 rounded-2xl flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
+          <div className="w-14 h-14 bg-rose-50 dark:bg-rose-500/10 rounded-xl border border-rose-100 dark:border-rose-500/20 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0 group-hover:scale-110 group-hover:bg-rose-400 group-hover:text-white transition-all duration-300">
              <Clock size={24} strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Môn Học</p>
-            <h4 className="text-3xl font-black text-slate-900">{subjects.length}</h4>
+            <p className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-1">Môn Học</p>
+            <h4 className="text-3xl font-black text-foreground">{subjects.length}</h4>
           </div>
        </motion.div>
     </div>
@@ -97,35 +97,35 @@ const QuickStats = ({ notebooks, subjects }: any) => {
 const HeroSection = ({ onNavigate }: { onNavigate: () => void }) => {
   return (
     <div 
-      className="relative w-full rounded-2xl overflow-hidden bg-white border border-slate-200/60 mb-8 flex flex-col xl:flex-row items-center p-8 md:p-14 shadow-[0_8px_30px_rgba(0,0,0,0.04)] group"
+      className="relative w-full rounded-2xl overflow-hidden bg-transparent dark:bg-white/[0.04] backdrop-blur-xl border border-slate-200/60 dark:border-white/10 mb-8 flex flex-col xl:flex-row items-center p-8 md:p-14 shadow-[0_8px_32px_rgba(0,0,0,0.04)] group"
     >
       {/* Background Soft Mesh/Gradients */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-indigo-50/50 via-white to-white pointer-events-none" />
-      <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-rose-50/40 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-indigo-50/30 via-transparent to-transparent pointer-events-none dark:from-indigo-500/10" />
+      <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-rose-50/20 to-transparent pointer-events-none dark:from-rose-500/10" />
 
       {/* Text Content */}
       <div className="flex-1 relative z-10 w-full">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-full text-xs font-bold text-slate-600 mb-6 shadow-sm uppercase tracking-widest">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/80 dark:bg-white/10 backdrop-blur-md border border-slate-200/80 dark:border-white/10 rounded-full text-xs font-bold text-slate-600 dark:text-muted-foreground mb-6 shadow-sm uppercase tracking-widest">
            <span className="flex h-2 w-2 rounded-full bg-[#FF6B6B] animate-pulse"></span>
            Thư viện cá nhân
         </div>
-        <h1 className="text-4xl md:text-[3.5rem] font-extrabold text-slate-900 mb-6 leading-[1.1] tracking-tight">
+        <h1 className="text-4xl md:text-[3.5rem] font-extrabold text-foreground mb-6 leading-[1.1] tracking-tight">
           Quản Lý <br/>
           <motion.span 
             animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
             transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             style={{ backgroundSize: "200% auto" }}
-            className="text-transparent bg-clip-text bg-gradient-to-r from-[#2563EB] via-[#38BDF8] to-[#2563EB] inline-block"
+            className="text-transparent bg-clip-text bg-gradient-to-r from-[#2563EB] via-[#38BDF8] to-[#2563EB] dark:from-cyan-400 dark:via-blue-500 dark:to-cyan-400 inline-block"
           >
             Tài Liệu Đỉnh Cao
           </motion.span>
         </h1>
-        <p className="text-slate-500 font-medium mb-8 max-w-md text-base leading-relaxed">
+        <p className="text-muted-foreground font-medium mb-8 max-w-md text-base leading-relaxed">
           Không gian học tập chuyên nghiệp, tương tác mượt mà. Mang trải nghiệm của một ứng dụng cao cấp vào góc học tập của bạn.
         </p>
         <ShimmerButton 
           onClick={onNavigate}
-          className="px-8 py-3.5 bg-slate-900 text-white rounded-xl shadow-[0_10px_20px_rgba(15,23,42,0.15)] hover:shadow-[0_10px_25px_rgba(15,23,42,0.2)]"
+          className="px-8 py-3.5 bg-slate-900 text-white dark:bg-white dark:text-black rounded-xl shadow-[0_10px_20px_rgba(15,23,42,0.15)] hover:shadow-[0_10px_25px_rgba(15,23,42,0.2)] dark:shadow-[0_10px_20px_rgba(255,255,255,0.1)] dark:hover:shadow-[0_10px_25px_rgba(255,255,255,0.15)]"
         >
           <Plus size={18}/> Bắt đầu ngay
         </ShimmerButton>
@@ -267,10 +267,10 @@ const NotebookSkeletonCard = ({ index }: { index: number }) => (
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ type: "spring", stiffness: 100, damping: 16, delay: index * 0.04 }}
-    className="relative w-full h-[200px] bg-white border-2 border-slate-200/60 rounded-xl flex overflow-hidden animate-pulse shadow-sm"
+    className="surface-card relative w-full h-[200px] rounded-xl flex overflow-hidden animate-pulse shadow-sm"
   >
     {/* Spine Skeleton */}
-    <div className="w-8 shrink-0 bg-slate-200/80 flex flex-col justify-evenly items-center py-4 border-r-2 border-slate-200/40 relative">
+    <div className="w-8 shrink-0 bg-slate-200/80 dark:bg-white/10 flex flex-col justify-evenly items-center py-4 border-r-2 border-slate-200/40 dark:border-white/5 relative">
       <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-8 bg-slate-300 rounded-b-sm" />
       <div className="w-3.5 h-1.5 bg-white/50 rounded-full" />
       <div className="w-3.5 h-1.5 bg-white/50 rounded-full" />
@@ -279,7 +279,7 @@ const NotebookSkeletonCard = ({ index }: { index: number }) => (
     </div>
 
     {/* Content Skeleton */}
-    <div className="flex-1 p-5 flex flex-col bg-[#FAFAFA]/50 justify-between">
+    <div className="flex-1 p-5 flex flex-col justify-between bg-black/5 dark:bg-white/5">
       <div>
         <div className="h-5 w-16 bg-slate-200/80 rounded-md mb-4" />
         <div className="h-6 w-3/4 bg-slate-200/80 rounded-md mb-2 animate-pulse" />
@@ -295,11 +295,11 @@ const NotebookSkeletonCard = ({ index }: { index: number }) => (
 
 const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }: any) => {
   const THEMES = [
-    { bg: "bg-indigo-50", border: "border-indigo-200", accent: "bg-indigo-500", text: "text-indigo-700" },
-    { bg: "bg-teal-50", border: "border-teal-200", accent: "bg-teal-500", text: "text-teal-700" },
-    { bg: "bg-rose-50", border: "border-rose-200", accent: "bg-rose-500", text: "text-rose-700" },
-    { bg: "bg-amber-50", border: "border-amber-200", accent: "bg-amber-500", text: "text-amber-700" },
-    { bg: "bg-sky-50", border: "border-sky-200", accent: "bg-sky-500", text: "text-sky-700" },
+    { bg: "bg-indigo-50 dark:bg-indigo-500/10", border: "border-indigo-200 dark:border-indigo-500/20", accent: "bg-indigo-500", text: "text-indigo-700 dark:text-indigo-400" },
+    { bg: "bg-teal-50 dark:bg-teal-500/10", border: "border-teal-200 dark:border-teal-500/20", accent: "bg-teal-500", text: "text-teal-700 dark:text-teal-400" },
+    { bg: "bg-rose-50 dark:bg-rose-500/10", border: "border-rose-200 dark:border-rose-500/20", accent: "bg-rose-500", text: "text-rose-700 dark:text-rose-400" },
+    { bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20", accent: "bg-amber-500", text: "text-amber-700 dark:text-amber-400" },
+    { bg: "bg-sky-50 dark:bg-sky-500/10", border: "border-sky-200 dark:border-sky-500/20", accent: "bg-sky-500", text: "text-sky-700 dark:text-sky-400" },
   ];
   const theme = THEMES[index % THEMES.length];
 
@@ -316,10 +316,10 @@ const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }:
         delay: index * 0.04 
       }}
       onClick={onClick}
-      className={`group relative w-full h-[200px] bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-300 flex overflow-hidden`}
+      className={`group relative w-full h-[200px] surface-card border-2 border-border rounded-xl shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-300 flex overflow-hidden`}
     >
        {/* Spine */}
-       <div className={`w-8 shrink-0 ${theme.accent} flex flex-col justify-evenly items-center py-4 border-r-2 border-slate-200 relative`}>
+       <div className={`w-8 shrink-0 ${theme.accent} flex flex-col justify-evenly items-center py-4 border-r-2 border-border relative`}>
           <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-8 bg-[#1E293B] rounded-b-sm shadow-sm" />
           <div className="w-3.5 h-1.5 bg-white/40 rounded-full" />
           <div className="w-3.5 h-1.5 bg-white/40 rounded-full" />
@@ -327,24 +327,24 @@ const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }:
           <div className="w-3.5 h-1.5 bg-white/40 rounded-full" />
        </div>
 
-       <div className="flex-1 p-5 flex flex-col bg-[#FAFAFA] relative">
+       <div className="flex-1 p-5 flex flex-col bg-background dark:bg-black/5 relative">
           <div className="flex justify-between items-start mb-3">
             <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${theme.bg} ${theme.text} border ${theme.border}`}>
               {getSubjectLabel(nb.subjectId)}
             </span>
             
             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={(e) => { e.stopPropagation(); onEdit(nb); }} className="p-1.5 bg-white border border-slate-200 rounded-md text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all"><Edit size={14}/></button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete(nb.id, e); }} className="p-1.5 bg-white border border-slate-200 rounded-md text-slate-500 hover:text-rose-600 hover:border-rose-200 hover:shadow-sm transition-all"><Trash2 size={14}/></button>
+              <button onClick={(e) => { e.stopPropagation(); onEdit(nb); }} className="p-1.5 bg-background border border-border rounded-md text-muted-foreground hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all"><Edit size={14}/></button>
+              <button onClick={(e) => { e.stopPropagation(); onDelete(nb.id, e); }} className="p-1.5 bg-background border border-border rounded-md text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:shadow-sm transition-all"><Trash2 size={14}/></button>
             </div>
           </div>
           
-          <h3 className="text-[17px] font-bold text-[#1E293B] leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+          <h3 className="text-[17px] font-bold text-foreground leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
             {nb.title}
           </h3>
 
-          <div className="mt-auto pt-4 border-t-2 border-dashed border-slate-200 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-slate-500 font-medium text-sm">
+          <div className="mt-auto pt-4 border-t-2 border-dashed border-border flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-muted-foreground font-medium text-sm">
               <FolderOpen size={16} className={theme.text} />
               <span>{nb.documentCount || 0} tài liệu</span>
             </div>
@@ -539,7 +539,7 @@ export default function NotebooksPage() {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="relative -mx-4 -mt-16 min-h-[calc(100vh-4rem)] bg-white px-4 pb-24 pt-24 text-[#1E293B] antialiased md:-mx-6 md:-mt-6 md:px-6 md:pt-12 lg:-mx-8 lg:px-8 overflow-hidden font-sans"
+      className="relative -mx-4 -mt-16 min-h-[calc(100vh-4rem)] bg-transparent px-4 pb-24 pt-24 text-foreground antialiased md:-mx-6 md:-mt-6 md:px-6 md:pt-12 lg:-mx-8 lg:px-8 overflow-hidden font-sans"
     >
       
       <motion.div variants={itemVariants}>
@@ -547,7 +547,7 @@ export default function NotebooksPage() {
       </motion.div>
 
       {/* Workspace Area - Clean grid with unrolling tape measure */}
-      <div className="relative bg-slate-50/50 border-t-2 border-slate-100/80 pt-8 pb-12 mt-12 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative border-t-2 border-slate-100/80 dark:border-white/10 pt-8 pb-12 mt-12 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
         
         <QuickStats notebooks={notebooksList} subjects={subjects} />
 

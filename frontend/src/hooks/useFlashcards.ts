@@ -1,13 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-<<<<<<< HEAD
 import { flashcardService, FlashcardDeckDTO, FlashcardDeckPayload } from "../services/flashcardService";
-=======
-<<<<<<< HEAD
-import { flashcardService, FlashcardDeckDTO, FlashcardDeckPayload } from "../services/flashcardService";
-=======
-import { flashcardService, FlashcardDeckDTO, CreateFlashcardDeckRequest } from "../services/flashcardService";
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 import { handleApiError } from "../utils/errorHandler";
 import { Notify } from "notiflix";
 
@@ -60,15 +52,7 @@ export function useGenerateFlashcardDeck() {
 export function useCreateFlashcardDeck(callbacks?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
   return useMutation({
-<<<<<<< HEAD
     mutationFn: (payload: FlashcardDeckPayload) =>
-=======
-<<<<<<< HEAD
-    mutationFn: (payload: FlashcardDeckPayload) =>
-=======
-    mutationFn: (payload: CreateFlashcardDeckRequest) =>
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       flashcardService.createFlashcardDeck(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: flashcardKeys.decks() });

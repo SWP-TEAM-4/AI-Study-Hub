@@ -43,7 +43,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
-const Spline = lazy(() => import("@splinetool/react-spline"));
 import { FeedbackModal } from "../ui/FeedbackModal";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCapabilities } from "../../hooks/useCapabilities";
@@ -78,36 +77,9 @@ const adminNav = [
 import { MobileBottomNav } from "./MobileBottomNav";
 import { MobileHeader } from "./MobileHeader";
 
-const ChameleonMascot = ({ color }: { color: string }) => (
-  <svg width="48" height="48" viewBox="0 0 100 100" className="drop-shadow-lg scale-110 origin-bottom">
-    {/* Banch */}
-    <path d="M 10 75 Q 50 85 90 70" fill="none" stroke="#78350f" strokeWidth="6" strokeLinecap="round" />
-    <path d="M 30 80 Q 40 90 50 85" fill="none" stroke="#78350f" strokeWidth="4" strokeLinecap="round" />
-    
-    {/* Curly Tail */}
-    <path d="M 25 70 C 5 70 5 45 25 45 C 35 45 40 55 35 60 C 25 65 20 55 25 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" className="transition-colors duration-500" />
-    
-    {/* Body */}
-    <path d="M 25 70 C 40 70 55 70 65 65 C 75 60 75 40 65 35 C 50 30 35 30 25 45 Z" fill={color} className="transition-colors duration-500" />
-    
-    {/* Head */}
-    <path d="M 60 55 C 75 60 90 55 90 40 C 90 25 70 20 60 30 Z" fill={color} className="transition-colors duration-500" />
-    
-    {/* Eye */}
-    <circle cx="75" cy="35" r="7" fill="white" />
-    <circle cx="77" cy="35" r="3" fill="#0f172a" />
-    
-    {/* Spikes on back */}
-    <path d="M 30 40 L 32 30 L 38 38 L 44 28 L 50 37 L 58 29 L 62 36" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="transition-colors duration-500" />
-    
-    {/* Little legs */}
-    <path d="M 40 68 L 35 78 M 55 65 L 50 75" fill="none" stroke={color} strokeWidth="5" strokeLinecap="round" className="transition-colors duration-500" />
-  </svg>
-);
-
+// ── Colors ──────────────────────────
 const colors = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#d946ef", "#f43f5e"];
 const getRandomColor = (path: string) => {
-  // Use path length to deterministically pick a color so it's consistent
   return colors[path.length % colors.length];
 };
 
@@ -116,41 +88,49 @@ const NavItem = ({ active, icon: Icon, label, onClick, pathOrId }: { active: boo
   return (
     <button
       onClick={onClick}
-      className="relative flex items-center w-full px-3.5 py-2.5 mb-0.5 gap-3.5 rounded-xl text-[14px] font-bold transition-all group outline-none cursor-pointer overflow-visible"
+      className="relative flex items-center w-full px-3.5 py-2.5 mb-0.5 gap-3.5 rounded-xl group outline-none cursor-pointer overflow-visible"
+      style={{ fontSize: '14px', fontWeight: 600, willChange: 'auto' }}
     >
       {active && (
         <motion.span
           layoutId="nav-pill"
           className="absolute inset-0 rounded-xl shadow-inner shadow-black/20"
-          style={{ backgroundColor: color }}
-          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          style={{ backgroundColor: color, willChange: 'transform' }}
+          transition={{ type: "spring", stiffness: 400, damping: 35, mass: 0.8 }}
         />
       )}
       {!active && (
-        <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       )}
       <Icon
         size={21}
-        strokeWidth={active ? 2.5 : 2.5}
-        className="relative z-10 transition-colors duration-200 shrink-0"
+        strokeWidth={2.5}
+        className="relative z-10 shrink-0 transition-colors duration-200"
         style={{ color: active ? "#ffffff" : "rgba(138, 213, 179, 0.8)" }}
       />
       <span
-        className={`relative z-10 transition-all duration-300 whitespace-nowrap overflow-hidden tracking-wide
-          lg:w-0 lg:opacity-0 lg:group-hover/sidebar:w-auto lg:group-hover/sidebar:opacity-100 lg:group-hover/sidebar:ml-1
+        className={`relative z-10 whitespace-nowrap overflow-hidden tracking-wide
+          transition-[width,opacity,margin] duration-300 ease-out
+          lg:w-0 lg:opacity-0 lg:group-hover/sidebar:w-[140px] lg:group-hover/sidebar:opacity-100 lg:group-hover/sidebar:ml-1
           w-auto opacity-100
           ${active ? "text-white" : "text-[#c2eadd] group-hover:text-white"}
         `}
+        style={{ fontSize: '14px', fontWeight: 600, lineHeight: '1.4', display: 'inline-block' }}
       >
         {label}
       </span>
       {active && (
         <motion.div
-          layoutId="chameleon"
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 pointer-events-none drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)] hidden lg:block lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-300"
-          transition={{ type: "spring", stiffness: 350, damping: 25 }}
+          layoutId="chameleon-nav"
+          className="absolute -right-3 top-1/2 -translate-y-[45%] z-20 pointer-events-none hidden lg:block lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-200 drop-shadow-md"
+          transition={{ type: "spring", stiffness: 400, damping: 35, mass: 0.8 }}
         >
-          <ChameleonMascot color={color} />
+          <img 
+            src="/images/chameleon.png" 
+            alt="Chameleon Mascot" 
+            className="w-[44px] h-auto origin-bottom" 
+            style={{ transform: 'scaleX(-1)' }} 
+          />
         </motion.div>
       )}
     </button>
@@ -284,7 +264,11 @@ export function AppShell() {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex bg-[#f8fafc] text-foreground antialiased selection:bg-[#8ad5b3]/30 font-quicksand">
+    <div className="min-h-screen flex text-foreground antialiased selection:bg-[#8ad5b3]/30 font-quicksand"
+      style={{
+        background: 'var(--app-bg)',
+      }}
+    >
       <style dangerouslySetInnerHTML={{
         __html: `
           @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800;900&family=Quicksand:wght@400;600;700&display=swap');
@@ -292,6 +276,28 @@ export function AppShell() {
           .font-quicksand { font-family: 'Quicksand', sans-serif; }
           .chameleon-sidebar-nav::-webkit-scrollbar { display: none; }
           .chameleon-sidebar-nav { -ms-overflow-style: none; scrollbar-width: none; }
+          * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+          #main-scroll-container { scroll-behavior: smooth; }
+
+          /* ── Light mode app background ── */
+          :root {
+            --app-bg: linear-gradient(160deg,
+              #f0fdf4 0%,
+              #ecfdf5 20%,
+              #f8fafc 50%,
+              #f0f9ff 80%,
+              #fafafa 100%
+            );
+          }
+
+          /* ── Dark mode app background ── */
+          .dark {
+            --app-bg:
+              radial-gradient(ellipse 90% 55% at 15% -5%,  rgba(52,211,153,0.09) 0%, transparent 60%),
+              radial-gradient(ellipse 70% 45% at 85% 105%, rgba(96,165,250,0.07) 0%, transparent 60%),
+              radial-gradient(ellipse 55% 65% at 55%  50%,  rgba(167,139,250,0.04) 0%, transparent 75%),
+              linear-gradient(160deg, #060d12 0%, #091320 45%, #060d12 100%);
+          }
         `
       }} />
       <MobileHeader />
@@ -316,7 +322,7 @@ export function AppShell() {
       <aside
         className={`fixed z-50 flex flex-col bg-[#0d4a22] text-[#e6f7ed] transition-all duration-400 ease-out group/sidebar peer/sidebar chameleon-sidebar shadow-[8px_0_24px_rgba(13,74,34,0.15)]
           top-0 left-0 h-screen w-64 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-          lg:translate-x-0 lg:top-1/2 lg:-translate-y-1/2 lg:left-6 lg:h-auto lg:py-4 lg:w-[80px] lg:hover:w-[280px] lg:rounded-2xl
+          lg:translate-x-0 lg:top-4 lg:left-6 lg:h-[calc(100vh-32px)] lg:py-4 lg:w-[80px] lg:hover:w-[280px] lg:rounded-2xl
         `}>
 
         <div className="py-4 flex items-center px-4.5 gap-3.5 relative shrink-0">
@@ -462,8 +468,8 @@ export function AppShell() {
       {/* ── 2. KHU VỰC HIỂN THỊ NỘI DUNG CHÍNH BÊN PHẢI ── */}
       <div className="flex-1 min-w-0 flex flex-col bg-transparent">
 
-        <header className="sticky top-0 lg:top-4 z-30 lg:mb-4 transition-all duration-400 w-full max-w-[1200px] mx-auto px-4 md:px-6 lg:px-8">
-          <div className="backdrop-blur-xl bg-white/80 lg:border border-border/40 lg:shadow-sm lg:rounded-2xl flex items-center gap-3 px-4 lg:px-6 h-14 lg:h-16 justify-between border-b lg:border-b-0 lg:ml-[200px]">
+        <header className="sticky top-0 lg:top-4 z-30 lg:mb-2 w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:pr-8 lg:pl-4">
+          <div className="backdrop-blur-xl bg-white/80 dark:bg-neutral-900/80 lg:border border-border/40 lg:shadow-sm lg:rounded-2xl flex items-center gap-3 px-4 lg:px-6 h-14 lg:h-[60px] justify-between border-b lg:border-b-0 lg:ml-[104px]">
 
             <div className="flex-1 min-w-[120px] max-w-2xl relative flex items-center gap-4">
               {/* Nút Hamburger cho phép Toggle Sidebar trên Desktop và Mobile */}
@@ -562,17 +568,37 @@ export function AppShell() {
           </div>
         </header>
 
-        <main id="main-scroll-container" className="flex-1 px-4 md:px-6 lg:px-8 pt-16 md:pt-6 pb-24 md:pb-6 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative z-0">
-          {/* Blurred Background Gradients */}
-          <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-            {/* Orb 1: Pastel Blue/Teal Glow */}
-            <div className="absolute top-[10%] left-[5%] w-[35vw] h-[35vw] max-w-[400px] max-h-[400px] rounded-full bg-gradient-to-tr from-blue-300/25 to-[#89cff0]/20 blur-[80px] md:blur-[120px] dark:from-blue-950/20 dark:to-indigo-900/10" />
-            
-            {/* Orb 2: Mint Green Glow */}
-            <div className="absolute top-[40%] right-[5%] w-[40vw] h-[40vw] max-w-[450px] max-h-[450px] rounded-full bg-gradient-to-br from-emerald-300/15 to-[#8ad5b3]/20 blur-[95px] md:blur-[130px] dark:from-emerald-950/20 dark:to-[#0d6683]/10" />
-            
-            {/* Orb 3: Peach/Rose Glow */}
-            <div className="absolute bottom-[5%] left-[15%] w-[30vw] h-[30vw] max-w-[350px] max-h-[350px] rounded-full bg-gradient-to-tr from-rose-200/15 to-[#ffa07a]/20 blur-[80px] md:blur-[110px] dark:from-rose-950/15 dark:to-purple-900/10" />
+        <main id="main-scroll-container" className="flex-1 lg:pl-[104px] px-4 md:px-6 lg:pr-8 pt-[72px] lg:pt-[88px] pb-24 lg:pb-8 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative z-0">
+          {/* Background Gradient Orbs */}
+          <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+            {/* Light mode orbs — warm forest green */}
+            <div className="absolute -top-[10%] -left-[5%] w-[55vw] h-[55vw] max-w-[600px] max-h-[600px] rounded-full
+              bg-gradient-to-br from-emerald-100/80 via-teal-100/60 to-transparent
+              blur-[100px] dark:hidden" />
+
+            <div className="absolute top-[40%] -right-[10%] w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] rounded-full
+              bg-gradient-to-bl from-green-100/70 via-emerald-50/50 to-transparent
+              blur-[90px] dark:hidden" />
+
+            <div className="absolute -bottom-[5%] left-[20%] w-[40vw] h-[40vw] max-w-[400px] max-h-[400px] rounded-full
+              bg-gradient-to-tr from-cyan-100/60 via-teal-50/40 to-transparent
+              blur-[80px] dark:hidden" />
+
+            {/* Dark mode orbs — ocean emerald */}
+            <div className="absolute -top-[10%] left-[10%] w-[60vw] h-[60vw] max-w-[700px] max-h-[700px] rounded-full
+              hidden dark:block
+              bg-[radial-gradient(ellipse_at_center,rgba(52,211,153,0.12)_0%,transparent_70%)]
+              blur-[120px] animate-[aurora-pulse_10s_ease-in-out_infinite_alternate]" />
+
+            <div className="absolute top-[50%] -right-[5%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full
+              hidden dark:block
+              bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.09)_0%,transparent_70%)]
+              blur-[110px] animate-[aurora-pulse_14s_ease-in-out_infinite_alternate_3s]" />
+
+            <div className="absolute -bottom-[10%] left-[30%] w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] rounded-full
+              hidden dark:block
+              bg-[radial-gradient(ellipse_at_center,rgba(167,139,250,0.07)_0%,transparent_70%)]
+              blur-[100px] animate-[aurora-pulse_12s_ease-in-out_infinite_alternate_6s]" />
           </div>
 
           <Suspense fallback={

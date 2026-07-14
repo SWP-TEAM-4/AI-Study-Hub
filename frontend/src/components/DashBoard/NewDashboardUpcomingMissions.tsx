@@ -23,25 +23,21 @@ export function NewDashboardUpcomingMissions() {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) {
-    return <SkeletonCard />;
-  }
-
   const remainingRequests = dashboardData?.aiUsage
     ? Math.max(0, ((dashboardData.aiUsage as any).maxRequests || 0) - ((dashboardData.aiUsage as any).usedRequests || 0))
     : 0;
 
   // 5 Road Map Milestones
-  const milestones = [
+  const milestones = React.useMemo(() => [
     {
       id: "start",
       label: "Bắt Đầu",
       desc: "Trạm xuất phát",
       status: "completed", // Completed milestone
       icon: Compass,
-      path: "/notebooks",
-      colorClass: "bg-[#ecfdf5] text-[#065f46] border-[#10b981] border-b-4",
-      shadowClass: "shadow-[0_4px_0_rgba(16,185,129,0.2)]",
+      path: "/",
+      colorClass: "bg-[#ecfdf5] text-[#059669] border-[#34d399] border-b-4 dark:bg-emerald-950/30 dark:text-white dark:border-emerald-500 dark:shadow-[0_0_15px_rgba(16,185,129,0.3)]",
+      shadowClass: "shadow-[0_4px_0_rgba(52,211,153,0.25)]",
       pos: { left: "8%", top: "60%" },
       tooltip: null
     },
@@ -52,7 +48,7 @@ export function NewDashboardUpcomingMissions() {
       status: "active", // Active milestone
       icon: Brain,
       path: "/quiz",
-      colorClass: "bg-[#fffbeb] text-[#b45309] border-[#fbbf24] border-b-4",
+      colorClass: "bg-[#fffbeb] text-[#b45309] border-[#fbbf24] border-b-4 dark:bg-amber-950/30 dark:text-white dark:border-amber-500 dark:shadow-[0_0_15px_rgba(245,158,11,0.3)]",
       shadowClass: "shadow-[0_4px_0_rgba(251,191,36,0.35)]",
       pos: { left: "28%", top: "31%" },
       tooltip: "Bé học ở đây! "
@@ -64,7 +60,7 @@ export function NewDashboardUpcomingMissions() {
       status: "upcoming",
       icon: Star,
       path: "/ask-ai",
-      colorClass: "bg-[#fff7ed] text-[#ea580c] border-[#ff7f50] border-b-4",
+      colorClass: "bg-[#fff7ed] text-[#ea580c] border-[#ff7f50] border-b-4 dark:bg-orange-950/30 dark:text-white dark:border-orange-500 dark:shadow-[0_0_15px_rgba(249,115,22,0.3)]",
       shadowClass: "shadow-[0_4px_0_rgba(255,127,80,0.25)]",
       pos: { left: "50%", top: "67%" },
       tooltip: null
@@ -76,7 +72,7 @@ export function NewDashboardUpcomingMissions() {
       status: "upcoming",
       icon: History,
       path: "/quiz/history",
-      colorClass: "bg-[#f0f9ff] text-[#0284c7] border-[#38bdf8] border-b-4",
+      colorClass: "bg-[#f0f9ff] text-[#0284c7] border-[#38bdf8] border-b-4 dark:bg-sky-950/30 dark:text-white dark:border-sky-500 dark:shadow-[0_0_15px_rgba(14,165,233,0.3)]",
       shadowClass: "shadow-[0_4px_0_rgba(56,189,248,0.25)]",
       pos: { left: "72%", top: "32%" },
       tooltip: null
@@ -88,30 +84,35 @@ export function NewDashboardUpcomingMissions() {
       status: "upcoming",
       icon: CheckCircle2,
       path: "/community",
-      colorClass: "bg-[#faf5ff] text-[#7c3aed] border-[#c084fc] border-b-4",
+      colorClass: "bg-[#faf5ff] text-[#7c3aed] border-[#c084fc] border-b-4 dark:bg-purple-950/30 dark:text-white dark:border-purple-500 dark:shadow-[0_0_15px_rgba(168,85,247,0.3)]",
       shadowClass: "shadow-[0_4px_0_rgba(192,132,252,0.25)]",
       pos: { left: "90%", top: "65%" },
       tooltip: null
     }
-  ];
+  ], [dashboardData, remainingRequests]);
+
+  if (isLoading) {
+    return <SkeletonCard />;
+  }
 
   return (
     <m.section 
       initial={{ opacity: 0, y: 35, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: "spring", stiffness: 80, damping: 16, mass: 0.8, delay: 0.1 }}
+      style={{ willChange: "transform" }}
       className="mt-8"
     >
       {/* Lightning Crackle & Cloud Flash Styles */}
       <div className="flex items-center justify-between mb-6 px-2">
         <div>
-          <h2 className="text-3xl font-extrabold text-[#0d1c2e] tracking-tight font-serif">Bản Đồ Học Tập Phiêu Lưu</h2>
-          <p className="text-sm font-bold text-slate-500 mt-1">Cùng bé vượt qua các trạm tri thức để nhận huy hiệu nhé!</p>
+          <h2 className="text-3xl font-extrabold text-foreground tracking-tight font-serif">Bản Đồ Học Tập Phiêu Lưu</h2>
+          <p className="text-sm font-bold text-muted-foreground mt-1">Cùng bé vượt qua các trạm tri thức để nhận huy hiệu nhé!</p>
         </div>
       </div>
 
       {/* Tactile Paper Sticker Container for Roadmap */}
-      <div className="relative w-full min-h-[340px] bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#fef9f3] rounded-3xl pt-16 pb-8 px-8 shadow-sm select-none">
+      <div className="surface-card relative w-full min-h-[340px] rounded-3xl pt-16 pb-8 px-8 select-none">
         {/* Playful Dashed Stitched Border */}
         <div className="absolute inset-2 md:inset-3 border-4 border-dashed border-[#ffffff]/60 rounded-2xl pointer-events-none z-0" />
         
@@ -186,7 +187,7 @@ export function NewDashboardUpcomingMissions() {
                   <span className="absolute inset-0 rounded-full border-4 border-current opacity-0 group-hover:opacity-60 group-hover:animate-ping transition-all duration-300 pointer-events-none" />
 
                   {/* Milestone Number */}
-                  <span className="font-serif select-none">{idx + 1}</span>
+                  <span className="font-serif select-none drop-shadow-md">{idx + 1}</span>
 
                   {/* Small gold star badge for completed nodes */}
                   {isCompleted && (
@@ -198,8 +199,8 @@ export function NewDashboardUpcomingMissions() {
 
                 {/* Text Labels */}
                 <div className="mt-3 text-center">
-                  <p className="text-[14px] font-extrabold text-[#0d1c2e] font-serif leading-tight">{mNode.label}</p>
-                  <p className="text-[11px] font-bold text-slate-500 mt-0.5">{mNode.desc}</p>
+                  <span className="block text-[14px] font-extrabold text-foreground tracking-tight">{mNode.label}</span>
+                  <span className="block text-[11px] font-bold text-muted-foreground mt-0.5">{mNode.desc}</span>
                 </div>
               </div>
             );

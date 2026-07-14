@@ -33,15 +33,7 @@ export default function AdminReportsTab() {
       const res = await governanceService.resolveReport(id, "Báo cáo đã được kiểm duyệt và xử lý.");
       if (res.success) {
         Notify.success("Đã duyệt báo cáo (Resolve).");
-<<<<<<< HEAD
         await loadReports();
-=======
-<<<<<<< HEAD
-        await loadReports();
-=======
-        loadReports();
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       }
     } catch (e: any) {
       Notify.failure(e.message || "Lỗi xử lý báo cáo");
@@ -53,15 +45,7 @@ export default function AdminReportsTab() {
       const res = await governanceService.rejectReport(id, "Báo cáo đã được kiểm duyệt và từ chối.");
       if (res.success) {
         Notify.success("Đã từ chối báo cáo (Reject).");
-<<<<<<< HEAD
         await loadReports();
-=======
-<<<<<<< HEAD
-        await loadReports();
-=======
-        loadReports();
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       }
     } catch (e: any) {
       Notify.failure(e.message || "Lỗi xử lý báo cáo");

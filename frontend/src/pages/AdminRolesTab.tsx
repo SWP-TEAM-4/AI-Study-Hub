@@ -52,24 +52,12 @@ export default function AdminRolesTab() {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
       const [rolesRes, usersRes] = await Promise.all([
         communityRoleService.getAdminCommunityRoles(0, 100),
         userService.adminGetUsers({ page: 0, size: 200, sort: "newest" }),
       ]);
       if (rolesRes.success) setRoles(rolesRes.data.items);
       if (usersRes.success) setUsers(usersRes.data.items);
-<<<<<<< HEAD
-=======
-=======
-      // FIXED SIGNATURE: Truyền dạng object để đồng bộ với định nghĩa trong Service
-      const res = await communityRoleService.getAdminCommunityRoles({ page: 0, size: 50 });
-      if (res.success) setRoles(res.data.items);
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
     } catch (e) {
       console.error(e);
       Notify.failure("Không thể tải dữ liệu phân quyền");
@@ -178,10 +166,6 @@ export default function AdminRolesTab() {
             <h3 className="font-bold mb-4">Mẫu cấp quyền mới</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               <div>
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Người dùng</label>
                 <select
                   value={userId}
@@ -194,19 +178,6 @@ export default function AdminRolesTab() {
                       #{user.id} - {user.fullName || user.email} ({user.email})
                     </option>
                   ))}
-<<<<<<< HEAD
-=======
-=======
-                <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">User ID</label>
-                <input type="number" value={userId} onChange={e => setUserId(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none focus:border-primary/50" placeholder="VD: 2" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Loại vai trò</label>
-                <select value={roleType} onChange={e => setRoleType(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none cursor-pointer">
-                  <option value="MARKETPLACE_REVIEWER">Marketplace Reviewer</option>
-                  <option value="COMMUNITY_MODERATOR">Community Moderator</option>
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                 </select>
               </div>
               <div>
@@ -226,10 +197,6 @@ export default function AdminRolesTab() {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Phạm vi</label>
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                 <select
                   value={scopeType}
                   onChange={e => {
@@ -238,22 +205,12 @@ export default function AdminRolesTab() {
                   }}
                   className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm"
                 >
-<<<<<<< HEAD
-=======
-=======
-                <select value={scopeType} onChange={e => setScopeType(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none cursor-pointer">
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                   <option value="SUBJECT">Môn học (Subject)</option>
                   <option value="GLOBAL">Toàn cầu (Global)</option>
                 </select>
               </div>
               {scopeType === "SUBJECT" && (
                 <div>
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                   <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Môn học</label>
                   <select
                     value={scopeId}
@@ -268,13 +225,6 @@ export default function AdminRolesTab() {
                       </option>
                     ))}
                   </select>
-<<<<<<< HEAD
-=======
-=======
-                  <label className="block text-xs font-bold mb-1 text-muted-foreground uppercase">Scope ID (Mã môn)</label>
-                  <input type="number" value={scopeId} onChange={e => setScopeId(e.target.value)} className="w-full bg-muted border border-border px-3 py-2 rounded-lg text-sm outline-none focus:border-primary/50" placeholder="VD: 12" />
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
                 </div>
               )}
               <div>

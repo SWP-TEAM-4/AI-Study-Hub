@@ -8,33 +8,15 @@ export interface UserDTO {
   currentSemesterCode?: string | null;
   currentSemesterName?: string | null;
   currentSemesterId: number | null;
-<<<<<<< HEAD
   comboCode?: string | null;
   comboName?: string | null;
-=======
-<<<<<<< HEAD
-  comboCode?: string | null;
-  comboName?: string | null;
-=======
-  currentSemesterCode: string | null;
-  currentSemesterName: string | null;
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   comboId: number | null;
   role: "STUDENT" | "REVIEWER" | "ADMIN";
   reputationPoints: number;
   points?: number;
   isActive: boolean;
   createdAt: string;
-<<<<<<< HEAD
   updatedAt?: string | null;
-=======
-<<<<<<< HEAD
-  updatedAt?: string | null;
-=======
-  updatedAt: string;
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 }
 
 export interface PaginatedResponse<T> {
@@ -98,7 +80,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
   if (token) {
-    const cleanToken = token.replace(/['"]+/g, "");
+    const cleanToken = token.replace(/['\"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
   if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -136,10 +118,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return result as T;
 }
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 // ─── 3. INTERACTION UTILS TO CONSTRUCT PARAMS ───────────────────────────────────
 
 export interface AdminUserQuery {
@@ -157,25 +135,12 @@ export interface UserCapabilitiesDTO {
   canModerateReports: boolean;
 }
 
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 function buildQueryString(params?: {
   page?: number;
   size?: number;
   keyword?: string;
   sort?: string;
-<<<<<<< HEAD
   role?: UserDTO["role"];
-=======
-<<<<<<< HEAD
-  role?: UserDTO["role"];
-=======
-  role?: string;
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   isActive?: boolean;
 }): string {
   const query = new URLSearchParams();
@@ -184,15 +149,7 @@ function buildQueryString(params?: {
   if (params?.keyword) query.append("keyword", params.keyword);
   if (params?.sort) query.append("sort", params.sort);
   if (params?.role) query.append("role", params.role);
-<<<<<<< HEAD
   if (params?.isActive !== undefined) query.append("isActive", String(params.isActive));
-=======
-<<<<<<< HEAD
-  if (params?.isActive !== undefined) query.append("isActive", String(params.isActive));
-=======
-  if (params?.isActive !== undefined) query.append("isActive", params.isActive.toString());
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   const str = query.toString();
   return str ? `?${str}` : "";
 }
@@ -202,27 +159,10 @@ export const userService = {
   // PHÂN HỆ QUẢN TRỊ (ADMIN SCOPE)
   // ==========================================
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   /**
    * 1. GET /api/admin/users - Admin lấy danh sách người dùng phân trang
    */
   async adminGetUsers(params?: AdminUserQuery) {
-<<<<<<< HEAD
-=======
-=======
-  async adminGetUsers(params?: {
-    page?: number;
-    size?: number;
-    keyword?: string;
-    sort?: string;
-    role?: string;
-    isActive?: boolean;
-  }) {
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
     return request<{ success: boolean; message: string; data: PaginatedResponse<UserDTO> }>(
       `/admin/users${buildQueryString(params)}`
     );
@@ -291,18 +231,8 @@ export const userService = {
 
   async changeMyPassword(passwordPayload: { oldPasswordInput: string; newPasswordInput: string }) {
     const contractPayload = {
-<<<<<<< HEAD
       currentPassword: passwordPayload.oldPasswordInput,
       newPassword: passwordPayload.newPasswordInput
-=======
-<<<<<<< HEAD
-      currentPassword: passwordPayload.oldPasswordInput,
-      newPassword: passwordPayload.newPasswordInput
-=======
-      oldPassword: passwordPayload.oldPasswordInput,
-      newPassword: passwordPayload.newPasswordInput,
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
     };
     return request<{ success: boolean; message: string; data: null }>("/users/me/change-password", {
       method: "PATCH",
@@ -310,10 +240,6 @@ export const userService = {
     });
   },
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   async getMyCapabilities() {
     return request<{ success: boolean; message: string; data: UserCapabilitiesDTO }>("/users/me/capabilities");
   },
@@ -326,11 +252,6 @@ export const userService = {
   /**
    * 9. GET /api/users/me/ai-usage - Lấy thống kê sử dụng AI của người dùng hiện tại
    */
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   async getMyAIUsage(params?: { page?: number; size?: number; keyword?: string; sort?: string }) {
     const res = await request<{ success: boolean; message: string; data: any }>(
       `/users/me/ai-usage${buildQueryString(params)}`
@@ -375,10 +296,6 @@ export const userService = {
     );
   },
 };
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 
 // #,Phương thức & API Path,Tên hàm tương ứng trong userService,Chức năng trên giao diện
 // 1,GET /api/admin/users,adminGetUsers(params),Lấy danh sách thành viên phân trang + Tìm kiếm
@@ -395,8 +312,3 @@ export const userService = {
 // 10,GET /api/users/me/ai-usage,getMyAIUsage(),Lấy thống kê số lượt và hạn ngạch hỏi Trợ lý AI
 // 11,GET /api/users/me/badges,getMyBadges(),Lấy bộ sưu tập các huy hiệu cá nhân đã đạt được
 // 12,GET /api/users/me/tests,getMyTestHistory(),Lấy lịch sử điểm số các bài kiểm tra trắc nghiệm / Quiz
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929

@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 export interface AdminAiUsageDTO {
   totalRequests: number;
   totalTokens: number;
@@ -15,18 +11,6 @@ export interface AdminContentSummaryItem {
   title: string;
   visibility: string;
   marketStatus: string;
-<<<<<<< HEAD
-=======
-=======
-import { ApiResponse } from "./types";
-
-export interface AIUsageAnalyticsDTO {
-  totalRequests: number;
-  totalTokens: number;
-  estimatedCost: number;
-  actionCounts: Record<string, number>;
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
 }
 
 const BASE_URL = "/api";
@@ -68,10 +52,6 @@ async function analyticsRequest<T>(endpoint: string, options: RequestInit = {}):
       errorCode: result.errorCode || "ANALYTICS_ERROR",
     };
   }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   return result as T;
 }
 
@@ -88,18 +68,5 @@ export const analyticsService = {
     return request<{ success: boolean; message: string; data: AdminContentSummaryItem[] }>(
       "/admin/contents"
     );
-<<<<<<< HEAD
-=======
-=======
-  return result;
-}
-
-export const analyticsService = {
-  async getAdminAIUsage(): Promise<ApiResponse<AIUsageAnalyticsDTO>> {
-    return await analyticsRequest<ApiResponse<AIUsageAnalyticsDTO>>("/admin/analytics/ai-usage", {
-      method: "GET",
-    });
->>>>>>> 2ac62919393ef329af731fc080d5973154a9eb0b
->>>>>>> 3bc437942c7073fcb68ae9417c7e8e2754181929
   },
 };

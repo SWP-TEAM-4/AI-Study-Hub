@@ -52,11 +52,11 @@ export const NewDashboardActivity = memo(function NewDashboardActivity() {
             {quizzes.map((quiz: any) => (
               <div
                 key={quiz.id}
-                className="flex items-center justify-between py-4 hover:bg-[#eff4ff]/30 transition-[background-color] group px-4 rounded-2xl"
+                className="flex items-center justify-between py-4 hover:bg-black/5 dark:hover:bg-white/5 transition-[background-color] group px-4 rounded-2xl"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-extrabold text-[#0d1c2e] truncate font-serif">{quiz.title}</p>
-                  <p className="text-[13px] text-[#475569] mt-1 truncate font-bold">
+                  <p className="text-[16px] font-extrabold text-foreground truncate font-serif">{quiz.title}</p>
+                  <p className="text-[13px] text-muted-foreground mt-1 truncate font-bold">
                     {quiz.subjectName || quiz.notebookTitle || "Chưa phân loại"}
                     {quiz.examType ? ` · ${quiz.examType}` : ""}
                   </p>
@@ -84,15 +84,15 @@ export const NewDashboardActivity = memo(function NewDashboardActivity() {
         ) : decks.length === 0 ? (
           <EmptyState text="Chưa có thẻ từ vựng nào hết!" />
         ) : (
-          <div className="divide-y divide-[#eff4ff] -mt-2">
+          <div className="divide-y divide-border -mt-2">
             {decks.map((deck: any) => (
               <div
                 key={deck.id}
-                className="flex items-center justify-between py-4 hover:bg-[#eff4ff]/30 transition-[background-color] group px-4 rounded-2xl"
+                className="flex items-center justify-between py-4 hover:bg-black/5 dark:hover:bg-white/5 transition-[background-color] group px-4 rounded-2xl"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-extrabold text-[#0d1c2e] truncate font-serif">{deck.title}</p>
-                  <p className="text-[13px] text-[#475569] mt-1 font-bold">
+                  <p className="text-[16px] font-extrabold text-foreground truncate font-serif">{deck.title || "Bộ Flashcard"}</p>
+                  <p className="text-[13px] text-muted-foreground mt-1 font-bold">
                     <span className="text-[#0d6683] font-extrabold">{deck.cards.length} thẻ</span> · {new Date(deck.createdAt).toLocaleDateString("vi-VN")}
                   </p>
                 </div>
@@ -125,15 +125,15 @@ function Panel({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="bg-white border-2 border-[#89cff0]/40 rounded-3xl shadow-[0_8px_0_rgba(137,207,240,0.15)] overflow-hidden flex flex-col transition-all hover:scale-[1.01]"
+      className="surface-card overflow-hidden flex flex-col transition-all hover:scale-[1.01]"
     >
-      <div className="px-8 py-8 border-b border-[#eff4ff] flex items-center justify-between">
+      <div className="px-8 py-8 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h3 className="text-2xl font-extrabold text-[#0d1c2e] tracking-tight font-serif">{title}</h3>
+          <h3 className="text-2xl font-extrabold text-foreground tracking-tight font-serif">{title}</h3>
         </div>
         <button
           onClick={onViewAll}
-          className="text-[15px] font-bold text-[#0d6683] hover:text-[#0a4e65] flex items-center gap-1 transition-[color] font-serif"
+          className="text-[15px] font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 transition-[color] font-serif"
         >
           Tất cả &rarr;
         </button>

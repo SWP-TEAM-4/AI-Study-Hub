@@ -34,7 +34,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="relative -mx-4 -mt-16 min-h-[calc(100vh-4rem)] bg-[#f8f9ff] px-4 pb-24 pt-24 text-[#0d1c2e] antialiased md:-mx-6 md:-mt-6 md:px-6 md:pt-12 lg:-mx-8 lg:px-8 overflow-hidden">
+    <div className="relative -mx-4 -mt-16 min-h-[calc(100vh-4rem)] bg-transparent px-4 pb-24 pt-24 text-[#0d1c2e] antialiased md:-mx-6 md:-mt-6 md:px-6 md:pt-12 lg:-mx-8 lg:px-8 overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         div, button, span, p, a, input, select, textarea, .font-sans, .font-serif, h1, h2, h3, h4, h5, h6 {
           font-family: 'Nunito', 'Quicksand', 'Plus Jakarta Sans', sans-serif !important;
@@ -49,6 +49,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 35 }}
           animate={{ opacity: 1, y: 0 }}
           transition={getSpringTransition(0.15)}
+          style={{ willChange: "transform, opacity" }}
         >
           <Suspense fallback={<SkeletonCard />}>
             <NewDashboardHero />
@@ -60,6 +61,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 35 }}
           animate={{ opacity: 1, y: 0 }}
           transition={getSpringTransition(0.35)}
+          style={{ willChange: "transform, opacity" }}
         >
           <Suspense fallback={<SkeletonCard />}>
             <NewDashboardUpcomingMissions />
@@ -71,6 +73,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 35 }}
           animate={{ opacity: 1, y: 0 }}
           transition={getSpringTransition(0.55)}
+          style={{ willChange: "transform, opacity" }}
         >
           <Grid container spacing={4} className="mt-2">
             <Grid size={{ xs: 12, xl: 8 }}>
@@ -91,6 +94,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 35 }}
           animate={{ opacity: 1, y: 0 }}
           transition={getSpringTransition(0.75)}
+          style={{ willChange: "transform, opacity" }}
         >
           <Suspense fallback={<SkeletonCard />}>
             <NewDashboardRecentNotebooks />
@@ -102,6 +106,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 35 }}
           animate={{ opacity: 1, y: 0 }}
           transition={getSpringTransition(0.95)}
+          style={{ willChange: "transform, opacity" }}
         >
           <Suspense fallback={<SkeletonCard />}>
             <NewDashboardActivity />
