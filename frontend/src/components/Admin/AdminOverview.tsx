@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Bot, FileText, RefreshCw, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { analyticsService } from "../../services/analyticsService";
+import { analyticsService, AdminAiUsageDTO } from "../../services/analyticsService";
 import { governanceService } from "../../services/governanceService";
 import { userService } from "../../services/userService";
 

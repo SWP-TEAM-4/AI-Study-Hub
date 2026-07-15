@@ -86,6 +86,17 @@ let mockComboSubjects: Record<number, number[]> = {
   2: [11, 12],
 };
 
+// --- Helper: public fetch (no auth required) ---
+async function publicRequest<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`/api${endpoint}`);
+  const text = await response.text();
+  const result = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw { status: response.status, message: result.message || "Lỗi giao tiếp API", errorCode: result.errorCode };
+  }
+  return result;
+}
+
 // --- Service ---
 
 export const academicService = {
@@ -158,13 +169,17 @@ export const academicService = {
     }, 300));
   },
   getSubjectsOfCombo: async (id: number): Promise<ApiResponse<SubjectDTO[]>> => {
-    return new Promise((resolve, reject) => setTimeout(() => {
-      const combo = mockCombos.find(c => c.id === id);
-      if (!combo) return reject(new Error("Resource not found"));
-      const subjectIds = mockComboSubjects[id] || [];
-      const subjects = mockSubjects.filter(s => subjectIds.includes(s.id));
-      resolve({ success: true, message: "Success", data: subjects });
-    }, 300));
+    try {
+      return await publicRequest<ApiResponse<SubjectDTO[]>>(`/combos/${id}/subjects`);
+    } catch {
+      return new Promise((resolve, reject) => setTimeout(() => {
+        const combo = mockCombos.find(c => c.id === id);
+        if (!combo) return reject(new Error("Resource not found"));
+        const subjectIds = mockComboSubjects[id] || [];
+        const subjects = mockSubjects.filter(s => subjectIds.includes(s.id));
+        resolve({ success: true, message: "Success", data: subjects });
+      }, 300));
+    }
   },
   adminAddSubjectToCombo: async (id: number, subjectId: number): Promise<ApiResponse<SubjectDTO>> => {
     return new Promise((resolve, reject) => setTimeout(() => {

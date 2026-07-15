@@ -126,9 +126,22 @@ export interface SharedDocumentDTO {
   allowDownload: boolean;
   downloadUrl: string;
   expiresAt: string | null;
-  createdAt: string;
   previewText?: string | null;
   previewSourcePage?: number | null;
+  createdAt: string;
+}
+
+export interface CreateShareLinkRequest {
+  allowPreview?: boolean;
+  allowDownload?: boolean;
+  expiresAt?: string | null;
+}
+
+export interface UpdateShareLinkRequest {
+  isEnabled?: boolean;
+  allowPreview?: boolean;
+  allowDownload?: boolean;
+  expiresAt?: string | null;
 }
 
 type SpringPage<T> = {
@@ -173,10 +186,15 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
   if (token) {
-    const cleanToken = token.replace(/['"]+/g, "");
+    const cleanToken = token.replace(/['\"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
-  if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE" && !(options.body instanceof FormData)) {
+  if (
+    !headers.has("Content-Type") &&
+    options.method !== "GET" &&
+    options.method !== "DELETE" &&
+    !(options.body instanceof FormData)
+  ) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -497,7 +515,7 @@ export const documentService = {
   async downloadDocument(id: number, fallbackTitle?: string, fallbackFileType?: string): Promise<{ blobUrl: string; fileName: string }> {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
     const headers = new Headers();
-    if (token) headers.set("Authorization", `Bearer ${token.replace(/['\"]+/g, "")}`);
+    if (token) headers.set("Authorization", `Bearer ${token.replace(/['\\"]+/g, "")}`);
     const response = await fetch(`${BASE_URL}/documents/${id}/download`, { method: "GET", headers });
     if (!response.ok) {
       let result: any = {};

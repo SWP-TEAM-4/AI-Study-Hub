@@ -3,7 +3,7 @@ import { PaginatedResponse } from "./types";
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
-  data: T;
+  data: T;  
 }
 
 export interface ActivityLogDTO {

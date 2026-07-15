@@ -78,7 +78,7 @@ async function flashcardRequest<T>(endpoint: string, options: RequestInit = {}):
   const headers = new Headers(options.headers);
 
   if (token) {
-    headers.set("Authorization", `Bearer ${token.replace(/['"]+/g, "")}`);
+    headers.set("Authorization", `Bearer ${token.replace(/['\"]+/g, "")}`);
   }
 
   const method = (options.method || "GET").toUpperCase();

@@ -31,6 +31,8 @@ export interface CommentDTO {
   parentCommentId?: number | null;
   createdAt: string;
   authorName?: string;
+  authorId?: number;
+  replies?: CommentDTO[];
 }
 
 export interface ReviewDTO {
@@ -48,11 +50,11 @@ export interface ReviewDTO {
 
 const BASE_URL = "/api";
 
-async function govRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function safeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
   const headers = new Headers(options.headers);
   if (token) {
-    headers.set("Authorization", `Bearer ${token.replace(/['"]+/g, "")}`);
+    headers.set("Authorization", `Bearer ${token.replace(/['\"]+/g, "")}`);
   }
 
   const method = (options.method || "GET").toUpperCase();
@@ -62,7 +64,10 @@ async function govRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  if (text && text.trim().length > 0) {
+    try { result = JSON.parse(text); } catch { result = { message: text.substring(0, 200) }; }
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -83,6 +88,8 @@ async function govRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   }
   return result;
 }
+
+const govRequest = safeRequest;
 
 function toQuery(params: Record<string, string | number | undefined | null>) {
   const query = new URLSearchParams();
@@ -206,6 +213,32 @@ export const governanceService = {
     return govRequest(`/admin/content/${targetType}/${targetId}/restore`, {
       method: "PATCH",
       body: JSON.stringify({ reason }),
+    });
+  },
+
+  // ─── Admin Content Management ───
+
+  async adminGetContents(params?: { ownerId?: number; subjectId?: number; visibility?: string; marketStatus?: string }): Promise<ApiResponse<any>> {
+    const query = new URLSearchParams();
+    if (params?.ownerId !== undefined) query.append("ownerId", String(params.ownerId));
+    if (params?.subjectId !== undefined) query.append("subjectId", String(params.subjectId));
+    if (params?.visibility) query.append("visibility", params.visibility);
+    if (params?.marketStatus) query.append("marketStatus", params.marketStatus);
+    return govRequest(`/admin/contents?${query.toString()}`, { method: "GET" });
+  },
+
+  async adminGetContentDetails(targetType: string, targetId: number): Promise<ApiResponse<any>> {
+    return govRequest(`/admin/contents/${targetType}/${targetId}`, { method: "GET" });
+  },
+
+  async adminDeleteContent(targetType: string, targetId: number): Promise<ApiResponse<any>> {
+    return govRequest(`/admin/contents/${targetType}/${targetId}`, { method: "DELETE" });
+  },
+
+  async adminUpdateContentVisibility(targetType: string, targetId: number, visibility: string): Promise<ApiResponse<any>> {
+    return govRequest(`/admin/contents/${targetType}/${targetId}/visibility`, {
+      method: "PATCH",
+      body: JSON.stringify({ visibility }),
     });
   },
 };

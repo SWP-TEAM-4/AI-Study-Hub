@@ -20,7 +20,7 @@ export default function AdminBadgesTab() {
   const loadBadges = async () => {
     setIsLoading(true);
     try {
-      const res = await badgeService.getBadges();
+      const res = (await badgeService.getBadges()) as any;
       if (res.success && res.data) {
         setBadges(res.data);
       }
@@ -39,7 +39,7 @@ export default function AdminBadgesTab() {
     }
     setIsSubmitting(true);
     try {
-      const res = await badgeService.createBadge(formData);
+      const res = (await badgeService.createBadge(formData)) as any;
       if (res.success && res.data) {
         Notify.success("Tạo huy hiệu thành công!");
         setBadges([res.data, ...badges]);
@@ -135,8 +135,8 @@ export default function AdminBadgesTab() {
               <div
                 className="size-16 rounded-2xl grid place-items-center mb-3 shadow-sm relative z-10"
                 style={{
-                  background: `oklch(0.55 0.14 ${b.color || "165"} / 0.15)`,
-                  color: `oklch(0.45 0.14 ${b.color || "165"})`,
+                  background: `oklch(0.55 0.14 165 / 0.15)`,
+                  color: `oklch(0.45 0.14 165)`,
                 }}
               >
                 <Award size={28} />

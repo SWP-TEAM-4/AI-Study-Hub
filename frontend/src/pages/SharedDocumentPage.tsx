@@ -113,7 +113,7 @@ export default function SharedDocumentPage({ shareToken: shareTokenProp }: Share
                   <span className="px-2.5 py-1 rounded-md bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/30">
                     {doc?.fileType || "DOCUMENT"}
                   </span>
-                  {doc?.subjectId && (
+                  {doc?.subjectId != null && (
                     <span className="px-2.5 py-1 rounded-md bg-muted border border-border/50 text-muted-foreground text-[10px] font-bold uppercase">
                       Môn #{doc.subjectId}
                     </span>

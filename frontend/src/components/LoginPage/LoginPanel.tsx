@@ -7,6 +7,7 @@ import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { authService, type AuthUser } from "../../services/authService";
+import { academicService } from "../../services/academicService";
 import { cn } from "../../lib/utils";
 import type { UserDTO } from "../../services/userService";
 
@@ -285,6 +286,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
         setResetMessage(message);
         setEmail("");
         Notify.success("Nếu email tồn tại, link đặt lại mật khẩu đã được gửi.");
+        setTimeout(() => { setMode("login"); setResetMessage(""); }, 4000);
       }
     } catch (err: any) {
       Notify.failure(err.message || "Gửi yêu cầu khôi phục thất bại.");

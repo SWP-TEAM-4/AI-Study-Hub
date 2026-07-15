@@ -50,7 +50,7 @@ const BASE_URL = "/api";
 async function marketRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
-  if (token) headers.set("Authorization", `Bearer ${token.replace(/['"]+/g, "")}`);
+  if (token) headers.set("Authorization", `Bearer ${token.replace(/['\"]+/g, "")}`);
   const method = (options.method || "GET").toUpperCase();
   if (!headers.has("Content-Type") && method !== "GET" && method !== "DELETE") headers.set("Content-Type", "application/json");
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
@@ -118,5 +118,21 @@ export const marketplaceService = {
 
   voteReviewerContent(targetType: string, targetId: number, voteResult: "APPROVED" | "REJECTED", reviewNote?: string): Promise<ApiResponse<VoteResultDTO>> {
     return marketRequest(`/reviewer/marketplace/${targetType}/${targetId}/vote`, { method: "POST", body: JSON.stringify({ voteResult, reviewNote }) });
+  },
+
+  async searchMarketplace(pageNumber = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<AdminContentDTO>>> {
+    return marketRequest(`/marketplace/search?page=${pageNumber}&size=${size}&keyword=${encodeURIComponent(keyword)}`);
+  },
+
+  async getMarketplaceFlashcardDecks(pageNumber = 0, size = 10, keyword = ""): Promise<ApiResponse<PaginatedResponse<AdminContentDTO>>> {
+    return marketRequest(`/marketplace/flashcard-decks?page=${pageNumber}&size=${size}&keyword=${encodeURIComponent(keyword)}&sort=createdAt,desc`);
+  },
+
+  async cloneFlashcardDeck(id: number, targetNotebookId?: number): Promise<ApiResponse<unknown>> {
+    return marketRequest(`/marketplace/flashcard-decks/${id}/clone`, { method: "POST", body: JSON.stringify({ targetNotebookId }) });
+  },
+
+  async submitFlashcardDeck(id: number): Promise<ApiResponse<unknown>> {
+    return marketRequest(`/marketplace/flashcard-decks/${id}/submit`, { method: "POST", body: JSON.stringify({ note: "Submit for marketplace review" }) });
   },
 };

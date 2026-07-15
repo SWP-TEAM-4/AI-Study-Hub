@@ -19,7 +19,7 @@ export default function AdminReportsTab() {
   const loadReports = async () => {
     setIsLoading(true);
     try {
-      const res = await governanceService.getAdminReports(0, 50, statusFilter);
+      const res = await governanceService.getAdminReports(0, 50, statusFilter || undefined);
       if (res.success) setReports(res.data.items);
     } catch (err) {
       console.error(err);

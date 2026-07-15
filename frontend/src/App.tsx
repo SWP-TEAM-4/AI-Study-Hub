@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useRef, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
 import OrbisLanding from "./components/LoginPage/OrbisLanding";
 import LoginPanel from "./components/LoginPage/LoginPanel";
@@ -26,53 +26,58 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
 const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
+const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
+
+// ── Landing page switcher: set VITE_ACTIVE_LANDING="corporate" to show new page ──
+const CorporateLanding = lazy(() => import("./components/LoginPage/CorporateLanding"));
+const ACTIVE_LANDING = (import.meta as any).env.VITE_ACTIVE_LANDING ?? "orbis";
 
 export default function App() {
+  const isLoginLoading = false;
   const { isLoggedIn, login, logout, user } = useAuthStore();
-  const location = useLocation();
   const navigate = useNavigate();
 
-  // Handle fake login loading
-  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const justLoggedIn = useRef(false);
 
-  // Lấy role từ store (đã được persist, không cần parse localStorage thủ công)
   const userRole = user?.role ?? "STUDENT";
   const { data: capabilities, isLoading: capabilitiesLoading } = useCapabilities(isLoggedIn);
 
-  const handleLoginSuccess = (token?: string, userData?: any) => {
-    setIsLoginLoading(true);
+  useEffect(() => {
+    if (isLoggedIn && justLoggedIn.current) {
+      justLoggedIn.current = false;
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isLoggedIn, navigate]);
 
-    // Lưu vào zustand store – user data là cấu trúc PHẲNG từ backend
+  const handleLoginSuccess = (token?: string, userData?: any) => {
     const authToken = token || localStorage.getItem("auth_token") || "";
-    const storedUser = userData || (
-      (() => {
-        try {
-          const s = localStorage.getItem("auth_user");
-          return s && s !== "undefined" ? JSON.parse(s) : null;
-        } catch { return null; }
-      })()
-    );
+    const storedUser = userData || (() => {
+      try {
+        const s = localStorage.getItem("auth_user");
+        return s && s !== "undefined" ? JSON.parse(s) : null;
+      } catch { return null; }
+    })();
 
     if (storedUser) {
+      justLoggedIn.current = true;
       login(authToken, storedUser);
     }
-
-    setIsLoginLoading(false);
-    navigate("/dashboard", { replace: true });
   };
 
   const handleLogout = () => {
-    logout(); // store.logout() đã xóa localStorage
+    logout();
     navigate("/", { replace: true });
   };
 
   if (isLoginLoading || (isLoggedIn && capabilitiesLoading)) return <Loader />;
 
+  const LandingComponent = ACTIVE_LANDING === "corporate" ? CorporateLanding : OrbisLanding;
+
   const landingElement = isLoggedIn ? (
     <Navigate to="/dashboard" replace />
   ) : (
     <div className="flex w-screen h-screen overflow-hidden bg-space relative">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -81,10 +86,13 @@ export default function App() {
         <style>{`
           .hide-scrollbar::-webkit-scrollbar { display: none; }
         `}</style>
-        <OrbisLanding onLoginClick={() => navigate("/login")} />
+        <Suspense fallback={<Loader />}>
+          <LandingComponent onLoginClick={() => navigate("/login")} />
+        </Suspense>
       </motion.div>
     </div>
   );
+
   const authElement = isLoggedIn ? (
     <Navigate to="/dashboard" replace />
   ) : (
@@ -102,6 +110,7 @@ export default function App() {
       </motion.div>
     </div>
   );
+
   return (
     <>
       <Routes>
@@ -109,16 +118,19 @@ export default function App() {
         <Route path="/" element={landingElement} />
         <Route path="/privacy-policy" element={landingElement} />
         <Route path="/cookie-settings" element={landingElement} />
-
         <Route path="/login" element={authElement} />
         <Route path="/reset-password" element={authElement} />
-        <Route path="/share/documents/:token" element={
-          <Suspense fallback={<Loader />}>
-            <SharedDocumentPage />
-          </Suspense>
-        } />
 
-        {/* Authenticated Routes wrapped in AppShell */}
+        <Route
+          path="/share/documents/:token"
+          element={
+            <Suspense fallback={<Loader />}>
+              <SharedDocumentPage />
+            </Suspense>
+          }
+        />
+
+        {/* Authenticated Routes – wrapped in AppShell */}
         <Route element={isLoggedIn ? <AppShell /> : <Navigate to="/" replace />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/notebooks" element={<NotebooksPage />} />
@@ -126,9 +138,11 @@ export default function App() {
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/quiz" element={<QuizPage />} />
+          <Route path="/quiz/history" element={<QuizPage />} />
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {(userRole === "ADMIN" || capabilities?.canModerateReports) && (
             <>
@@ -143,11 +157,13 @@ export default function App() {
               </Suspense>
             } />
           )}
+          <Route path="/admin/reports" element={<MyReportsPage />} />
         </Route>
 
-        {/* Catch-all for unknown routes */}
+        {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+
       <Toaster position="bottom-center" richColors theme="system" />
     </>
   );

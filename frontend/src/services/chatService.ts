@@ -82,6 +82,35 @@ export interface MessageDTO {
   createdAt: string;
 }
 
+export interface PracticeImportPayload {
+  targetMode: "CREATE_NEW" | "ADD_TO_EXISTING" | string;
+  target: {
+    title: string;
+    description: string;
+    visibility: "PRIVATE" | "WORKSPACE" | "MARKETPLACE" | string;
+  };
+  importOptions?: {
+    skipDuplicateQuestions?: boolean;
+    shuffleQuestions?: boolean;
+  };
+}
+
+export interface PracticeImportResponseDTO {
+  messageId: number;
+  practiceType: string;
+  targetMode: string;
+  targetType: string;
+  targetId: number;
+  createdQuizId?: number;
+  createdDeckId?: number;
+  createdQuestions?: number;
+  createdOptions?: number;
+  createdCards?: number;
+  skippedDuplicates?: number;
+  practiceStatus: string;
+  importedAt: string;
+}
+
 export interface ChatResponseData {
   userMessage: MessageDTO;
   aiMessage: MessageDTO;

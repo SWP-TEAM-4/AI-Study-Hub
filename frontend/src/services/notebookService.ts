@@ -27,7 +27,7 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   const headers = new Headers(options.headers);
 
   if (token) {
-    const cleanToken = token.replace(/[\'"]+/g, "");
+    const cleanToken = token.replace(/['\"]+/g, "");
     headers.set("Authorization", `Bearer ${cleanToken}`);
   }
 
@@ -38,6 +38,7 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
   let result: any = {};
+
   try {
     result = text ? JSON.parse(text) : {};
   } catch {
@@ -61,7 +62,7 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   if (!response.ok) {
     throw {
       status: response.status,
-      message: result.message || "Loi giao tiep API Notebook",
+      message: result.message || "Lỗi giao tiếp API Notebook",
       errorCode: result.errorCode || "NOTEBOOK_ERROR",
     };
   }
