@@ -105,6 +105,8 @@ public class SystemConfigService {
                 throw new AppException(ErrorCode.VALIDATION_ERROR,
                         "MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE must be a valid integer");
             }
+        } else if (SystemConfigKeys.NON_NEGATIVE_INTEGER_KEYS.contains(key)) {
+            validateNonNegativeInteger(key, value);
         }
     }
 
@@ -138,6 +140,18 @@ public class SystemConfigService {
                     log.warn("System config key={} not found. Using default value={}", normalizedKey, defaultValue);
                     return defaultValue;
                 });
+    }
+
+    @Transactional(readOnly = true)
+    public int getRequiredIntValue(String configKey) {
+        String normalizedKey = normalizeKey(configKey);
+        String value = getValueByKey(normalizedKey);
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ex) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    normalizedKey + " must be a valid integer");
+        }
     }
 
     private SystemConfig findByIdOrThrow(Long id) {
@@ -186,6 +200,17 @@ public class SystemConfigService {
             log.warn("System config key={} has invalid integer value='{}'. Using default value={}",
                     normalizedKey, value, defaultValue);
             return defaultValue;
+        }
+    }
+
+    private void validateNonNegativeInteger(String key, String value) {
+        try {
+            int val = Integer.parseInt(value);
+            if (val < 0) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, key + " must be greater than or equal to 0");
+            }
+        } catch (NumberFormatException e) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, key + " must be a valid integer");
         }
     }
 

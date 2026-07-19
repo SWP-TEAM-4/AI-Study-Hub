@@ -13,6 +13,7 @@ import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.entity.*;
 import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.community.service.CommunityPermissionService;
+import com.aistudyhub.module.community.service.RewardBadgeService;
 import com.aistudyhub.module.marketplace.dto.*;
 import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.module.user.service.UserService;
@@ -53,6 +54,7 @@ public class MarketReviewService {
     private final MarketplaceSubmissionService marketplaceSubmissionService;
     private final MarketplaceSubmissionRepository marketplaceSubmissionRepository;
     private final ReviewPolicyService reviewPolicyService;
+    private final RewardBadgeService rewardBadgeService;
 
     // ══════════════════════════════════════════════════════════════════════════
     // GET /api/reviewer/marketplace/pending — Pending Queue
@@ -431,6 +433,7 @@ public class MarketReviewService {
         logReviewAction(reviewer.getId(), ActivityTargetType.DOCUMENT, documentId, document.getTitle(),
                 document.getSubject() != null ? document.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
+        rewardBadgeService.awardReviewerBadges(reviewer);
 
         return toReviewResponse(review, "DOCUMENT", documentId, submission, decision);
     }
@@ -489,6 +492,7 @@ public class MarketReviewService {
         logReviewAction(reviewer.getId(), ActivityTargetType.QUIZ, quizId, quiz.getTitle(),
                 quiz.getSubject() != null ? quiz.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
+        rewardBadgeService.awardReviewerBadges(reviewer);
 
         return toReviewResponse(review, "QUIZ", quizId, submission, decision);
     }
@@ -547,6 +551,7 @@ public class MarketReviewService {
         logReviewAction(reviewer.getId(), ActivityTargetType.FLASHCARD_DECK, deckId, deck.getTitle(),
                 deck.getSubject() != null ? deck.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
+        rewardBadgeService.awardReviewerBadges(reviewer);
 
         return toReviewResponse(review, "FLASHCARD_DECK", deckId, submission, decision);
     }

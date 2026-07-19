@@ -17,6 +17,7 @@ public interface MarketReviewRepository extends JpaRepository<MarketReview, Long
     boolean existsBySubmissionIdAndReviewerId(Long submissionId, Long reviewerId);
     long countBySubmissionIdAndVoteResultIsNotNull(Long submissionId);
     long countBySubmissionIdAndVoteResult(Long submissionId, String voteResult);
+    long countByReviewerIdAndVoteResultIsNotNull(Long reviewerId);
 
     // ── Community review: kiểm tra trùng lặp (voteResult IS NULL = review cộng đồng) ──
     Optional<MarketReview> findByReviewerIdAndDocumentIdAndVoteResultIsNull(Long reviewerId, Long documentId);

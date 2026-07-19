@@ -35,8 +35,9 @@ public class ContributorLeaderboardService {
     private final DocumentRepository documentRepository;
     private final QuizRepository quizRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
+    private final RewardBadgeService rewardBadgeService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PaginationResponse<ContributorLeaderboardItemResponse> getContributorLeaderboard(int page, int size) {
         int normalizedPage = Math.max(page, DEFAULT_PAGE);
         int normalizedSize = normalizeSize(size);
@@ -66,6 +67,7 @@ public class ContributorLeaderboardService {
         for (int i = 0; i < sortedContributors.size(); i++) {
             rankedItems.add(sortedContributors.get(i).toResponse(i + 1));
         }
+        rewardBadgeService.awardContributorBadges(rankedItems);
 
         int totalElements = rankedItems.size();
         int start = normalizedPage * normalizedSize;
