@@ -321,6 +321,17 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     { label: "Bộ flashcard", value: stats.flashcardDecks, icon: BookMarked },
   ];
 
+  const aiUsageCards = [
+    { label: "Tổng request", value: aiUsage?.totalRequests ?? 0 },
+    { label: "Chat", value: aiUsage?.chatRequests ?? 0 },
+    { label: "Tóm tắt", value: aiUsage?.summaryRequests ?? 0 },
+    { label: "Sinh quiz", value: aiUsage?.quizGenerations ?? 0 },
+    { label: "Sinh flashcard", value: aiUsage?.flashcardGenerations ?? 0 },
+    { label: "Chunking tài liệu", value: aiUsage?.documentChunkingRequests ?? 0 },
+    { label: "Vector tài liệu", value: aiUsage?.documentEmbeddingRequests ?? 0 },
+    { label: "Tokens", value: (aiUsage?.totalTokens ?? 0).toLocaleString() },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 relative app-shell-font">
 
@@ -392,27 +403,13 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
-            <div className="text-xl font-bold">{aiUsage?.totalRequests ?? 0}</div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Tổng request</div>
-          </div>
-          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
-            <div className="text-xl font-bold">{aiUsage?.chatRequests ?? 0}</div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Chat</div>
-          </div>
-          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
-            <div className="text-xl font-bold">{aiUsage?.quizGenerations ?? 0}</div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Sinh quiz</div>
-          </div>
-          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
-            <div className="text-xl font-bold">{aiUsage?.flashcardGenerations ?? 0}</div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Sinh flashcard</div>
-          </div>
-          <div className="rounded-xl bg-muted/35 border border-border p-3 text-left">
-            <div className="text-xl font-bold">{(aiUsage?.totalTokens ?? 0).toLocaleString()}</div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Tokens</div>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {aiUsageCards.map((item) => (
+            <div key={item.label} className="rounded-xl bg-muted/35 border border-border p-3 text-left">
+              <div className="text-xl font-bold">{item.value}</div>
+              <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">{item.label}</div>
+            </div>
+          ))}
         </div>
       </section>
 

@@ -44,8 +44,11 @@ export interface AIUsageDTO {
   userId?: number;
   period?: string;
   chatRequests: number;
+  summaryRequests: number;
   quizGenerations: number;
   flashcardGenerations: number;
+  documentChunkingRequests: number;
+  documentEmbeddingRequests: number;
   estimatedTokens: number;
   totalRequests: number;
   totalTokens: number;
@@ -263,12 +266,17 @@ export const userService = {
         userId: res.data?.userId,
         period: res.data?.period,
         chatRequests: Number(actionCounts.CHAT_REQUEST ?? actionCounts.CHAT ?? actionCounts.AI_CHAT ?? res.data?.chatRequests ?? res.data?.totalRequests ?? 0),
+        summaryRequests: Number(actionCounts.SUMMARY ?? res.data?.summaryRequests ?? 0),
         quizGenerations: Number(actionCounts.GENERATE_QUIZ ?? actionCounts.QUIZ_GENERATION ?? res.data?.quizGenerations ?? 0),
         flashcardGenerations: Number(actionCounts.GENERATE_FLASHCARD ?? actionCounts.FLASHCARD_GENERATION ?? res.data?.flashcardGenerations ?? 0),
+        documentChunkingRequests: Number(actionCounts.DOCUMENT_CHUNKING ?? res.data?.documentChunkingRequests ?? 0),
+        documentEmbeddingRequests: Number(actionCounts.DOCUMENT_EMBEDDING ?? res.data?.documentEmbeddingRequests ?? 0),
         estimatedTokens: Number(res.data?.totalTokens ?? res.data?.estimatedTokens ?? 0),
         totalRequests: Number(res.data?.totalRequests ?? 0),
         totalTokens: Number(res.data?.totalTokens ?? res.data?.estimatedTokens ?? 0),
         estimatedCost: res.data?.estimatedCost !== undefined ? Number(res.data.estimatedCost) : undefined,
+        maxRequests: res.data?.maxRequests !== undefined ? Number(res.data.maxRequests) : undefined,
+        usedRequests: Number(res.data?.usedRequests ?? res.data?.totalRequests ?? 0),
         actionCounts,
       } as AIUsageDTO,
     };

@@ -3,10 +3,12 @@ package com.aistudyhub.module.quiz.service;
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.enums.TestStatus;
+import com.aistudyhub.common.enums.AiActionType;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.entity.*;
+import com.aistudyhub.module.AiUsageLogs.service.AiUsageService;
 import com.aistudyhub.module.quiz.dto.QuizRequest;
 import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizResponseMapper;
@@ -51,6 +53,7 @@ public class QuizService {
     private final DocumentChunkRepository documentChunkRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final TestRepository testRepository;
+    private final AiUsageService aiUsageService;
 
     /**
      * Tạo một Quiz mới thuộc về người dùng hiện tại đăng nhập.
@@ -434,6 +437,8 @@ public class QuizService {
 
         log.info("Quiz generated successfully with id={} ({} questions) by userId={}", quiz.getId(), totalQuestions,
                 currentUser.getId());
+        safeLogAiUsage(currentUser.getId(), AiActionType.QUIZ_GENERATION,
+                estimateGeneratedQuizTokens(chunks, totalQuestions));
 
         return QuizResponseMapper.toResponse(quiz);
     }
@@ -472,6 +477,34 @@ public class QuizService {
 
         Page<UserTestHistoryResponse> historyPage = testPage.map(this::toUserTestHistoryResponse);
         return PaginationResponse.of(historyPage);
+    }
+
+    private int estimateGeneratedQuizTokens(List<DocumentChunk> chunks, int generatedQuestionCount) {
+        long contextTokens = chunks.stream()
+                .limit(20)
+                .mapToLong(chunk -> chunk.getTokenEstimate() == null
+                        ? estimateTextTokens(chunk.getTextContent())
+                        : Math.max(chunk.getTokenEstimate(), 0))
+                .sum();
+        long outputTokens = Math.max(generatedQuestionCount, 0) * 80L;
+        long total = contextTokens + outputTokens;
+        return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(total, 0L);
+    }
+
+    private long estimateTextTokens(String text) {
+        if (text == null || text.isBlank()) {
+            return 0L;
+        }
+        return Math.max(1L, (long) Math.ceil(text.trim().length() / 4.0));
+    }
+
+    private void safeLogAiUsage(Long userId, AiActionType actionType, Integer tokenCount) {
+        try {
+            aiUsageService.logUsage(userId, actionType, tokenCount);
+        } catch (Exception ex) {
+            log.warn("Failed to persist AI usage log for userId={} actionType={}: {}",
+                    userId, actionType, ex.getMessage());
+        }
     }
 
     private UserTestHistoryResponse toUserTestHistoryResponse(Test test) {

@@ -97,7 +97,14 @@ export interface AIUsageDTO {
   userId: number;
   period: string;
   chatRequests: number;
+  summaryRequests?: number;
   quizGenerations: number;
   flashcardGenerations: number;
+  documentChunkingRequests?: number;
+  documentEmbeddingRequests?: number;
   estimatedTokens: number;
+  totalRequests?: number;
+  totalTokens?: number;
+  estimatedCost?: number;
+  actionCounts?: Record<string, number>;
 }

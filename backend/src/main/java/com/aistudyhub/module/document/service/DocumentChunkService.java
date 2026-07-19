@@ -1,12 +1,14 @@
 package com.aistudyhub.module.document.service;
 
 import com.aistudyhub.common.enums.ProcessingStatus;
+import com.aistudyhub.common.enums.AiActionType;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.DocumentChunk;
 import com.aistudyhub.entity.Notebook;
 import com.aistudyhub.entity.NotebookDocument;
+import com.aistudyhub.module.AiUsageLogs.service.AiUsageService;
 import com.aistudyhub.module.document.dto.DocumentChunkResponse;
 import com.aistudyhub.module.document.dto.DocumentDeleteChunksResponse;
 import com.aistudyhub.module.document.dto.DocumentProcessRequest;
@@ -48,6 +50,7 @@ public class DocumentChunkService {
     private final TextExtractionService textExtractionService;
     private final GeminiChunkingService geminiChunkingService;
     private final OpenAIEmbeddingService openAIEmbeddingService;
+    private final AiUsageService aiUsageService;
     private final PlatformTransactionManager transactionManager;
 
     // ── 1. Process document → chunks ─────────────────────────────────────────
@@ -412,6 +415,8 @@ public class DocumentChunkService {
                 .map(chunk -> toResponse(chunk, document.getTitle()))
                 .toList();
 
+        logDocumentAiUsage(document.getUser().getId(), rawText, chunkingOutcome, chunkResults);
+
         log.info("Document {} processed successfully with {} + OpenAI embeddings: {} chunks created",
                 documentId,
                 chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
@@ -446,6 +451,59 @@ public class DocumentChunkService {
             managedDocument.setProcessingStatus(status);
             documentRepository.save(managedDocument);
         });
+    }
+
+    private void logDocumentAiUsage(Long userId,
+                                    String rawText,
+                                    GeminiChunkingService.ChunkingOutcome chunkingOutcome,
+                                    List<TextChunkingService.ChunkResult> chunkResults) {
+        if (chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC) {
+            safeLogAiUsage(userId, AiActionType.DOCUMENT_CHUNKING,
+                    estimateDocumentChunkingTokens(rawText, chunkResults));
+        }
+        safeLogAiUsage(userId, AiActionType.DOCUMENT_EMBEDDING,
+                estimateDocumentEmbeddingTokens(chunkResults));
+    }
+
+    private int estimateDocumentChunkingTokens(String rawText, List<TextChunkingService.ChunkResult> chunkResults) {
+        long inputTokens = estimateTextTokens(rawText);
+        long outputTokens = sumChunkTokens(chunkResults);
+        return capToInteger(inputTokens + outputTokens);
+    }
+
+    private int estimateDocumentEmbeddingTokens(List<TextChunkingService.ChunkResult> chunkResults) {
+        return capToInteger(sumChunkTokens(chunkResults));
+    }
+
+    private long sumChunkTokens(List<TextChunkingService.ChunkResult> chunkResults) {
+        if (chunkResults == null || chunkResults.isEmpty()) {
+            return 0L;
+        }
+        return chunkResults.stream()
+                .mapToLong(chunk -> chunk.tokenEstimate() != null && chunk.tokenEstimate() > 0
+                        ? chunk.tokenEstimate()
+                        : estimateTextTokens(chunk.content()))
+                .sum();
+    }
+
+    private long estimateTextTokens(String text) {
+        if (text == null || text.isBlank()) {
+            return 0L;
+        }
+        return Math.max(1L, (long) Math.ceil(text.trim().length() / 4.0));
+    }
+
+    private int capToInteger(long value) {
+        return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(value, 0L);
+    }
+
+    private void safeLogAiUsage(Long userId, AiActionType actionType, Integer tokenCount) {
+        try {
+            aiUsageService.logUsage(userId, actionType, tokenCount);
+        } catch (Exception ex) {
+            log.warn("Failed to persist AI usage log for document processing userId={} actionType={}: {}",
+                    userId, actionType, ex.getMessage());
+        }
     }
 
     private TransactionTemplate transactionTemplate() {
