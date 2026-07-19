@@ -55,6 +55,15 @@ export interface ResetPasswordResponseData {
   passwordChanged: boolean;
 }
 
+export type OAuthProvider = "google" | "github";
+
+export interface OAuthAuthorizeResponseData {
+  authorizationUrl: string;
+  state: string;
+  provider: OAuthProvider;
+  redirectUri: string;
+}
+
 export type EmptyApiResponseData = null | undefined;
 
 // ─── 2. CORE BASE CONFIGURATION ────────────────────────────────────────────────
@@ -88,6 +97,40 @@ export async function authRequest<T>(endpoint: string, bodyPayload: any): Promis
     return result;
   } catch (error: any) {
     // Nếu server có phản hồi lỗi (ví dụ: 400, 401, 403, 500) thì không chạy mock fallback, ném lỗi thật ra ngoài
+    if (error && typeof error.status === "number") {
+      throw error;
+    }
+
+    throw {
+      status: 0,
+      message: "Không kết nối được backend xác thực. Vui lòng kiểm tra server API.",
+      errorCode: "NETWORK_ERROR",
+    };
+  }
+}
+
+async function authGet<T>(endpoint: string): Promise<T> {
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const textData = await response.text();
+    const result = textData ? JSON.parse(textData) : {};
+
+    if (!response.ok) {
+      throw {
+        status: response.status,
+        message: result.message || "Không thể khởi tạo đăng nhập OAuth",
+        errorCode: result.errorCode || "OAUTH_ERROR"
+      };
+    }
+
+    return result;
+  } catch (error: any) {
     if (error && typeof error.status === "number") {
       throw error;
     }
@@ -170,6 +213,26 @@ export const authService = {
       "/auth/reset-password",
       { token: resetToken, newPassword }
     );
+  },
+
+  async getOAuthAuthorizeUrl(provider: OAuthProvider, redirectUri: string) {
+    const query = new URLSearchParams({ redirectUri }).toString();
+    return authGet<{ success: boolean; message: string; data: OAuthAuthorizeResponseData }>(
+      `/auth/oauth/${provider}/authorize-url?${query}`
+    );
+  },
+
+  async loginWithOAuth(provider: OAuthProvider, code: string, redirectUri: string) {
+    const res = await authRequest<{ success: boolean; message: string; data: LoginResponseData }>(
+      `/auth/oauth/${provider}`,
+      { code, redirectUri }
+    );
+
+    if (res.success) {
+      persistAuthSession(res.data);
+    }
+
+    return res;
   },
 
   /**

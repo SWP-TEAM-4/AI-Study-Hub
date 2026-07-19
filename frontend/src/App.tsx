@@ -120,6 +120,7 @@ export default function App() {
         <Route path="/cookie-settings" element={landingElement} />
         <Route path="/login" element={authElement} />
         <Route path="/reset-password" element={authElement} />
+        <Route path="/oauth/:provider/callback" element={authElement} />
 
         <Route
           path="/share/documents/:token"

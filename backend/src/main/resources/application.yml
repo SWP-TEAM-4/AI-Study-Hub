@@ -73,11 +73,14 @@ app:
     storage-bucket: documents
 
   ai:
+    usage:
+      estimated-cost-per-1k-tokens: ${AI_USAGE_ESTIMATED_COST_PER_1K_TOKENS:0}
+
     practice:
       fallback-to-stub-on-error: true
 
     openai:
-      api-key: 
+      api-key: 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
       model: gpt-4o-mini
       base-url: https://api.openai.com/v1
       embedding-model: text-embedding-3-small
@@ -86,8 +89,8 @@ app:
       timeout: 60
       max-retries: 3
 
-    gemini:
-      api-key: 
+    gemini: 
+      api-key: AQ.Ab8RN6KTi-PY6U2afnS1dMwTWzernGi1s1pyETHOXsjn99m6qA
       base-url: https://generativelanguage.googleapis.com/v1/models
       model: gemini-3.5-flash
       temperature: 0.1
@@ -108,6 +111,25 @@ app:
     from-name: AI Study Hub
     reset-password-url: http://localhost:5173/reset-password
     token-expire-minutes: 30
+
+  oauth:
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/oauth/google/callback}
+      auth-uri: https://accounts.google.com/o/oauth2/v2/auth
+      token-uri: https://oauth2.googleapis.com/token
+      user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
+      scope: openid email profile
+    github:
+      client-id: ${GITHUB_CLIENT_ID:}
+      client-secret: ${GITHUB_CLIENT_SECRET:}
+      redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:5173/oauth/github/callback}
+      auth-uri: https://github.com/login/oauth/authorize
+      token-uri: https://github.com/login/oauth/access_token
+      user-info-uri: https://api.github.com/user
+      email-uri: https://api.github.com/user/emails
+      scope: read:user user:email
 
 # ===== Logging =====
 logging:
