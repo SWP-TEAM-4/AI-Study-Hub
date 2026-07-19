@@ -6,7 +6,7 @@ import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { gsap } from "gsap";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
-import { authService, type AuthUser } from "../../services/authService";
+import { authService, type AuthUser, type OAuthProvider } from "../../services/authService";
 import { academicService } from "../../services/academicService";
 import { cn } from "../../lib/utils";
 import type { UserDTO } from "../../services/userService";
@@ -81,9 +81,72 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   const [resetMessage, setResetMessage] = useState("");
   const formContainerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const oauthHandledRef = useRef(false);
+
+  const getOAuthRedirectUri = (provider: OAuthProvider) => {
+    return `${window.location.origin}/oauth/${provider}/callback`;
+  };
+
+  const completeOAuthSession = (accessToken: string, user: AuthUser) => {
+    const needsOnboarding = user.role === "STUDENT" && (!user.currentSemesterId || !user.comboId);
+    if (needsOnboarding) {
+      setOnboardingUser(user);
+      setPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setShowCombo(true), 450);
+      return;
+    }
+
+    onLoginSuccess(accessToken, user);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const oauthMatch = location.pathname.match(/^\/oauth\/(google|github)\/callback$/);
+
+    if (oauthMatch && !oauthHandledRef.current) {
+      const provider = oauthMatch[1] as OAuthProvider;
+      const error = params.get("error");
+      const code = params.get("code")?.trim();
+      const returnedState = params.get("state")?.trim();
+      const expectedState = sessionStorage.getItem(`oauth_state_${provider}`);
+
+      oauthHandledRef.current = true;
+
+      if (error) {
+        Notify.failure(`Kết nối ${provider} bị hủy hoặc thất bại.`);
+        sessionStorage.removeItem(`oauth_state_${provider}`);
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      if (!code || !expectedState || expectedState !== returnedState) {
+        Notify.failure("Phiên đăng nhập OAuth không hợp lệ. Vui lòng thử lại.");
+        sessionStorage.removeItem(`oauth_state_${provider}`);
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      setLoading(true);
+      authService.loginWithOAuth(provider, code, getOAuthRedirectUri(provider))
+        .then((response) => {
+          if (response.success) {
+            Notify.success(`Đăng nhập ${provider} thành công!`);
+            const { accessToken, tokenType, ...user } = response.data;
+            completeOAuthSession(accessToken, user as AuthUser);
+          }
+        })
+        .catch((err: any) => {
+          Notify.failure(err.message || `Đăng nhập ${provider} thất bại.`);
+          navigate("/login", { replace: true });
+        })
+        .finally(() => {
+          sessionStorage.removeItem(`oauth_state_${provider}`);
+          setLoading(false);
+        });
+      return;
+    }
+
     const tokenFromUrl = params.get("token")?.trim();
 
     if (tokenFromUrl) {
@@ -112,33 +175,18 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
     );
   }, [mode, showCombo]);
 
-  // ── 🎯 XỬ LÝ POPUP ĐĂNG NHẬP OAUTH GOOGLE CHUYÊN NGHIỆP VÀ BÁO LỖI ──
-  const handleOAuthLogin = async (provider: "google" | "github") => {
+  // ── OAuth login: URL được backend build để client secret không lộ ra frontend ──
+  const handleOAuthLogin = async (provider: OAuthProvider) => {
     setLoading(true);
 
-    const width = 500;
-    const height = 650;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-
-    const oauthUrl = provider === "google"
-      ? "https://accounts.google.com/gsi/select?client_id=mock-client-id"
-      : "https://github.com/login/oauth/authorize";
-
-    const popupWindow = window.open(
-      oauthUrl,
-      `${provider} Sign-In`,
-      `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
-    );
-
-    const timer = setInterval(() => {
-      if (!popupWindow || popupWindow.closed) {
-        clearInterval(timer);
-        setLoading(false);
-        // Báo lỗi ngắt kết nối trực tiếp khi đóng Popup
-        Notify.failure(`Kết nối ${provider} thất bại! Vui lòng thử lại sau.`);
-      }
-    }, 1000);
+    try {
+      const response = await authService.getOAuthAuthorizeUrl(provider, getOAuthRedirectUri(provider));
+      sessionStorage.setItem(`oauth_state_${provider}`, response.data.state);
+      window.location.href = response.data.authorizationUrl;
+    } catch (err: any) {
+      Notify.failure(err.message || `Không thể khởi tạo đăng nhập ${provider}.`);
+      setLoading(false);
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {

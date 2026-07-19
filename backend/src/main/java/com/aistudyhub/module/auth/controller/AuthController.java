@@ -5,11 +5,14 @@ import com.aistudyhub.module.auth.dto.*;
 import com.aistudyhub.module.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * Owner: BE1
@@ -22,6 +25,12 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+
+    public record OAuthLoginRequest(
+            @NotBlank(message = "OAuth authorization code is required")
+            String code,
+            String redirectUri) {
+    }
 
     @Operation(summary = "Đăng ký tài khoản mới")
     @PostMapping("/register")
@@ -56,5 +65,39 @@ public class AuthController {
             @Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully."));
+    }
+
+    @Operation(summary = "Lấy Google OAuth authorization URL")
+    @GetMapping("/oauth/google/authorize-url")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getGoogleAuthorizationUrl(
+            @RequestParam(required = false) String redirectUri) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Google authorization URL generated",
+                authService.buildGoogleAuthorizationUrl(redirectUri)));
+    }
+
+    @Operation(summary = "Login bằng Google authorization code")
+    @PostMapping("/oauth/google")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(
+            @Valid @RequestBody OAuthLoginRequest request) {
+        AuthResponse response = authService.loginWithGoogle(request.code(), request.redirectUri());
+        return ResponseEntity.ok(ApiResponse.success("Google login successful", response));
+    }
+
+    @Operation(summary = "Lấy GitHub OAuth authorization URL")
+    @GetMapping("/oauth/github/authorize-url")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getGithubAuthorizationUrl(
+            @RequestParam(required = false) String redirectUri) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "GitHub authorization URL generated",
+                authService.buildGithubAuthorizationUrl(redirectUri)));
+    }
+
+    @Operation(summary = "Login bằng GitHub authorization code")
+    @PostMapping("/oauth/github")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithGithub(
+            @Valid @RequestBody OAuthLoginRequest request) {
+        AuthResponse response = authService.loginWithGithub(request.code(), request.redirectUri());
+        return ResponseEntity.ok(ApiResponse.success("GitHub login successful", response));
     }
 }
