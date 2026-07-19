@@ -2,6 +2,7 @@ package com.aistudyhub.module.chat.service;
 
 import com.aistudyhub.common.enums.ActivityActionType;
 import com.aistudyhub.common.enums.ActivityTargetType;
+import com.aistudyhub.common.enums.AiActionType;
 import com.aistudyhub.common.enums.AiPracticeType;
 import com.aistudyhub.common.enums.ChatMessageType;
 import com.aistudyhub.common.enums.PracticeStatus;
@@ -9,6 +10,7 @@ import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.ChatMessage;
 import com.aistudyhub.entity.ChatSession;
+import com.aistudyhub.module.AiUsageLogs.service.AiUsageService;
 import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.chat.dto.ChatMessageCitationResponse;
 import com.aistudyhub.module.chat.dto.CreateChatMessageRequest;
@@ -44,6 +46,7 @@ public class ChatPracticeDraftService {
     private final AiPracticePayloadValidator aiPracticePayloadValidator;
     private final ObjectMapper objectMapper;
     private final ActivityLogService activityLogService;
+    private final AiUsageService aiUsageService;
 
     @Transactional
     public SendChatMessageResponse sendPracticeDraft(Long sessionId, Long userId, CreateChatMessageRequest request,
@@ -76,6 +79,10 @@ public class ChatPracticeDraftService {
             aiMessage = saveFailedDraft(session, nextSequence + 1, parsedPrompt.practiceType(), citations,
                     buildFailureSummary(parsedPrompt.practiceType()),
                     singleError("relevantChunks", "No relevant document chunks were found for this practice request"));
+            int estimatedTokens = estimateTokenCount(parsedPrompt.promptWithoutPrefix(), relevantChunks, aiMessage);
+            logPracticeGeneration(userId, session, parsedPrompt.practiceType(), aiMessage, relevantChunks.size(),
+                    estimatedTokens, parsedPrompt.promptWithoutPrefix());
+            safeLogAiUsage(userId, resolveUsageActionType(parsedPrompt.practiceType()), estimatedTokens);
             return buildSendResponse(userMessage, aiMessage);
         }
 
@@ -115,8 +122,10 @@ public class ChatPracticeDraftService {
 
         log.info("Saved AI practice draft for session {} with type {} and status {}",
                 sessionId, parsedPrompt.practiceType(), aiMessage.getPracticeStatus());
+        int estimatedTokens = estimateTokenCount(parsedPrompt.promptWithoutPrefix(), relevantChunks, aiMessage);
         logPracticeGeneration(userId, session, parsedPrompt.practiceType(), aiMessage, relevantChunks.size(),
-                parsedPrompt.promptWithoutPrefix());
+                estimatedTokens, parsedPrompt.promptWithoutPrefix());
+        safeLogAiUsage(userId, resolveUsageActionType(parsedPrompt.practiceType()), estimatedTokens);
         return buildSendResponse(userMessage, aiMessage);
     }
 
@@ -227,12 +236,15 @@ public class ChatPracticeDraftService {
                                        AiPracticeType practiceType,
                                        ChatMessage aiMessage,
                                        int relevantChunkCount,
+                                       int estimatedTokens,
                                        String promptText) {
         LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("sessionId", session.getId());
         metadata.put("messageId", aiMessage.getId());
         metadata.put("practiceType", practiceType.name());
         metadata.put("practiceStatus", aiMessage.getPracticeStatus().name());
+        metadata.put("aiUsageActionType", resolveUsageActionType(practiceType).name());
+        metadata.put("estimatedTokens", estimatedTokens);
         metadata.put("relevantChunkCount", relevantChunkCount);
         metadata.put("generatedPayloadReady", aiMessage.getGeneratedPayload() != null);
         metadata.put("validationErrorCount",
@@ -252,6 +264,46 @@ public class ChatPracticeDraftService {
                 metadata,
                 session.getTitle(),
                 summarizeForLog(promptText));
+    }
+
+    private AiActionType resolveUsageActionType(AiPracticeType practiceType) {
+        return practiceType == AiPracticeType.QUIZ
+                ? AiActionType.QUIZ_GENERATION
+                : AiActionType.FLASHCARD_GENERATION;
+    }
+
+    private int estimateTokenCount(String promptText, List<DocumentChunkResponse> relevantChunks, ChatMessage aiMessage) {
+        long promptTokens = estimateTextTokens(promptText);
+        long contextTokens = relevantChunks.stream()
+                .mapToLong(chunk -> chunk.getTokenEstimate() == null
+                        ? estimateTextTokens(chunk.getTextContent())
+                        : Math.max(chunk.getTokenEstimate(), 0))
+                .sum();
+        long outputTokens = estimateTextTokens(aiMessage.getContent());
+        if (aiMessage.getGeneratedPayload() != null) {
+            outputTokens += estimateTextTokens(aiMessage.getGeneratedPayload().toString());
+        }
+        if (aiMessage.getValidationErrors() != null) {
+            outputTokens += estimateTextTokens(aiMessage.getValidationErrors().toString());
+        }
+        long total = promptTokens + contextTokens + outputTokens;
+        return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(total, 0L);
+    }
+
+    private long estimateTextTokens(String text) {
+        if (text == null || text.isBlank()) {
+            return 0L;
+        }
+        return Math.max(1L, (long) Math.ceil(text.trim().length() / 4.0));
+    }
+
+    private void safeLogAiUsage(Long userId, AiActionType actionType, Integer tokenCount) {
+        try {
+            aiUsageService.logUsage(userId, actionType, tokenCount);
+        } catch (Exception ex) {
+            log.warn("Failed to persist AI usage log for userId={} actionType={}: {}",
+                    userId, actionType, ex.getMessage());
+        }
     }
 
     private String summarizeForLog(String rawText) {

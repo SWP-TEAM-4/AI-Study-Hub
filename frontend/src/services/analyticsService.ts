@@ -1,7 +1,14 @@
 export interface AdminAiUsageDTO {
   totalRequests: number;
   totalTokens: number;
+  estimatedTokens?: number;
   estimatedCost: number;
+  chatRequests?: number;
+  summaryRequests?: number;
+  quizGenerations?: number;
+  flashcardGenerations?: number;
+  documentChunkingRequests?: number;
+  documentEmbeddingRequests?: number;
   actionCounts: Record<string, number>;
 }
 

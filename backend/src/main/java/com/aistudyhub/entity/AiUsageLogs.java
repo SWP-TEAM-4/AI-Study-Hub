@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import com.aistudyhub.common.enums.AiActionType;
 
@@ -38,17 +40,20 @@ public class AiUsageLogs {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "action_type", nullable = false, length = 50)
     private AiActionType actionType;
 
+    @Column(name = "token_count")
     private Integer tokenCount;
 
-    @Column(precision = 10, scale = 4)
+    @Column(name = "estimated_cost", precision = 12, scale = 6)
     private BigDecimal estimatedCost;
 
     @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }

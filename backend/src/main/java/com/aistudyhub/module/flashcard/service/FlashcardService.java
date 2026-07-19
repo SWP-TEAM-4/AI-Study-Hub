@@ -16,6 +16,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Pageable;
 
+import com.aistudyhub.common.enums.AiActionType;
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
@@ -28,6 +29,7 @@ import com.aistudyhub.entity.Notebook;
 import com.aistudyhub.entity.NotebookDocument;
 import com.aistudyhub.entity.Subject;
 import com.aistudyhub.entity.User;
+import com.aistudyhub.module.AiUsageLogs.service.AiUsageService;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckRequest;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckSearchRequest;
@@ -68,6 +70,7 @@ public class FlashcardService {
     private final UserService userService;
     private final FlashcardRepository cardRepository;
     private final NotebookDocumentRepository notebookDocumentRepository;
+    private final AiUsageService aiUsageService;
 
     // =========================================================================
     // FLASHCARD DECK CRUD
@@ -514,9 +517,39 @@ public class FlashcardService {
         deck = deckRepository.save(deck);
         log.info("Successfully generated mock FlashcardDeck id={} with {} cards for userId={}",
                 deck.getId(), totalCardsToGenerate, currentUser.getId());
+        safeLogAiUsage(currentUser.getId(), AiActionType.FLASHCARD_GENERATION,
+                estimateGeneratedFlashcardTokens(chunks, totalCardsToGenerate));
         // 7. Map sang DTO trả về cho Client
         return FlashcardDeckResponseMapper.toResponse(deck);
 
+    }
+
+    private int estimateGeneratedFlashcardTokens(List<DocumentChunk> chunks, int generatedCardCount) {
+        long contextTokens = chunks.stream()
+                .limit(20)
+                .mapToLong(chunk -> chunk.getTokenEstimate() == null
+                        ? estimateTextTokens(chunk.getTextContent())
+                        : Math.max(chunk.getTokenEstimate(), 0))
+                .sum();
+        long outputTokens = Math.max(generatedCardCount, 0) * 50L;
+        long total = contextTokens + outputTokens;
+        return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(total, 0L);
+    }
+
+    private long estimateTextTokens(String text) {
+        if (text == null || text.isBlank()) {
+            return 0L;
+        }
+        return Math.max(1L, (long) Math.ceil(text.trim().length() / 4.0));
+    }
+
+    private void safeLogAiUsage(Long userId, AiActionType actionType, Integer tokenCount) {
+        try {
+            aiUsageService.logUsage(userId, actionType, tokenCount);
+        } catch (Exception ex) {
+            log.warn("Failed to persist AI usage log for userId={} actionType={}: {}",
+                    userId, actionType, ex.getMessage());
+        }
     }
 
 }

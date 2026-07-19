@@ -4,18 +4,24 @@ import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Role;
 import com.aistudyhub.common.enums.Visibility;
+import com.aistudyhub.common.enums.AiActionType;
+import com.aistudyhub.entity.AiUsageLogs;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.DocumentChunk;
 import com.aistudyhub.entity.DocumentShareLink;
 import com.aistudyhub.entity.Subject;
 import com.aistudyhub.entity.User;
+import com.aistudyhub.repository.AiUsageLogsRepository;
 import com.aistudyhub.repository.DocumentChunkRepository;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.DocumentShareLinkRepository;
 import com.aistudyhub.repository.SubjectRepository;
 import com.aistudyhub.repository.UserRepository;
 import com.aistudyhub.security.CustomUserDetails;
+import com.aistudyhub.module.document.service.GeminiChunkingService;
+import com.aistudyhub.module.document.service.OpenAIEmbeddingService;
 import com.aistudyhub.module.document.service.StorageService;
+import com.aistudyhub.module.document.service.TextChunkingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +40,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
@@ -74,8 +83,17 @@ class BE056Test {
     @Autowired
     private DocumentShareLinkRepository documentShareLinkRepository;
 
+    @Autowired
+    private AiUsageLogsRepository aiUsageLogsRepository;
+
     @MockBean
     private StorageService storageService;
+
+    @MockBean
+    private GeminiChunkingService geminiChunkingService;
+
+    @MockBean
+    private OpenAIEmbeddingService openAIEmbeddingService;
 
     private User owner;
     private User otherUser;
@@ -86,6 +104,7 @@ class BE056Test {
 
     @BeforeEach
     void setUp() {
+        aiUsageLogsRepository.deleteAll();
         documentShareLinkRepository.deleteAll();
         documentChunkRepository.deleteAll();
         documentRepository.deleteAll();
@@ -159,6 +178,60 @@ class BE056Test {
                 .sourcePage(12)
                 .sourceSection("Section 1")
                 .build());
+    }
+
+    @Test
+    void processDocumentLogsGeminiChunkingAndOpenAiEmbeddingUsage() throws Exception {
+        String rawText = "Software requirements introduce actors, functional flows, constraints, and acceptance criteria.";
+        String firstChunk = "Software requirements introduce actors and functional flows.";
+        String secondChunk = "Constraints and acceptance criteria guide validation.";
+        List<TextChunkingService.ChunkResult> chunkResults = List.of(
+                new TextChunkingService.ChunkResult(0, firstChunk, 14, 1, "Introduction", null),
+                new TextChunkingService.ChunkResult(1, secondChunk, 12, 2, "Validation", null)
+        );
+
+        when(geminiChunkingService.chunkTextWithMetadata(eq(rawText), eq(800), eq(120)))
+                .thenReturn(new GeminiChunkingService.ChunkingOutcome(
+                        chunkResults,
+                        GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC,
+                        "Gemini semantic chunking completed successfully"));
+        when(openAIEmbeddingService.generateBatchEmbeddings(eq(privateDocument.getId()),
+                eq(List.of(firstChunk, secondChunk))))
+                .thenReturn(Map.of(
+                        0, new OpenAIEmbeddingService.EmbeddingResult(
+                                "openai:test:0", "[0.1,0.2,0.3]", "text-embedding-3-small"),
+                        1, new OpenAIEmbeddingService.EmbeddingResult(
+                                "openai:test:1", "[0.2,0.3,0.4]", "text-embedding-3-small")
+                ));
+
+        mockMvc.perform(post("/api/documents/{documentId}/process", privateDocument.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "chunkSize", 800,
+                                "overlap", 120,
+                                "mockText", rawText))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.processingStatus").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.chunkCount").value(2));
+
+        Map<AiActionType, Long> counts = aiUsageLogsRepository.findByUser_IdOrderByCreatedAtDesc(owner.getId())
+                .stream()
+                .peek(log -> assertTrue(log.getTokenCount() > 0))
+                .collect(Collectors.groupingBy(AiUsageLogs::getActionType, Collectors.counting()));
+
+        assertEquals(1L, counts.get(AiActionType.DOCUMENT_CHUNKING));
+        assertEquals(1L, counts.get(AiActionType.DOCUMENT_EMBEDDING));
+
+        mockMvc.perform(get("/api/users/me/ai-usage")
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(owner))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalRequests").value(2))
+                .andExpect(jsonPath("$.data.documentChunkingRequests").value(1))
+                .andExpect(jsonPath("$.data.documentEmbeddingRequests").value(1))
+                .andExpect(jsonPath("$.data.actionCounts.DOCUMENT_CHUNKING").value(1))
+                .andExpect(jsonPath("$.data.actionCounts.DOCUMENT_EMBEDDING").value(1));
     }
 
     @Test

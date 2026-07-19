@@ -1,6 +1,7 @@
 package com.aistudyhub.module.AiUsageLogs.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import com.aistudyhub.common.enums.AiActionType;
 import com.aistudyhub.module.AiUsageLogs.dto.AdminAiUsageResponse;
@@ -12,7 +13,17 @@ public interface AiUsageService {
             Integer tokenCount,
             BigDecimal estimatedCost);
 
-    UserAiUsageResponse getMyUsage(Long userId);
+    void logUsage(Long userId,
+            AiActionType actionType,
+            Integer tokenCount);
 
-    AdminAiUsageResponse getAllUsage();
+    UserAiUsageResponse getMyUsage(Long userId,
+            LocalDate fromDate,
+            LocalDate toDate,
+            AiActionType actionType);
+
+    AdminAiUsageResponse getAllUsage(LocalDate fromDate,
+            LocalDate toDate,
+            Long userId,
+            AiActionType actionType);
 }
