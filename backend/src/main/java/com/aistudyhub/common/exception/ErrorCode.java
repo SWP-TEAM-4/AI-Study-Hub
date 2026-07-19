@@ -175,6 +175,13 @@ public enum ErrorCode {
         BADGE_NOT_FOUND("BADGE_NOT_FOUND", "Badge not found", HttpStatus.NOT_FOUND),
         BADGE_ALREADY_ASSIGNED("BADGE_ALREADY_ASSIGNED", "Badge already assigned to this user", HttpStatus.CONFLICT),
 
+        // ── Referral / Growth ─────────────────────────────────────────────────────
+        REFERRAL_CODE_INVALID("REFERRAL_CODE_INVALID", "Referral code is invalid", HttpStatus.BAD_REQUEST),
+        REFERRAL_SELF_APPLY("REFERRAL_SELF_APPLY", "You cannot apply your own referral code",
+                        HttpStatus.BAD_REQUEST),
+        REFERRAL_ALREADY_APPLIED("REFERRAL_ALREADY_APPLIED", "Referral code has already been applied",
+                        HttpStatus.CONFLICT),
+
         // ── Access Control ────────────────────────────────────────────────────────
         ACCESS_DENIED("ACCESS_DENIED", "You don't have permission to perform this action", HttpStatus.FORBIDDEN),
         UNAUTHORIZED("UNAUTHORIZED", "Authentication required", HttpStatus.UNAUTHORIZED),
