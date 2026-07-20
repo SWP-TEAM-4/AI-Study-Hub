@@ -207,6 +207,7 @@ export default function NotebookDetailPage() {
           documents={notebookDocuments}
           quizzes={[]}
           decks={[]}
+          compact={!!activeDocument}
         />
       </div>
 
