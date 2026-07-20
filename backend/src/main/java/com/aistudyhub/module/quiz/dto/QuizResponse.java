@@ -30,6 +30,9 @@ public class QuizResponse {
     private Integer downloadCount;
     private Integer reviewCount;
     private BigDecimal acceptPercentage;
+    private Long questionCount;
+    private Long attemptCount;
+    private BigDecimal bestScore;
     private String aiVerdictNote;
     private Long clonedFromId;
     private LocalDateTime createdAt;

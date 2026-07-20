@@ -26,6 +26,7 @@ public class TestResultItemResponse {
     private QuestionType questionType;
     private Boolean isCorrect;
     private Long selectedOptionId;
+    private List<Long> selectedOptionIds;
     private String userAnswerText;
     private String explanation;
     private List<OptionResponse> options;

@@ -122,6 +122,7 @@ public class TestResultService {
      * @param testId ID của bài thi
      * @return TestResultResponse chứa thông tin điểm số và lời giải chi tiết
      */
+    @Transactional
     public TestResultResponse getTestResult(Long testId) {
         // 1. Lấy thông tin user hiện tại
         User currentUser = userService.getCurrentUser();
@@ -216,6 +217,10 @@ public class TestResultService {
                     .isCorrect(progress.getIsCorrect() != null ? progress.getIsCorrect() : false)
                     .selectedOptionId(
                             progress.getSelectedOption() != null ? progress.getSelectedOption().getId() : null)
+                    .selectedOptionIds(progress.getSelectedOptions().stream()
+                            .map(option -> option.getId())
+                            .sorted()
+                            .toList())
                     // Chỉ trả về userAnswerText nếu câu hỏi là FILL_IN_THE_BLANK. Nếu là trắc
                     // nghiệm, bắt buộc trả về null.
                     .userAnswerText(question

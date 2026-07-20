@@ -66,21 +66,19 @@ export interface QuizDTO {
   academicTermId?: number | null;
   academicTermName?: string | null;
   examType?: string | null;
-  visibility?: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+  visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
   marketStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   downloadCount?: number;
   reviewCount?: number;
   acceptPercentage?: number;
+  questionCount?: number;
+  attemptCount?: number;
+  bestScore?: number;
   aiVerdictNote?: string | null;
   clonedFromId?: number | null;
   createdAt?: string;
   updatedAt?: string;
 
-  subject?: string;
-  level?: string;
-  questions?: number;
-  bestScore?: number;
-  attempts?: number;
 }
 
 export interface QuizPayload {
@@ -90,7 +88,7 @@ export interface QuizPayload {
   subjectId?: number | null;
   academicTermId?: number | null;
   examType?: string | null;
-  visibility?: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+  visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
 }
 
 export interface OptionDTO {
@@ -109,6 +107,7 @@ export interface QuestionDTO {
   options: OptionDTO[];
   userProgress?: {
     selectedOptionId?: number;
+    selectedOptionIds?: number[];
     userAnswerText?: string;
   } | null;
 }
@@ -138,6 +137,7 @@ export interface TestDTO {
   userId: number;
   title: string;
   duration: number;
+  expiresAt?: string | null;
   selectionMode: "ALL" | "SELECTED" | "RANDOM" | string;
   status: "IN_PROGRESS" | "COMPLETED";
   totalQuestions?: number;
@@ -154,6 +154,7 @@ export interface TestResultItemDTO {
   questionType?: QuestionDTO["questionType"];
   isCorrect: boolean;
   selectedOptionId?: number | null;
+  selectedOptionIds?: number[];
   userAnswerText?: string | null;
   explanation?: string | null;
   options?: OptionDTO[];
@@ -173,10 +174,9 @@ export interface UserTestHistoryDTO {
 function normalizeQuiz(quiz: QuizDTO): QuizDTO {
   return {
     ...quiz,
-    subject: quiz.subjectName || (quiz.subjectId ? `Môn #${quiz.subjectId}` : "Tự do"),
-    level: quiz.examType || "Medium",
-    bestScore: quiz.bestScore ?? 0,
-    attempts: quiz.attempts ?? quiz.reviewCount ?? 0,
+    questionCount: Number(quiz.questionCount ?? 0),
+    attemptCount: Number(quiz.attemptCount ?? 0),
+    bestScore: Number(quiz.bestScore ?? 0),
   };
 }
 
@@ -306,7 +306,7 @@ export const quizService = {
 
   async saveTestAnswer(
     testId: number,
-    payload: { questionId: number; selectedOptionId?: number; userAnswerText?: string },
+    payload: { questionId: number; selectedOptionId?: number; selectedOptionIds?: number[]; userAnswerText?: string },
   ) {
     return qRequest(`/tests/${testId}/answers`, {
       method: "POST",

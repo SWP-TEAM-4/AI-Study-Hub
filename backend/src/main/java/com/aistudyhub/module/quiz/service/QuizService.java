@@ -32,6 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Service xử lý toàn bộ logic nghiệp vụ liên quan đến Quiz (Đề thi).
@@ -294,7 +297,33 @@ public class QuizService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return quizRepository.findAll(spec, pageable).map(QuizResponseMapper::toResponse);
+        Page<Quiz> quizPage = quizRepository.findAll(spec, pageable);
+        List<Long> quizIds = quizPage.getContent().stream().map(Quiz::getId).toList();
+
+        if (quizIds.isEmpty()) {
+            return quizPage.map(QuizResponseMapper::toResponse);
+        }
+
+        Map<Long, QuizQuestionRepository.QuestionCountSummary> questionSummaries = quizQuestionRepository
+                .summarizeActiveQuestionsByQuizIds(quizIds)
+                .stream()
+                .collect(Collectors.toMap(QuizQuestionRepository.QuestionCountSummary::getQuizId, Function.identity()));
+        Map<Long, TestRepository.UserQuizTestSummary> testSummaries = testRepository
+                .summarizeUserTestsByQuizIds(currentUserId, quizIds, TestStatus.COMPLETED)
+                .stream()
+                .collect(Collectors.toMap(TestRepository.UserQuizTestSummary::getQuizId, Function.identity()));
+
+        return quizPage.map(quiz -> {
+            QuizResponse response = QuizResponseMapper.toResponse(quiz);
+            QuizQuestionRepository.QuestionCountSummary questionSummary = questionSummaries.get(quiz.getId());
+            TestRepository.UserQuizTestSummary testSummary = testSummaries.get(quiz.getId());
+            response.setQuestionCount(questionSummary != null ? questionSummary.getQuestionCount() : 0L);
+            response.setAttemptCount(testSummary != null ? testSummary.getAttemptCount() : 0L);
+            response.setBestScore(testSummary != null && testSummary.getBestScore() != null
+                    ? testSummary.getBestScore()
+                    : BigDecimal.ZERO);
+            return response;
+        });
     }
 
     @Transactional

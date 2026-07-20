@@ -27,6 +27,7 @@ public class TestResponse {
     private String title;
     private BigDecimal totalScore;
     private Integer duration;
+    private LocalDateTime expiresAt;
     private TestStatus status;
     private LocalDateTime createdAt;
     private List<TestQuestionResponse> questions; // Danh sách các câu hỏi trong đề thi

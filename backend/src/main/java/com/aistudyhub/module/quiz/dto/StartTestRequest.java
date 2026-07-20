@@ -3,6 +3,8 @@ package com.aistudyhub.module.quiz.dto;
 import com.aistudyhub.common.enums.QuizSelectionMode;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,6 +16,8 @@ public class StartTestRequest {
 
     private String title;
 
+    @Min(value = 1, message = "Duration must be at least 1 minute")
+    @Max(value = 1440, message = "Duration cannot exceed 1440 minutes")
     private Integer duration;
 
     @NotNull(message = "Selection mode is required")
