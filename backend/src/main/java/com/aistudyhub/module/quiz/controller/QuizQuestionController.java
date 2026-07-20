@@ -160,8 +160,8 @@ public class QuizQuestionController {
     }
 
     @Operation(
-        summary = "Xóa câu hỏi (cascade xóa đáp án)",
-        description = "Xóa câu hỏi và tự động xóa toàn bộ đáp án liên quan. Chỉ người tạo Quiz mới được phép."
+        summary = "Ẩn câu hỏi khỏi Quiz Bank",
+        description = "Đánh dấu câu hỏi đã xóa để không dùng cho bài test mới, đồng thời giữ dữ liệu cho lịch sử làm bài. Chỉ người tạo Quiz mới được phép."
     )
     @DeleteMapping("/api/questions/{questionId}")
     public ResponseEntity<ApiResponse<Void>> deleteQuestion(@PathVariable Long questionId) {

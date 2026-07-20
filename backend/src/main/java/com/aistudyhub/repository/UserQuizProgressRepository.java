@@ -21,6 +21,8 @@ public interface UserQuizProgressRepository extends JpaRepository<UserQuizProgre
      */
     boolean existsByQuestionId(Long questionId);
 
+    void deleteByTestId(Long testId);
+
     /**
      * Lấy tất cả tiến trình của một bài test cụ thể (dùng khi chuẩn bị đáp án)
      */

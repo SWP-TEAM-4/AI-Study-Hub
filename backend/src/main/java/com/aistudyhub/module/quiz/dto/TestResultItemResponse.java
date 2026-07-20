@@ -1,5 +1,9 @@
 package com.aistudyhub.module.quiz.dto;
 
+import java.util.List;
+
+import com.aistudyhub.common.enums.QuestionType;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,9 +22,12 @@ import lombok.Setter;
 @Builder
 public class TestResultItemResponse {
     private Long questionId;
+    private String questionText;
+    private QuestionType questionType;
     private Boolean isCorrect;
     private Long selectedOptionId;
     private String userAnswerText;
     private String explanation;
+    private List<OptionResponse> options;
 
 }

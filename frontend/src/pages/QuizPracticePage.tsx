@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Sparkles, Trophy, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Notify } from "notiflix";
 import { QuestionDTO, quizService, StartTestPayload, TestDTO } from "../services/quizService";
 
@@ -42,23 +42,34 @@ function AiExplainButton({ question, selected }: { question: string; selected: s
 interface QuizPracticePageProps {
   quizId: number;
   config?: StartTestPayload;
+  initialTest: TestDTO;
   onBack: () => void;
+  onBackToQuizBank: () => void;
 }
 
-export default function QuizPracticePage({ quizId, config, onBack }: QuizPracticePageProps) {
-  const [testSession, setTestSession] = useState<TestDTO | null>(null);
-  const [questions, setQuestions] = useState<QuestionDTO[]>([]);
+const getSelectedOptions = (questions: QuestionDTO[]) =>
+  questions.reduce<Record<number, number>>((acc, question) => {
+    if (question.userProgress?.selectedOptionId) acc[question.id] = question.userProgress.selectedOptionId;
+    return acc;
+  }, {});
+
+const getTextAnswers = (questions: QuestionDTO[]) =>
+  questions.reduce<Record<number, string>>((acc, question) => {
+    if (question.userProgress?.userAnswerText) acc[question.id] = question.userProgress.userAnswerText;
+    return acc;
+  }, {});
+
+export default function QuizPracticePage({ quizId, config, initialTest, onBack, onBackToQuizBank }: QuizPracticePageProps) {
+  const initialQuestions = initialTest.questions || [];
+  const [testSession, setTestSession] = useState<TestDTO | null>(initialTest);
+  const [questions, setQuestions] = useState<QuestionDTO[]>(initialQuestions);
   const [idx, setIdx] = useState(0);
-  const [picks, setPicks] = useState<Record<number, number>>({});
-  const [textAnswers, setTextAnswers] = useState<Record<number, string>>({});
+  const [picks, setPicks] = useState<Record<number, number>>(() => getSelectedOptions(initialQuestions));
+  const [textAnswers, setTextAnswers] = useState<Record<number, string>>(() => getTextAnswers(initialQuestions));
   const [done, setDone] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testResult, setTestResult] = useState<TestDTO | null>(null);
-
-  useEffect(() => {
-    initTest();
-  }, [quizId, config]);
 
   const initTest = async () => {
     setIsLoading(true);
@@ -71,18 +82,8 @@ export default function QuizPracticePage({ quizId, config, onBack }: QuizPractic
         setIdx(0);
         setDone(false);
         setTestResult(null);
-        setPicks(
-          loadedQuestions.reduce<Record<number, number>>((acc, question) => {
-            if (question.userProgress?.selectedOptionId) acc[question.id] = question.userProgress.selectedOptionId;
-            return acc;
-          }, {}),
-        );
-        setTextAnswers(
-          loadedQuestions.reduce<Record<number, string>>((acc, question) => {
-            if (question.userProgress?.userAnswerText) acc[question.id] = question.userProgress.userAnswerText;
-            return acc;
-          }, {}),
-        );
+        setPicks(getSelectedOptions(loadedQuestions));
+        setTextAnswers(getTextAnswers(loadedQuestions));
       }
     } catch (e: any) {
       Notify.failure(e.message || "Không thể bắt đầu làm bài");
@@ -252,12 +253,15 @@ export default function QuizPracticePage({ quizId, config, onBack }: QuizPractic
             })}
           </div>
 
-          <div className="mt-6 flex gap-2 justify-center">
+          <div className="mt-6 flex flex-wrap gap-2 justify-center">
             <button onClick={initTest} className="px-4 h-10 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
               Làm lại
             </button>
             <button onClick={onBack} className="px-4 h-10 inline-flex items-center rounded-xl bg-card border border-border font-medium text-sm">
               Về danh sách
+            </button>
+            <button onClick={onBackToQuizBank} className="px-4 h-10 inline-flex items-center rounded-xl bg-card border border-border font-medium text-sm hover:bg-muted transition-colors">
+              Về trang Quiz Bank
             </button>
           </div>
         </motion.div>
