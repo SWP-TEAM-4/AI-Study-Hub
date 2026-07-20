@@ -6,7 +6,7 @@ import QuizPracticePage from "./QuizPracticePage";
 import QuizBankDetailPage from "./QuizBankDetailPage";
 import CustomSelect from "../components/ui/CustomSelect";
 import EmptyState from "../components/ui/EmptyState";
-import { quizService, QuizDTO } from "../services/quizService";
+import { quizService, QuizDTO, StartTestPayload } from "../services/quizService";
 import { Notify } from "notiflix";
 
 const levelStyles: Record<string, string> = {
@@ -26,6 +26,7 @@ export default function QuizPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [activeQuizId, setActiveQuizId] = useState<number | null>(null);
+  const [activeTestConfig, setActiveTestConfig] = useState<StartTestPayload | null>(null);
   const [activeDetailId, setActiveDetailId] = useState<number | null>(null);
   const [list, setList] = useState<QuizDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,8 +78,18 @@ export default function QuizPage() {
   };
   const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
+  const startPractice = (quizId: number, config: StartTestPayload = { quizSelectionMode: "ALL" }) => {
+    setActiveTestConfig(config);
+    setActiveQuizId(quizId);
+  };
+
+  const closePractice = () => {
+    setActiveQuizId(null);
+    setActiveTestConfig(null);
+  };
+
   if (activeQuizId) {
-    return <QuizPracticePage quizId={activeQuizId} onBack={() => setActiveQuizId(null)} />;
+    return <QuizPracticePage quizId={activeQuizId} config={activeTestConfig ?? undefined} onBack={closePractice} />;
   }
 
   if (activeDetailId) {
@@ -86,7 +97,10 @@ export default function QuizPage() {
       <QuizBankDetailPage 
         quizId={activeDetailId} 
         onBack={() => setActiveDetailId(null)} 
-        onStartTest={() => { setActiveQuizId(activeDetailId); setActiveDetailId(null); }} 
+        onStartTest={(config) => {
+          startPractice(activeDetailId, config);
+          setActiveDetailId(null);
+        }}
       />
     );
   }
@@ -253,7 +267,7 @@ export default function QuizPage() {
                   <BookOpen size={16} /> Chi tiết
                 </button>
                 <button
-                  onClick={() => setActiveQuizId(quiz.id)}
+                  onClick={() => startPractice(quiz.id)}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   <Plus size={16} /> {t('pages.quiz.playNow')}

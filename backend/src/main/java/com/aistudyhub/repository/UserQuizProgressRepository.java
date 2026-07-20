@@ -17,6 +17,11 @@ public interface UserQuizProgressRepository extends JpaRepository<UserQuizProgre
     Optional<UserQuizProgress> findByTestIdAndQuestionId(Long testId, Long questionId);
 
     /**
+     * Kiểm tra câu hỏi đã được khóa vào lịch sử của bất kỳ bài test nào hay chưa.
+     */
+    boolean existsByQuestionId(Long questionId);
+
+    /**
      * Lấy tất cả tiến trình của một bài test cụ thể (dùng khi chuẩn bị đáp án)
      */
     List<UserQuizProgress> findByTestIdOrderById(Long testId);

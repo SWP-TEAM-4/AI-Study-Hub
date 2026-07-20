@@ -58,7 +58,7 @@ export default function QuizPracticePage({ quizId, config, onBack }: QuizPractic
 
   useEffect(() => {
     initTest();
-  }, [quizId]);
+  }, [quizId, config]);
 
   const initTest = async () => {
     setIsLoading(true);

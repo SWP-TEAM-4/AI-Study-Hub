@@ -14,6 +14,7 @@ import com.aistudyhub.module.quiz.dto.QuestionResponse;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.QuizQuestionRepository;
 import com.aistudyhub.repository.QuizRepository;
+import com.aistudyhub.repository.UserQuizProgressRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class QuizQuestionService {
 
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
+    private final UserQuizProgressRepository userQuizProgressRepository;
     private final UserService userService;
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -139,6 +141,10 @@ public class QuizQuestionService {
         QuizQuestion question = findQuestionOrThrow(questionId);
         validateCreatorOwnership(question.getQuiz(), currentUserId);
 
+        if (userQuizProgressRepository.existsByQuestionId(questionId)) {
+            throw new AppException(ErrorCode.QUESTION_IN_USE);
+        }
+
         quizQuestionRepository.delete(question);
         log.info("Question id={} deleted by userId={}", questionId, currentUserId);
     }
@@ -202,6 +208,24 @@ public class QuizQuestionService {
             if (type == QuestionType.MULTIPLE_CHOICE && correctOptions < 1) {
                 throw new AppException(ErrorCode.VALIDATION_ERROR,
                         "At least one option must be marked as correct");
+            }
+            return;
+        }
+
+        if (type == QuestionType.FILL_IN_THE_BLANK) {
+            if (options == null || options.size() != 1) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "FILL_IN_THE_BLANK questions require exactly one hidden correct answer option");
+            }
+
+            OptionRequest correctAnswer = options.get(0);
+            if (correctAnswer.getOptionText() == null || correctAnswer.getOptionText().isBlank()) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "FILL_IN_THE_BLANK correct answer must not be blank");
+            }
+            if (!Boolean.TRUE.equals(correctAnswer.getIsCorrect())) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "FILL_IN_THE_BLANK answer option must be marked as correct");
             }
         }
     }

@@ -37,7 +37,7 @@ public class QuizQuestionController {
             
             **Quy tắc:**
             - `SINGLE_CHOICE` / `MULTIPLE_CHOICE`: cần ít nhất 2 đáp án, ít nhất 1 `isCorrect: true`
-            - `FILL_IN_THE_BLANK`: truyền `options: []` (danh sách rỗng)
+            - `FILL_IN_THE_BLANK`: truyền đúng 1 option ẩn chứa đáp án chuẩn với `isCorrect: true`
             - Trường `id` trong options: **BỎ TRỐNG** khi tạo mới (chỉ dùng cho PUT)
             """
     )
@@ -81,13 +81,15 @@ public class QuizQuestionController {
                 ),
                 @ExampleObject(
                     name = "3. Điền vào chỗ trống (FILL_IN_THE_BLANK)",
-                    summary = "Câu hỏi điền từ, không cần options",
+                    summary = "Câu hỏi điền từ với một đáp án chuẩn ẩn",
                     value = """
                         {
                           "questionText": "Annotation để khai báo một Spring Bean là ______",
                           "questionType": "FILL_IN_THE_BLANK",
                           "explanation": "@Component hoặc @Service, @Repository, @Controller",
-                          "options": []
+                          "options": [
+                            { "optionText": "@Component", "isCorrect": true }
+                          ]
                         }
                         """
                 )
