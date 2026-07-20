@@ -79,6 +79,10 @@ export interface ProcessDocumentRequest {
   overlap: number;
 }
 
+export interface UpdateDocumentChunkRequest {
+  textContent: string;
+}
+
 export interface ProcessDocumentResponse {
   documentId: number;
   processingStatus: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
@@ -385,6 +389,17 @@ export const documentService = {
 
   async getDocumentChunks(documentId: number): Promise<ApiResponse<ChunkDTO[]>> {
     return docRequest(`/documents/${documentId}/chunks`, { method: "GET" });
+  },
+
+  async updateDocumentChunk(
+    documentId: number,
+    chunkId: number,
+    payload: UpdateDocumentChunkRequest,
+  ): Promise<ApiResponse<ChunkDTO>> {
+    return docRequest(`/documents/${documentId}/chunks/${chunkId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   },
 
   async processDocumentChunks(
