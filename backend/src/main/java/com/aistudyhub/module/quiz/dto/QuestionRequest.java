@@ -30,7 +30,7 @@ public class QuestionRequest {
     private String explanation;
 
     @Schema(
-        description = "Danh sách đáp án. SINGLE_CHOICE/MULTIPLE_CHOICE: cần îdần 2 đáp án, ít nhất 1 isCorrect=true. FILL_IN_THE_BLANK: để rỗng []."
+        description = "Danh sách đáp án. SINGLE_CHOICE/MULTIPLE_CHOICE: cần ít nhất 2 đáp án. FILL_IN_THE_BLANK: đúng 1 option ẩn chứa đáp án chuẩn với isCorrect=true."
     )
     @Valid
     @NotNull(message = "Options list must not be null")

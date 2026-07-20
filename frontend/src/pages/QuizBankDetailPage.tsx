@@ -32,13 +32,26 @@ const createBlankQuestionPayload = (): QuestionPayload => ({
   ],
 });
 
+const getFillBlankAnswerOption = (question: QuestionDTO) => question.options.find((option) => option.isCorrect);
+
 const toQuestionPayload = (question: QuestionDTO): QuestionPayload => ({
   questionText: question.questionText.trim(),
   questionType: question.questionType,
   explanation: question.explanation?.trim() || "",
   options:
     question.questionType === "FILL_IN_THE_BLANK"
-      ? []
+      ? (() => {
+          const correctAnswer = getFillBlankAnswerOption(question);
+          return correctAnswer
+            ? [
+                {
+                  id: correctAnswer.id,
+                  optionText: correctAnswer.optionText.trim(),
+                  isCorrect: true,
+                },
+              ]
+            : [];
+        })()
       : question.options.map((option) => ({
           id: option.id,
           optionText: option.optionText.trim(),
@@ -131,7 +144,11 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
           if (activeQuestionId === id) setActiveQuestionId(null);
           Notify.success("Đã xóa câu hỏi");
         } catch (e: any) {
-          Notify.failure(e.message || "Không thể xóa câu hỏi");
+          Notify.failure(
+            e.errorCode === "QUESTION_IN_USE"
+              ? "Không thể xóa câu hỏi đã được sử dụng trong lịch sử làm bài"
+              : e.message || "Không thể xóa câu hỏi",
+          );
         }
       },
     );
@@ -139,7 +156,10 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
 
   const validateQuestion = (question: QuestionDTO) => {
     if (!question.questionText.trim()) return "Nội dung câu hỏi không được để trống";
-    if (question.questionType !== "FILL_IN_THE_BLANK") {
+    if (question.questionType === "FILL_IN_THE_BLANK") {
+      const correctAnswer = getFillBlankAnswerOption(question);
+      if (!correctAnswer?.optionText.trim()) return "Đáp án đúng không được để trống";
+    } else {
       const validOptions = question.options.filter((option) => option.optionText.trim());
       if (validOptions.length < 2) return "Câu trắc nghiệm cần ít nhất 2 đáp án";
       if (!validOptions.some((option) => option.isCorrect)) return "Cần chọn ít nhất 1 đáp án đúng";
@@ -500,6 +520,36 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                     className="w-full min-h-[50px] p-2.5 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs resize-none"
                   />
                 </div>
+
+                {activeQuestion.questionType === "FILL_IN_THE_BLANK" && (
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Đáp án đúng
+                    </label>
+                    <input
+                      type="text"
+                      value={getFillBlankAnswerOption(activeQuestion)?.optionText ?? ""}
+                      onChange={(e) => {
+                        const currentAnswer = getFillBlankAnswerOption(activeQuestion);
+                        replaceQuestion(activeQuestion.id, {
+                          options: [
+                            {
+                              id: currentAnswer?.id,
+                              questionId: activeQuestion.id,
+                              optionText: e.target.value,
+                              isCorrect: true,
+                            },
+                          ],
+                        });
+                      }}
+                      placeholder="Nhập đáp án chuẩn để hệ thống chấm điểm"
+                      className="w-full h-9 px-3 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs"
+                    />
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Đáp án này được lưu ẩn và không hiển thị trong lúc làm bài.
+                    </p>
+                  </div>
+                )}
 
                 {activeQuestion.questionType !== "FILL_IN_THE_BLANK" && (
                   <div>

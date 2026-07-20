@@ -123,6 +123,8 @@ public enum ErrorCode {
         QUIZ_NOT_FOUND("QUIZ_NOT_FOUND", "Quiz not found", HttpStatus.NOT_FOUND),
         QUIZ_ACCESS_DENIED("QUIZ_ACCESS_DENIED", "You don't have access to this quiz", HttpStatus.FORBIDDEN),
         QUESTION_NOT_FOUND("QUESTION_NOT_FOUND", "Question not found", HttpStatus.NOT_FOUND),
+        QUESTION_IN_USE("QUESTION_IN_USE", "Question cannot be deleted because it is used in test history",
+                        HttpStatus.CONFLICT),
         OPTION_NOT_FOUND("OPTION_NOT_FOUND", "Option not found", HttpStatus.NOT_FOUND),
         TEST_NOT_FOUND("TEST_NOT_FOUND", "Test not found", HttpStatus.NOT_FOUND),
         TEST_ALREADY_COMPLETED("TEST_ALREADY_COMPLETED", "Test has already been submitted", HttpStatus.BAD_REQUEST),

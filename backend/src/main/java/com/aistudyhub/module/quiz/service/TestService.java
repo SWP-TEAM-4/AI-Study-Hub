@@ -163,11 +163,15 @@ public class TestService {
             // Map danh sách phương án lựa chọn option tương ứng của câu hỏi
             List<TestOptionResponse> optionResponses = new ArrayList<>();
 
-            for (QuizOption option : question.getOptions()) {
-                optionResponses.add(TestOptionResponse.builder()
-                        .id(option.getId())
-                        .optionText(option.getOptionText())
-                        .build());
+            // Đáp án chuẩn của câu điền từ được lưu như một option ẩn để chấm điểm,
+            // nhưng tuyệt đối không trả option này trong payload làm bài.
+            if (question.getQuestionType() != QuestionType.FILL_IN_THE_BLANK) {
+                for (QuizOption option : question.getOptions()) {
+                    optionResponses.add(TestOptionResponse.builder()
+                            .id(option.getId())
+                            .optionText(option.getOptionText())
+                            .build());
+                }
             }
 
             // trộn thứ tự các phương án
@@ -238,11 +242,14 @@ public class TestService {
 
             // Map danh sach Option cua cau hoi
             List<TestOptionResponse> optionResponses = new ArrayList<>();
-            for (QuizOption option : question.getOptions()) {
-                optionResponses.add(TestOptionResponse.builder()
-                        .id(option.getId())
-                        .optionText(option.getOptionText())
-                        .build());
+            // Giữ cùng quy tắc với startTest: không làm lộ đáp án chuẩn khi resume.
+            if (question.getQuestionType() != QuestionType.FILL_IN_THE_BLANK) {
+                for (QuizOption option : question.getOptions()) {
+                    optionResponses.add(TestOptionResponse.builder()
+                            .id(option.getId())
+                            .optionText(option.getOptionText())
+                            .build());
+                }
             }
 
             // Map tiến trình trả lời của user (nếu đã từng trả lời thì sẽ có dữ liệu)
