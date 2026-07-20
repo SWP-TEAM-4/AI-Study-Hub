@@ -287,9 +287,13 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
       Notify.warning(`Số câu ngẫu nhiên phải từ 1 đến ${questions.length}`);
       return null;
     }
+    if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 1440) {
+      Notify.warning("Thời gian làm bài phải từ 1 đến 1440 phút");
+      return null;
+    }
 
     return {
-      duration: timeLimit || 30,
+      duration: timeLimit,
       quizSelectionMode: selectionMode,
       questionIds: selectionMode === "SELECTED" ? selectedQuestionIds : undefined,
       randomCount: selectionMode === "RANDOM" ? randomCount : undefined,
@@ -564,6 +568,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                       <input
                         type="number"
                         min={1}
+                        max={1440}
                         value={timeLimit}
                         onChange={(e) => setTimeLimit(Number(e.target.value))}
                         className="w-full h-9 pl-8 pr-3 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs"

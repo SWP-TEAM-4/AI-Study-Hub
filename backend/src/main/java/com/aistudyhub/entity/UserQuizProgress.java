@@ -1,6 +1,7 @@
 package com.aistudyhub.entity;
 import java.time.LocalDateTime;
-
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -36,6 +37,18 @@ public class UserQuizProgress {
     @ManyToOne (fetch = FetchType.LAZY)
     @JoinColumn(name = "selected_option_id")
     private QuizOption selectedOption; 
+
+    /**
+     * Lựa chọn của câu MULTIPLE_CHOICE. Cột selected_option_id ở trên vẫn được
+     * giữ nguyên để tương thích với dữ liệu và API SINGLE_CHOICE hiện tại.
+     */
+    @ManyToMany
+    @JoinTable(
+            name = "user_quiz_progress_selected_options",
+            joinColumns = @JoinColumn(name = "progress_id"),
+            inverseJoinColumns = @JoinColumn(name = "option_id"))
+    @Builder.Default
+    private Set<QuizOption> selectedOptions = new LinkedHashSet<>();
 
     @Column(name = "is_correct")
     private Boolean isCorrect;

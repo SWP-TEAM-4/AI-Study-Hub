@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.aistudyhub.common.enums.Role;
+import com.aistudyhub.common.enums.TestStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.entity.Quiz;
 import com.aistudyhub.entity.QuizQuestion;
@@ -453,6 +454,30 @@ class QuizFillInTheBlankFlowTest {
                 .andExpect(jsonPath("$.errorCode").value("TEST_ACCESS_DENIED"));
 
         assertTrue(testRepository.existsById(test.getId()));
+    }
+
+    @Test
+    void listQuizzes_ReturnsRealQuestionAndCompletedAttemptSummaries() throws Exception {
+        createFillBlankQuestion("@Component");
+        createFillBlankQuestion("@Service");
+        testRepository.save(com.aistudyhub.entity.Test.builder()
+                .quiz(quiz)
+                .user(owner)
+                .title("Completed summary test")
+                .status(TestStatus.COMPLETED)
+                .totalScore(new java.math.BigDecimal("7.50"))
+                .duration(30)
+                .build());
+
+        mockMvc.perform(get("/api/quizzes")
+                        .with(user(userDetails()))
+                        .param("page", "0")
+                        .param("size", "12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].questionCount").value(2))
+                .andExpect(jsonPath("$.data.items[0].attemptCount").value(1))
+                .andExpect(jsonPath("$.data.items[0].bestScore").value(7.5));
     }
 
     private void createFillBlankQuestion(String correctAnswer) throws Exception {

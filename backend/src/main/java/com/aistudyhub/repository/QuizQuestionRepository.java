@@ -20,4 +20,18 @@ public interface QuizQuestionRepository extends JpaRepository<QuizQuestion, Long
     List<QuizQuestion> findAllActiveById(@Param("questionIds") List<Long> questionIds);
 
     Optional<QuizQuestion> findByIdAndDeletedAtIsNull(Long questionId);
+
+    @Query("""
+            SELECT q.quiz.id AS quizId, COUNT(q.id) AS questionCount
+            FROM QuizQuestion q
+            WHERE q.quiz.id IN :quizIds AND q.deletedAt IS NULL
+            GROUP BY q.quiz.id
+            """)
+    List<QuestionCountSummary> summarizeActiveQuestionsByQuizIds(@Param("quizIds") List<Long> quizIds);
+
+    interface QuestionCountSummary {
+        Long getQuizId();
+
+        Long getQuestionCount();
+    }
 }
