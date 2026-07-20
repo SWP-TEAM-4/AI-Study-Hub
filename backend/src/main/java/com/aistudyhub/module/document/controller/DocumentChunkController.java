@@ -5,10 +5,12 @@ import com.aistudyhub.module.document.dto.DocumentDeleteChunksResponse;
 import com.aistudyhub.module.document.dto.DocumentChunkResponse;
 import com.aistudyhub.module.document.dto.DocumentProcessRequest;
 import com.aistudyhub.module.document.dto.DocumentProcessResponse;
+import com.aistudyhub.module.document.dto.UpdateDocumentChunkRequest;
 import com.aistudyhub.module.document.service.DocumentChunkService;
 import com.aistudyhub.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -65,6 +67,24 @@ public class DocumentChunkController {
                 documentId, principal.getId());
 
         return ResponseEntity.ok(ApiResponse.success(chunks));
+    }
+
+    /**
+     * Cập nhật text của một chunk đã extract và regenerate embedding cho RAG.
+     */
+    @Operation(summary = "Cập nhật text của một document chunk",
+            description = "Cho phép owner chỉnh lại text Gemini đã chunking và cập nhật embedding tương ứng.")
+    @PatchMapping("/{documentId}/chunks/{chunkId}")
+    public ResponseEntity<ApiResponse<DocumentChunkResponse>> updateChunk(
+            @PathVariable Long documentId,
+            @PathVariable Long chunkId,
+            @Valid @RequestBody UpdateDocumentChunkRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        DocumentChunkResponse chunk = documentChunkService.updateChunk(
+                documentId, chunkId, principal.getId(), request);
+
+        return ResponseEntity.ok(ApiResponse.success("Chunk updated successfully", chunk));
     }
 
     /**

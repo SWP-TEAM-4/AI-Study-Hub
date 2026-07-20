@@ -13,6 +13,7 @@ import com.aistudyhub.module.document.dto.DocumentChunkResponse;
 import com.aistudyhub.module.document.dto.DocumentDeleteChunksResponse;
 import com.aistudyhub.module.document.dto.DocumentProcessRequest;
 import com.aistudyhub.module.document.dto.DocumentProcessResponse;
+import com.aistudyhub.module.document.dto.UpdateDocumentChunkRequest;
 import com.aistudyhub.repository.DocumentChunkRepository;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.NotebookRepository;
@@ -107,6 +108,48 @@ public class DocumentChunkService {
         return chunks.stream()
                 .map(chunk -> toResponse(chunk, document.getTitle()))
                 .toList();
+    }
+
+    /**
+     * Update one extracted chunk and refresh its embedding so RAG retrieval stays in sync.
+     */
+    @Transactional
+    public DocumentChunkResponse updateChunk(Long documentId, Long chunkId, Long userId,
+                                             UpdateDocumentChunkRequest request) {
+        Document document = documentRepository.findByIdAndUserId(documentId, userId)
+                .orElseThrow(() -> {
+                    if (documentRepository.existsById(documentId)) {
+                        return new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED);
+                    }
+                    return new AppException(ErrorCode.DOCUMENT_NOT_FOUND);
+                });
+
+        if (document.getProcessingStatus() == ProcessingStatus.PROCESSING) {
+            throw new AppException(ErrorCode.DOCUMENT_ALREADY_PROCESSING);
+        }
+
+        if (request == null || request.getTextContent() == null || request.getTextContent().trim().isBlank()) {
+            throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT, "Chunk text content must not be blank");
+        }
+
+        DocumentChunk chunk = documentChunkRepository.findByIdAndDocumentId(chunkId, documentId)
+                .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND, "Document chunk not found"));
+
+        String textContent = request.getTextContent().trim();
+        OpenAIEmbeddingService.EmbeddingResult embeddingResult =
+                openAIEmbeddingService.generateChunkEmbedding(documentId, chunk.getChunkIndex(), textContent);
+
+        chunk.setTextContent(textContent);
+        chunk.setTokenEstimate(capToInteger(estimateTextTokens(textContent)));
+        chunk.setEmbeddingVector(embeddingResult.embeddingVector());
+        chunk.setEmbeddingModel(embeddingResult.embeddingModel());
+        chunk.setVectorId(embeddingResult.vectorId());
+
+        DocumentChunk savedChunk = documentChunkRepository.save(chunk);
+        safeLogAiUsage(userId, AiActionType.DOCUMENT_EMBEDDING, savedChunk.getTokenEstimate());
+
+        log.info("Updated text and embedding for document {} chunk {}", documentId, chunkId);
+        return toResponse(savedChunk, document.getTitle());
     }
 
     // ── 3. Delete chunks ─────────────────────────────────────────────────────
@@ -361,6 +404,7 @@ public class DocumentChunkService {
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         documentChunkRepository.deleteByDocumentId(documentId);
+        documentChunkRepository.flush();
 
         String rawText = request != null && request.getMockText() != null && !request.getMockText().isBlank()
                 ? request.getMockText()
