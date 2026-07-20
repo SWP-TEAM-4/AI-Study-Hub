@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw, Eye, Layers3, Loader2, AlertCircle, Grid, List } from "lucide-react";
+import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw, Eye, Layers3, Loader2, AlertCircle, Grid, List, Pencil, Save } from "lucide-react";
 import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -102,6 +102,11 @@ const DocumentCard = ({ doc, subjectMap, getSubjectLabel, documentTags, reproces
                 <button onClick={() => handleEdit(doc)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                   <FileText size={14} /> {t('pages.documents.table.editDesc')}
                 </button>
+                {doc.processingStatus === "SUCCESS" && (
+                  <button onClick={() => openOverview(doc)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                    <Pencil size={14} /> Sửa text AI
+                  </button>
+                )}
                 <button onClick={() => openTagModal(doc)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                   <Tag size={14} /> {t('pages.documents.table.addTag')}
                 </button>
@@ -268,6 +273,9 @@ export default function DocumentsPage() {
   const [overviewChunks, setOverviewChunks] = useState<ChunkDTO[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState("");
+  const [editingChunkId, setEditingChunkId] = useState<number | null>(null);
+  const [editingChunkText, setEditingChunkText] = useState("");
+  const [savingChunkId, setSavingChunkId] = useState<number | null>(null);
   const [tagModalDoc, setTagModalDoc] = useState<DocumentDTO | null>(null);
   const [availableTags, setAvailableTags] = useState<TagDTO[]>([]);
   const [documentTags, setDocumentTags] = useState<Record<number, TagDTO[]>>({});
@@ -411,6 +419,8 @@ export default function DocumentsPage() {
     setOverviewDoc(doc);
     setOverviewChunks([]);
     setOverviewError("");
+    setEditingChunkId(null);
+    setEditingChunkText("");
     setOverviewLoading(true);
     try {
       const [detailResponse, chunksResponse] = await Promise.all([
@@ -424,6 +434,56 @@ export default function DocumentsPage() {
       setOverviewError(err.message || "Không thể tải nội dung chunks");
     } finally {
       setOverviewLoading(false);
+    }
+  };
+
+  const closeOverview = () => {
+    setOverviewDoc(null);
+    setOverviewError("");
+    setEditingChunkId(null);
+    setEditingChunkText("");
+  };
+
+  const startEditingChunk = (chunk: ChunkDTO) => {
+    setEditingChunkId(chunk.id);
+    setEditingChunkText(chunk.textContent || "");
+  };
+
+  const cancelEditingChunk = () => {
+    setEditingChunkId(null);
+    setEditingChunkText("");
+  };
+
+  const handleSaveChunkText = async (chunk: ChunkDTO) => {
+    if (!overviewDoc) return;
+
+    const nextText = editingChunkText.trim();
+    if (!nextText) {
+      Notify.failure("Nội dung chunk không được để trống.");
+      return;
+    }
+
+    if (nextText === (chunk.textContent || "").trim()) {
+      cancelEditingChunk();
+      return;
+    }
+
+    setSavingChunkId(chunk.id);
+    try {
+      const response = await documentService.updateDocumentChunk(overviewDoc.id, chunk.id, {
+        textContent: nextText,
+      });
+
+      if (response.data) {
+        setOverviewChunks((chunks) => chunks.map((item) => item.id === chunk.id ? response.data : item));
+      }
+
+      Notify.success("Đã cập nhật text chunk và embedding.");
+      cancelEditingChunk();
+    } catch (err: any) {
+      Notify.failure("Không thể cập nhật text chunk: " + (err.message || "Unknown error"));
+    } finally {
+      setSavingChunkId(null);
     }
   };
 
@@ -1020,6 +1080,11 @@ export default function DocumentsPage() {
                             <button onClick={() => handleEdit(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                               <FileText size={14} /> {t('pages.documents.table.editDesc')}
                             </button>
+                            {d.processingStatus === "SUCCESS" && (
+                              <button onClick={() => openOverview(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                                <Pencil size={14} /> Sửa text AI
+                              </button>
+                            )}
                             <button onClick={() => openTagModal(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                               <Tag size={14} /> {t('pages.documents.table.addTag')}
                             </button>
@@ -1165,7 +1230,7 @@ export default function DocumentsPage() {
       <AnimatePresence>
         {overviewDoc && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={() => setOverviewDoc(null)} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={closeOverview} />
             <motion.div initial={{ opacity: 0, scale: 0.97, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: 10 }} className="relative surface-card w-full max-w-5xl max-h-[90vh] rounded-3xl border border-border shadow-2xl flex flex-col overflow-hidden">
               <header className="p-5 border-b border-border/60 flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
@@ -1181,7 +1246,7 @@ export default function DocumentsPage() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => handleDownload(overviewDoc)} disabled={downloadingId === overviewDoc.id} className="h-9 px-3 rounded-xl border border-border text-xs font-semibold flex items-center gap-1.5 hover:border-primary disabled:opacity-50">{downloadingId === overviewDoc.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}Tải file</button>
-                  <button onClick={() => setOverviewDoc(null)} className="size-9 rounded-xl hover:bg-muted grid place-items-center"><X size={18} /></button>
+                  <button onClick={closeOverview} className="size-9 rounded-xl hover:bg-muted grid place-items-center"><X size={18} /></button>
                 </div>
               </header>
 
@@ -1204,12 +1269,70 @@ export default function DocumentsPage() {
                     </div>
                     {overviewDoc.description && <div className="rounded-2xl bg-muted/30 border border-border/50 p-4 mb-5"><div className="text-[10px] uppercase text-muted-foreground font-bold mb-1">Mô tả</div><p className="text-sm leading-6">{overviewDoc.description}</p></div>}
                     <div className="space-y-3">
-                      {overviewChunks.map((chunk) => (
-                        <article key={chunk.id} className="rounded-2xl border border-border/60 p-4 hover:border-primary/30 transition-colors">
-                          <div className="flex items-center justify-between gap-3 mb-2"><div className="text-xs font-bold text-primary">Chunk #{chunk.chunkIndex + 1}</div><div className="text-[10px] text-muted-foreground">{chunk.sourcePage ? `Trang ${chunk.sourcePage}` : "Không rõ trang"}{chunk.sourceSection ? ` · ${chunk.sourceSection}` : ""} · {chunk.tokenEstimate || 0} tokens</div></div>
-                          <p className="text-sm leading-7 whitespace-pre-wrap text-foreground/90">{chunk.textContent}</p>
-                        </article>
-                      ))}
+                      {overviewChunks.map((chunk) => {
+                        const isEditingChunk = editingChunkId === chunk.id;
+                        const isSavingChunk = savingChunkId === chunk.id;
+                        return (
+                          <article key={chunk.id} className={`rounded-2xl border p-4 transition-colors ${isEditingChunk ? "border-primary/50 bg-primary/5" : "border-border/60 hover:border-primary/30"}`}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                              <div className="text-xs font-bold text-primary">Chunk #{chunk.chunkIndex + 1}</div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="text-[10px] text-muted-foreground">
+                                  {chunk.sourcePage ? `Trang ${chunk.sourcePage}` : "Không rõ trang"}{chunk.sourceSection ? ` · ${chunk.sourceSection}` : ""} · {chunk.tokenEstimate || 0} tokens
+                                </div>
+                                {!isEditingChunk ? (
+                                  <button
+                                    onClick={() => startEditingChunk(chunk)}
+                                    className="h-8 px-3 rounded-lg border border-border text-[11px] font-bold text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center gap-1.5 transition-colors"
+                                    title="Sửa text đã chunking"
+                                  >
+                                    <Pencil size={13} /> Sửa text
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleSaveChunkText(chunk)}
+                                      disabled={isSavingChunk || !editingChunkText.trim()}
+                                      className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:brightness-110 disabled:opacity-60 flex items-center gap-1.5 transition-all"
+                                    >
+                                      {isSavingChunk ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Lưu
+                                    </button>
+                                    <button
+                                      onClick={cancelEditingChunk}
+                                      disabled={isSavingChunk}
+                                      className="h-8 px-3 rounded-lg border border-border text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-60 flex items-center gap-1.5 transition-colors"
+                                    >
+                                      <X size={13} /> Hủy
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {isEditingChunk ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={editingChunkText}
+                                  onChange={(event) => setEditingChunkText(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                                      event.preventDefault();
+                                      handleSaveChunkText(chunk);
+                                    }
+                                  }}
+                                  disabled={isSavingChunk}
+                                  className="w-full min-h-[180px] rounded-xl bg-card border border-border px-4 py-3 text-sm leading-7 outline-none resize-y focus:border-primary disabled:opacity-60"
+                                  placeholder="Nội dung chunk đã trích xuất"
+                                />
+                                <div className="text-[10px] text-muted-foreground font-medium">
+                                  {editingChunkText.trim().length.toLocaleString()} ký tự sau khi lưu
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm leading-7 whitespace-pre-wrap text-foreground/90">{chunk.textContent}</p>
+                            )}
+                          </article>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
