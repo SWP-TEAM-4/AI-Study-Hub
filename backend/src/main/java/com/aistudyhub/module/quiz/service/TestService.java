@@ -108,7 +108,7 @@ public class TestService {
             if (questionIds == null || questionIds.isEmpty()) {
                 throw new AppException(ErrorCode.EMPTY_QUESTION_SELECTION);
             }
-            List<QuizQuestion> dbQuestions = quizQuestionRepository.findAllById(questionIds);
+            List<QuizQuestion> dbQuestions = quizQuestionRepository.findAllActiveById(questionIds);
 
             // Lỗi 2: Nếu số câu hỏi tìm thấy trong DB không khớp với số ID gửi lên,
             // hoặc có câu hỏi không thuộc về quizId này
@@ -291,6 +291,26 @@ public class TestService {
 
         return testResponse;
 
+    }
+
+    /**
+     * Xóa một lượt làm bài của chính người dùng hiện tại.
+     * Tiến trình câu trả lời được xóa trước để hành vi nhất quán giữa schema
+     * production (Flyway) và schema H2 được Hibernate tạo trong test.
+     */
+    @Transactional
+    public void deleteTest(Long testId) {
+        User currentUser = userService.getCurrentUser();
+        Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new AppException(ErrorCode.TEST_NOT_FOUND));
+
+        if (!test.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.TEST_ACCESS_DENIED);
+        }
+
+        userQuizProgressRepository.deleteByTestId(testId);
+        testRepository.delete(test);
+        log.info("Test id={} deleted by userId={}", testId, currentUser.getId());
     }
 
     /**

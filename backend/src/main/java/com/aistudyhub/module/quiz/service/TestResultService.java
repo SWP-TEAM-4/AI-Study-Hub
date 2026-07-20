@@ -15,9 +15,11 @@ import com.aistudyhub.common.enums.TestStatus;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.response.PaginationResponse;
+import com.aistudyhub.entity.QuizQuestion;
 import com.aistudyhub.entity.Test;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.entity.UserQuizProgress;
+import com.aistudyhub.module.quiz.dto.OptionResponse;
 import com.aistudyhub.module.quiz.dto.SubmitTestRequest;
 import com.aistudyhub.module.quiz.dto.TestResultItemResponse;
 import com.aistudyhub.module.quiz.dto.TestResultResponse;
@@ -190,6 +192,15 @@ public class TestResultService {
         List<TestResultItemResponse> items = new ArrayList<>();
 
         for (UserQuizProgress progress : progresses) {
+            QuizQuestion question = progress.getQuestion();
+            List<OptionResponse> options = question.getOptions().stream()
+                    .map(option -> OptionResponse.builder()
+                            .id(option.getId())
+                            .optionText(option.getOptionText())
+                            .isCorrect(option.getIsCorrect())
+                            .build())
+                    .toList();
+
             // Đếm số câu đúng
             if (Boolean.TRUE.equals(progress.getIsCorrect())) {
                 correctCount++;
@@ -199,17 +210,20 @@ public class TestResultService {
             // Lưu ý: Trường selectedOptionId được gán đúng để khớp với
             // TestResultItemResponse.java
             items.add(TestResultItemResponse.builder()
-                    .questionId(progress.getQuestion().getId())
+                    .questionId(question.getId())
+                    .questionText(question.getQuestionText())
+                    .questionType(question.getQuestionType())
                     .isCorrect(progress.getIsCorrect() != null ? progress.getIsCorrect() : false)
                     .selectedOptionId(
                             progress.getSelectedOption() != null ? progress.getSelectedOption().getId() : null)
                     // Chỉ trả về userAnswerText nếu câu hỏi là FILL_IN_THE_BLANK. Nếu là trắc
                     // nghiệm, bắt buộc trả về null.
-                    .userAnswerText(progress.getQuestion()
+                    .userAnswerText(question
                             .getQuestionType() == com.aistudyhub.common.enums.QuestionType.FILL_IN_THE_BLANK
                                     ? progress.getUserAnswerText()
                                     : null)
-                    .explanation(progress.getQuestion().getExplanation()) // Lấy giải thích từ đề gốc
+                    .explanation(question.getExplanation()) // Lấy giải thích từ đề gốc
+                    .options(options)
                     .build());
         }
 

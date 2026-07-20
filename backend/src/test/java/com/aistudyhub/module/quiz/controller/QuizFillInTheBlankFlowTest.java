@@ -291,7 +291,7 @@ class QuizFillInTheBlankFlowTest {
     }
 
     @Test
-    void deleteQuestion_UnusedQuestion_DeletesQuestionAndItsHiddenAnswer() throws Exception {
+    void deleteQuestion_UnusedQuestion_HidesItButPreservesStoredData() throws Exception {
         createFillBlankQuestion("@Component");
         QuizQuestion question = quizQuestionRepository.findByQuizIdOrderById(quiz.getId()).get(0);
         Long optionId = question.getOptions().get(0).getId();
@@ -301,12 +301,30 @@ class QuizFillInTheBlankFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        assertFalse(quizQuestionRepository.existsById(question.getId()));
-        assertFalse(quizOptionRepository.existsById(optionId));
+        assertTrue(quizQuestionRepository.existsById(question.getId()));
+        assertTrue(quizQuestionRepository.findById(question.getId()).orElseThrow().getDeletedAt() != null);
+        assertTrue(quizOptionRepository.existsById(optionId));
+        assertTrue(quizQuestionRepository.findByQuizIdOrderById(quiz.getId()).isEmpty());
+
+        mockMvc.perform(get("/api/quizzes/{quizId}/questions", quiz.getId())
+                        .with(user(userDetails())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        mockMvc.perform(put("/api/questions/{questionId}", question.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(fillBlankPayload("[{ \"optionText\": \"@Service\", \"isCorrect\": true }]")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value("QUESTION_NOT_FOUND"));
+
+        mockMvc.perform(delete("/api/questions/{questionId}", question.getId())
+                        .with(user(userDetails())))
+                .andExpect(status().isOk());
     }
 
     @Test
-    void deleteQuestion_QuestionUsedInTest_ReturnsConflictAndPreservesHistory() throws Exception {
+    void deleteQuestion_QuestionUsedInTest_HidesItAndPreservesDetailedResult() throws Exception {
         createFillBlankQuestion("@Component");
         QuizQuestion question = quizQuestionRepository.findByQuizIdOrderById(quiz.getId()).get(0);
         Long optionId = question.getOptions().get(0).getId();
@@ -319,12 +337,122 @@ class QuizFillInTheBlankFlowTest {
 
         mockMvc.perform(delete("/api/questions/{questionId}", question.getId())
                         .with(user(userDetails())))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode").value("QUESTION_IN_USE"));
+                .andExpect(status().isOk());
 
         assertTrue(quizQuestionRepository.existsById(question.getId()));
         assertTrue(quizOptionRepository.existsById(optionId));
         assertTrue(userQuizProgressRepository.existsByQuestionId(question.getId()));
+        assertTrue(quizQuestionRepository.findByQuizIdOrderById(quiz.getId()).isEmpty());
+
+        com.aistudyhub.entity.Test test = testRepository.findAll().get(0);
+        mockMvc.perform(post("/api/tests/{testId}/answers", test.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "questionId": %d,
+                                  "userAnswerText": "@Component"
+                                }
+                                """.formatted(question.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/tests/{testId}/submit", test.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"confirmSubmit\":true}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/tests/{testId}/result", test.getId())
+                        .with(user(userDetails())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].questionText").value(question.getQuestionText()))
+                .andExpect(jsonPath("$.data.items[0].options[0].optionText").value("@Component"))
+                .andExpect(jsonPath("$.data.items[0].options[0].isCorrect").value(true));
+    }
+
+    @Test
+    void startTest_DeletedQuestion_IsExcludedFromAllSelectionModes() throws Exception {
+        createFillBlankQuestion("@Component");
+        createFillBlankQuestion("@Service");
+        var questions = quizQuestionRepository.findByQuizIdOrderById(quiz.getId());
+        Long deletedQuestionId = questions.get(0).getId();
+
+        mockMvc.perform(delete("/api/questions/{questionId}", deletedQuestionId)
+                        .with(user(userDetails())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/quizzes/{quizId}/tests", quiz.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quizSelectionMode\":\"ALL\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.questions.length()").value(1));
+
+        mockMvc.perform(post("/api/quizzes/{quizId}/tests", quiz.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quizSelectionMode": "SELECTED",
+                                  "questionIds": [%d]
+                                }
+                                """.formatted(deletedQuestionId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("QUESTION_NOT_IN_QUIZ"));
+
+        mockMvc.perform(post("/api/quizzes/{quizId}/tests", quiz.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quizSelectionMode\":\"RANDOM\",\"randomCount\":2}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("NOT_ENOUGH_QUESTIONS"));
+    }
+
+    @Test
+    void deleteTest_OwnAttempt_DeletesProgressButKeepsQuizQuestion() throws Exception {
+        createFillBlankQuestion("@Component");
+        QuizQuestion question = quizQuestionRepository.findByQuizIdOrderById(quiz.getId()).get(0);
+
+        mockMvc.perform(post("/api/quizzes/{quizId}/tests", quiz.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quizSelectionMode\":\"ALL\"}"))
+                .andExpect(status().isCreated());
+
+        com.aistudyhub.entity.Test test = testRepository.findAll().get(0);
+        mockMvc.perform(delete("/api/tests/{testId}", test.getId())
+                        .with(user(userDetails())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        assertFalse(testRepository.existsById(test.getId()));
+        assertFalse(userQuizProgressRepository.existsByQuestionId(question.getId()));
+        assertTrue(quizQuestionRepository.existsById(question.getId()));
+    }
+
+    @Test
+    void deleteTest_OtherUsersAttempt_ReturnsForbidden() throws Exception {
+        createFillBlankQuestion("@Component");
+        mockMvc.perform(post("/api/quizzes/{quizId}/tests", quiz.getId())
+                        .with(user(userDetails()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quizSelectionMode\":\"ALL\"}"))
+                .andExpect(status().isCreated());
+
+        com.aistudyhub.entity.Test test = testRepository.findAll().get(0);
+        User otherUser = userRepository.save(User.builder()
+                .email("other-history-user@aistudyhub.com")
+                .fullName("Other History User")
+                .role(Role.STUDENT)
+                .isActive(true)
+                .build());
+
+        mockMvc.perform(delete("/api/tests/{testId}", test.getId())
+                        .with(user(new CustomUserDetails(otherUser))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("TEST_ACCESS_DENIED"));
+
+        assertTrue(testRepository.existsById(test.getId()));
     }
 
     private void createFillBlankQuestion(String correctAnswer) throws Exception {

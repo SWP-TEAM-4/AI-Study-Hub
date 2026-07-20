@@ -1,12 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap, Plus, Search, Sparkles, MoreHorizontal, Edit, Globe, Tag, BookOpen } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import QuizPracticePage from "./QuizPracticePage";
 import QuizBankDetailPage from "./QuizBankDetailPage";
 import CustomSelect from "../components/ui/CustomSelect";
 import EmptyState from "../components/ui/EmptyState";
-import { quizService, QuizDTO, StartTestPayload } from "../services/quizService";
+import { quizService, QuizDTO, StartTestPayload, TestDTO } from "../services/quizService";
 import { Notify } from "notiflix";
 
 const levelStyles: Record<string, string> = {
@@ -27,9 +27,11 @@ export default function QuizPage() {
   const [sortBy, setSortBy] = useState("newest");
   const [activeQuizId, setActiveQuizId] = useState<number | null>(null);
   const [activeTestConfig, setActiveTestConfig] = useState<StartTestPayload | null>(null);
+  const [activeTestSession, setActiveTestSession] = useState<TestDTO | null>(null);
   const [activeDetailId, setActiveDetailId] = useState<number | null>(null);
   const [list, setList] = useState<QuizDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const isStartingTest = useRef(false);
 
   useEffect(() => {
     loadQuizzes();
@@ -78,18 +80,51 @@ export default function QuizPage() {
   };
   const handleAddTag = (id: number) => Notify.info("Chức năng gắn Tag đang chờ API backend.");
 
-  const startPractice = (quizId: number, config: StartTestPayload = { quizSelectionMode: "ALL" }) => {
-    setActiveTestConfig(config);
-    setActiveQuizId(quizId);
+  const startPractice = async (quizId: number, config: StartTestPayload = { quizSelectionMode: "ALL" }) => {
+    if (isStartingTest.current) return false;
+
+    isStartingTest.current = true;
+    try {
+      const res = await quizService.startTest(quizId, config);
+      if (!res.success || !res.data) {
+        Notify.failure(res.message || "KhĂ´ng thá»ƒ báº¯t Ä‘áº§u lĂ m bĂ i");
+        return false;
+      }
+
+      setActiveTestConfig(config);
+      setActiveTestSession(res.data);
+      setActiveQuizId(quizId);
+      return true;
+    } catch (e: any) {
+      Notify.failure(e.message || "KhĂ´ng thá»ƒ báº¯t Ä‘áº§u lĂ m bĂ i");
+      return false;
+    } finally {
+      isStartingTest.current = false;
+    }
   };
 
   const closePractice = () => {
     setActiveQuizId(null);
     setActiveTestConfig(null);
+    setActiveTestSession(null);
   };
 
-  if (activeQuizId) {
-    return <QuizPracticePage quizId={activeQuizId} config={activeTestConfig ?? undefined} onBack={closePractice} />;
+  const returnToQuizBank = () => {
+    const quizId = activeQuizId;
+    closePractice();
+    if (quizId !== null) setActiveDetailId(quizId);
+  };
+
+  if (activeQuizId && activeTestSession) {
+    return (
+      <QuizPracticePage
+        quizId={activeQuizId}
+        config={activeTestConfig ?? undefined}
+        initialTest={activeTestSession}
+        onBack={closePractice}
+        onBackToQuizBank={returnToQuizBank}
+      />
+    );
   }
 
   if (activeDetailId) {
@@ -97,9 +132,9 @@ export default function QuizPage() {
       <QuizBankDetailPage 
         quizId={activeDetailId} 
         onBack={() => setActiveDetailId(null)} 
-        onStartTest={(config) => {
-          startPractice(activeDetailId, config);
-          setActiveDetailId(null);
+        onStartTest={async (config) => {
+          const started = await startPractice(activeDetailId, config);
+          if (started) setActiveDetailId(null);
         }}
       />
     );

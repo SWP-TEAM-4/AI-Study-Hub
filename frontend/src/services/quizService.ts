@@ -150,10 +150,13 @@ export interface TestDTO {
 
 export interface TestResultItemDTO {
   questionId: number;
+  questionText?: string;
+  questionType?: QuestionDTO["questionType"];
   isCorrect: boolean;
   selectedOptionId?: number | null;
   userAnswerText?: string | null;
   explanation?: string | null;
+  options?: OptionDTO[];
 }
 
 export interface UserTestHistoryDTO {
@@ -320,6 +323,10 @@ export const quizService = {
 
   async getTestResult(testId: number): Promise<ApiResponse<TestDTO>> {
     return qRequest<ApiResponse<TestDTO>>(`/tests/${testId}/result`);
+  },
+
+  async deleteTest(testId: number): Promise<ApiResponse<void>> {
+    return qRequest<ApiResponse<void>>(`/tests/${testId}`, { method: "DELETE" });
   },
 
   async getQuizTestHistory(

@@ -14,12 +14,12 @@ import com.aistudyhub.module.quiz.dto.QuestionResponse;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.QuizQuestionRepository;
 import com.aistudyhub.repository.QuizRepository;
-import com.aistudyhub.repository.UserQuizProgressRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +37,6 @@ public class QuizQuestionService {
 
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
-    private final UserQuizProgressRepository userQuizProgressRepository;
     private final UserService userService;
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -138,15 +137,17 @@ public class QuizQuestionService {
     @Transactional
     public void deleteQuestion(Long questionId) {
         Long currentUserId = userService.getCurrentUserId();
-        QuizQuestion question = findQuestionOrThrow(questionId);
+        QuizQuestion question = quizQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new AppException(ErrorCode.QUESTION_NOT_FOUND));
         validateCreatorOwnership(question.getQuiz(), currentUserId);
 
-        if (userQuizProgressRepository.existsByQuestionId(questionId)) {
-            throw new AppException(ErrorCode.QUESTION_IN_USE);
+        if (question.getDeletedAt() != null) {
+            return;
         }
 
-        quizQuestionRepository.delete(question);
-        log.info("Question id={} deleted by userId={}", questionId, currentUserId);
+        question.setDeletedAt(LocalDateTime.now());
+        quizQuestionRepository.save(question);
+        log.info("Question id={} soft-deleted by userId={}", questionId, currentUserId);
     }
 
     /**
@@ -175,7 +176,7 @@ public class QuizQuestionService {
     }
 
     private QuizQuestion findQuestionOrThrow(Long questionId) {
-        return quizQuestionRepository.findById(questionId)
+        return quizQuestionRepository.findByIdAndDeletedAtIsNull(questionId)
                 .orElseThrow(() -> new AppException(ErrorCode.QUESTION_NOT_FOUND));
     }
 

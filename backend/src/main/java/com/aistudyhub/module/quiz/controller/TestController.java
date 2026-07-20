@@ -2,6 +2,7 @@ package com.aistudyhub.module.quiz.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -178,6 +179,13 @@ public class TestController {
 
         // 3. Trả về Client với mã 200 OK
         return ResponseEntity.ok(apiResult);
+    }
+
+    @Operation(summary = "Xóa một lượt làm bài của người dùng hiện tại")
+    @DeleteMapping("/api/tests/{testId}")
+    public ResponseEntity<ApiResponse<Void>> deleteTest(@PathVariable Long testId) {
+        testService.deleteTest(testId);
+        return ResponseEntity.ok(ApiResponse.success("Test history deleted successfully"));
     }
 
     /**
