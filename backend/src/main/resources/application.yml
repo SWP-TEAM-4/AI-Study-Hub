@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/aistudyhub
     username: postgres
-    password: huyplay
+    password: 12345678
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -80,7 +80,7 @@ app:
       fallback-to-stub-on-error: true
 
     openai:
-      api-key: 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
+      api-key: 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
       model: gpt-4o-mini
       base-url: https://api.openai.com/v1
       embedding-model: text-embedding-3-small
@@ -89,8 +89,8 @@ app:
       timeout: 60
       max-retries: 3
 
-    gemini: 
-      api-key: AQ.Ab8RN6KTi-PY6U2afnS1dMwTWzernGi1s1pyETHOXsjn99m6qA
+    gemini:
+      api-key: AQ.Ab8RN6K9ms0Bc8joYFA4aohBdrZVe2U6m1f_6oF43va53IX3ig
       base-url: https://generativelanguage.googleapis.com/v1/models
       model: gemini-3.5-flash
       temperature: 0.1
