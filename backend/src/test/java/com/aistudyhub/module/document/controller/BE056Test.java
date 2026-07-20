@@ -235,6 +235,55 @@ class BE056Test {
     }
 
     @Test
+    void ownerCanUpdateDocumentChunkTextAndEmbedding() throws Exception {
+        DocumentChunk chunk = documentChunkRepository
+                .findByDocumentIdOrderByChunkIndexAsc(privateDocument.getId())
+                .get(0);
+        String editedText = "Updated SRS chunk with corrected actors, constraints, and acceptance criteria.";
+
+        when(openAIEmbeddingService.generateChunkEmbedding(
+                eq(privateDocument.getId()),
+                eq(chunk.getChunkIndex()),
+                eq(editedText)))
+                .thenReturn(new OpenAIEmbeddingService.EmbeddingResult(
+                        "openai:test:" + chunk.getChunkIndex(),
+                        "[0.7,0.8,0.9]",
+                        "text-embedding-3-small"));
+
+        mockMvc.perform(patch("/api/documents/{documentId}/chunks/{chunkId}",
+                        privateDocument.getId(), chunk.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(owner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("textContent", editedText))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.textContent").value(editedText))
+                .andExpect(jsonPath("$.data.vectorId").value("openai:test:" + chunk.getChunkIndex()));
+
+        DocumentChunk reloaded = documentChunkRepository.findById(chunk.getId()).orElseThrow();
+        assertEquals(editedText, reloaded.getTextContent());
+        assertTrue(reloaded.getTokenEstimate() > 0);
+        assertEquals("[0.7,0.8,0.9]", reloaded.getEmbeddingVector());
+        assertEquals("text-embedding-3-small", reloaded.getEmbeddingModel());
+        assertEquals(1, aiUsageLogsRepository.findByUser_IdOrderByCreatedAtDesc(owner.getId()).size());
+    }
+
+    @Test
+    void otherUserCannotUpdateForeignDocumentChunk() throws Exception {
+        DocumentChunk chunk = documentChunkRepository
+                .findByDocumentIdOrderByChunkIndexAsc(privateDocument.getId())
+                .get(0);
+
+        mockMvc.perform(patch("/api/documents/{documentId}/chunks/{chunkId}",
+                        privateDocument.getId(), chunk.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(otherUser)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("textContent", "Trying to edit"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("DOCUMENT_ACCESS_DENIED"));
+    }
+
+    @Test
     void ownerCanCreateShareLink_AndDocumentBecomesPublicLink() throws Exception {
         JsonNode response = createShareLink(privateDocument.getId(), owner, """
                 {

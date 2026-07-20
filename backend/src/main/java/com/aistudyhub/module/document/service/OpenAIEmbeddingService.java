@@ -115,6 +115,20 @@ public class OpenAIEmbeddingService {
         return parseEmbeddingVector(embedding.embeddingVector());
     }
 
+    public EmbeddingResult generateChunkEmbedding(Long documentId, Integer chunkIndex, String chunkText) {
+        Map<Integer, EmbeddingResult> result = generateBatchEmbeddings(documentId, List.of(chunkText));
+        EmbeddingResult embedding = result.get(0);
+        if (embedding == null) {
+            throw new AppException(ErrorCode.EMBEDDING_GENERATION_FAILED,
+                    "Failed to create embedding for chunk " + chunkIndex + ".");
+        }
+        int resolvedChunkIndex = chunkIndex != null ? chunkIndex : 0;
+        return new EmbeddingResult(
+                buildVectorId(documentId, resolvedChunkIndex),
+                embedding.embeddingVector(),
+                embedding.embeddingModel());
+    }
+
     public List<Double> parseEmbeddingVector(String serializedEmbedding) {
         if (serializedEmbedding == null || serializedEmbedding.isBlank()) {
             return List.of();

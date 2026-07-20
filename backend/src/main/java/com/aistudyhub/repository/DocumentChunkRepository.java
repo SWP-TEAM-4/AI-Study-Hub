@@ -4,6 +4,7 @@ import com.aistudyhub.entity.DocumentChunk;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Owner: BE1 – RAG Core
@@ -11,6 +12,8 @@ import java.util.List;
 public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Long> {
 
     List<DocumentChunk> findByDocumentIdOrderByChunkIndexAsc(Long documentId);
+
+    Optional<DocumentChunk> findByIdAndDocumentId(Long id, Long documentId);
 
     void deleteByDocumentId(Long documentId);
 
