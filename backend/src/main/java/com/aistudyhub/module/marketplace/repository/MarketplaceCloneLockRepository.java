@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
 import com.aistudyhub.entity.Document;
+import com.aistudyhub.entity.FlashcardDeck;
 import com.aistudyhub.entity.Quiz;
 
 import jakarta.persistence.EntityManager;
@@ -30,6 +31,15 @@ public class MarketplaceCloneLockRepository {
         return entityManager.createQuery(
                         "SELECT q FROM Quiz q WHERE q.id = :quizId", Quiz.class)
                 .setParameter("quizId", quizId)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .getResultStream()
+                .findFirst();
+    }
+
+    public Optional<FlashcardDeck> findFlashcardDeckByIdForUpdate(Long deckId) {
+        return entityManager.createQuery(
+                        "SELECT d FROM FlashcardDeck d WHERE d.id = :deckId", FlashcardDeck.class)
+                .setParameter("deckId", deckId)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultStream()
                 .findFirst();
