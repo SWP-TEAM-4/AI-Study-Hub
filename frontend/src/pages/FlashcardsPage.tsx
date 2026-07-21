@@ -98,32 +98,20 @@ export default function FlashcardsPage() {
     }
     setIsSavingDeck(true);
     try {
-      let createdDeck: FlashcardDeckDTO | null = null;
+      let savedDeck: FlashcardDeckDTO | null = null;
       if (editingDeck) {
         const res = await flashcardService.updateFlashcardDeck(editingDeck.id, deckForm);
-        createdDeck = res.data;
+        savedDeck = res.data;
         Notify.success("Đã cập nhật bộ thẻ");
       } else {
         const createRes = await flashcardService.createFlashcardDeck(deckForm);
-        createdDeck = createRes.data;
-
-        try {
-          const starterCardRes = await flashcardService.addCardToDeck(
-            createdDeck.id,
-            "Mặt trước mẫu",
-            "Mặt sau mẫu",
-          );
-          createdDeck = starterCardRes.data;
-        } catch {
-          Notify.warning("Bộ thẻ đã tạo, nhưng chưa thêm được thẻ mẫu. Bạn có thể thêm thẻ thủ công trong trang chi tiết.");
-        }
-
-        Notify.success("Đã tạo bộ thẻ mới");
+        savedDeck = createRes.data;
+        Notify.success("Đã tạo bộ thẻ mới. Hãy thêm thẻ vào bộ thẻ trong trang chi tiết.");
       }
 
       setIsEditorOpen(false);
-      if (createdDeck) {
-        setDetailDeck(createdDeck);
+      if (savedDeck) {
+        setDetailDeck(savedDeck);
         setActiveDeckId(null);
       }
       await refetch();
@@ -423,13 +411,21 @@ export default function FlashcardsPage() {
                       transition={{ duration: 0.8, delay: i * 0.1 }}
                     />
                   </div>
-                  <button
-                    onClick={() => setActiveDeckId(deck.id.toString())}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-1.5 h-10 rounded-xl text-white text-sm font-medium hover:opacity-90"
-                    style={{ background: "var(--color-coral)" }}
-                  >
-                    <Plus size={16} /> {t('pages.flashcards.studyNow')}
-                  </button>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => setDetailDeck(deck)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors border border-border/50"
+                    >
+                      <Eye size={15} /> Xem chi tiết
+                    </button>
+                    <button
+                      onClick={() => setActiveDeckId(deck.id.toString())}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                      style={{ background: "var(--color-coral)" }}
+                    >
+                      <Plus size={16} /> {t('pages.flashcards.studyNow')}
+                    </button>
+                  </div>
                 </motion.div>
               );
             })

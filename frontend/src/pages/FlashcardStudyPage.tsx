@@ -15,6 +15,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
   const [flipped, setFlipped] = useState(false);
   const [stats, setStats] = useState({ known: 0, again: 0 });
   const [isSaving, setIsSaving] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   const { data } = useSuspenseQuery({
     queryKey: ["deckDetails", deckId],
@@ -28,20 +29,22 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
   }
 
   const card = cards[idx];
-  const isLast = idx === cards.length - 1;
+  const isLast = idx >= cards.length - 1;
 
   const advance = useCallback(async (known: boolean) => {
-    if (isSaving) return;
+    if (isSaving || completed) return;
+    if (!card) return;
+
     setIsSaving(true);
     try {
       await flashcardService.reviewFlashcard(card.id, known);
       setStats((s) => ({ known: s.known + (known ? 1 : 0), again: s.again + (known ? 0 : 1) }));
-      
+
       if (!isLast) {
         setIdx((prevIdx) => prevIdx + 1);
         setFlipped(false);
       } else {
-        setIdx((prevIdx) => prevIdx + 1);
+        setCompleted(true);
       }
     } catch (e) {
       console.error(e);
@@ -49,9 +52,9 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
     } finally {
       setIsSaving(false);
     }
-  }, [card.id, isLast, isSaving]);
+  }, [card, completed, isLast, isSaving]);
 
-  if (idx >= cards.length) {
+  if (completed || idx >= cards.length) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -100,7 +103,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
         <button onClick={onBack} className="inline-flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
           <ArrowLeft size={14} /> Thoát
         </button>
-        <div className="text-sm text-muted-foreground">{idx + 1}/{cards.length}</div>
+        <div className="text-sm text-muted-foreground">{Math.min(idx + 1, cards.length)}/{cards.length}</div>
       </div>
 
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
