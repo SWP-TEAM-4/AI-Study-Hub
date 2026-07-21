@@ -28,6 +28,10 @@ import com.aistudyhub.module.quiz.dto.QuizResponseMapper;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponseMapper;
 import com.aistudyhub.module.marketplace.dto.MarketplaceCloneRequest;
+import com.aistudyhub.module.marketplace.entity.MarketplaceCloneReceipt;
+import com.aistudyhub.module.marketplace.model.MarketplaceCloneTargetType;
+import com.aistudyhub.module.marketplace.repository.MarketplaceCloneLockRepository;
+import com.aistudyhub.module.marketplace.repository.MarketplaceCloneReceiptRepository;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.NotebookDocumentRepository;
@@ -56,6 +60,8 @@ public class MarketplaceCloneService {
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
+    private final MarketplaceCloneReceiptRepository cloneReceiptRepository;
+    private final MarketplaceCloneLockRepository cloneLockRepository;
 
     /**
      * Nhân bản một tài liệu học tập (Document) từ Marketplace về kho cá nhân.
@@ -68,22 +74,27 @@ public class MarketplaceCloneService {
      */
     @Transactional
     public DocumentResponse cloneDocumentInMarket(Long documentId, MarketplaceCloneRequest request) {
-        // 1. Lấy thông tin User hiện tại đang đăng nhập từ Security Context
         User currentUser = userService.getCurrentUser();
-
-        // 2. Tìm kiếm tài liệu gốc trong database
-        Document originalDoc = documentRepository.findById(documentId)
+        Document originalDoc = cloneLockRepository.findDocumentByIdForUpdate(documentId)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+        validateDocumentSource(originalDoc, currentUser);
+        Notebook targetNotebook = resolveOwnedNotebook(request, currentUser);
 
-        // 3. Kiểm tra bảo mật: Tài liệu phải ở chế độ MARKETPLACE và trạng thái APPROVED (Đã duyệt)
-        if (originalDoc.getVisibility() != Visibility.MARKETPLACE
-                || originalDoc.getMarketStatus() != MarketStatus.APPROVED) {
-            throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
+        MarketplaceCloneReceipt receipt = cloneReceiptRepository
+                .findByUserIdAndTargetTypeAndSourceId(
+                        currentUser.getId(), MarketplaceCloneTargetType.DOCUMENT, documentId)
+                .orElse(null);
+
+        Document existingClone = findExistingDocumentClone(receipt, currentUser, originalDoc);
+        if (existingClone != null) {
+            linkDocumentToNotebook(existingClone, targetNotebook);
+            log.info("Returning existing Document clone id={} for user id={} and source id={}",
+                    existingClone.getId(), currentUser.getId(), documentId);
+            return DocumentResponseMapper.toResponse(existingClone);
         }
 
-        // 4. Tạo đối tượng Document bản sao, copy toàn bộ nội dung từ bản gốc
         Document clonedDoc = Document.builder()
-                .user(currentUser) // Người sở hữu mới là người dùng hiện tại
+                .user(currentUser)
                 .subject(originalDoc.getSubject())
                 .title(originalDoc.getTitle())
                 .description(originalDoc.getDescription())
@@ -91,43 +102,25 @@ public class MarketplaceCloneService {
                 .cloudFilePath(originalDoc.getCloudFilePath())
                 .fileType(originalDoc.getFileType())
                 .fileSize(originalDoc.getFileSize())
-                .visibility(Visibility.PRIVATE) // Bản sao cá nhân luôn mặc định là PRIVATE
-                .marketStatus(MarketStatus.NONE) // Bản sao không liên kết trên Chợ nữa
+                .visibility(Visibility.PRIVATE)
+                .marketStatus(MarketStatus.NONE)
                 .processingStatus(ProcessingStatus.SUCCESS)
-                .clonedFrom(originalDoc) // Lưu vết nguồn gốc tài liệu gốc
+                .clonedFrom(originalDoc)
                 .downloadCount(0)
                 .reviewCount(0)
                 .acceptPercentage(BigDecimal.ZERO)
                 .build();
-        // Lưu tài liệu bản sao vào database
         Document savedDoc = documentRepository.save(clonedDoc);
+        linkDocumentToNotebook(savedDoc, targetNotebook);
 
-        // 5. Nếu Frontend gửi lên targetNotebookId, thực hiện gắn tài liệu vào Notebook tương ứng
-        if (request != null && request.getTargetNotebookId() != null) {
-            Notebook notebook = notebookRepository.findById(request.getTargetNotebookId())
-                    .orElseThrow(() -> new AppException(ErrorCode.NOTEBOOK_NOT_FOUND));
-
-            // Phòng ngự lỗi: Chỉ cho phép gắn tài liệu vào Notebook do chính mình sở hữu
-            if (!notebook.getUser().getId().equals(currentUser.getId())) {
-                throw new AppException(ErrorCode.NOTEBOOK_ACCESS_DENIED);
-            }
-
-            // Tạo bản ghi liên kết trung gian giữa Notebook và Document
-            NotebookDocument notebookDoc = NotebookDocument.builder()
-                    .notebook(notebook)
-                    .document(savedDoc)
-                    .build();
-            notebookDocumentRepository.save(notebookDoc);
+        boolean firstCloneCredit = receipt == null;
+        saveCloneReceipt(receipt, currentUser, MarketplaceCloneTargetType.DOCUMENT, documentId, savedDoc.getId());
+        if (firstCloneCredit) {
+            originalDoc.setDownloadCount(safeDownloadCount(originalDoc.getDownloadCount()) + 1);
         }
-
-        // 6. Tăng downloadCount của tài liệu gốc trên chợ lên 1 đơn vị và lưu lại
-        originalDoc.setDownloadCount(originalDoc.getDownloadCount() + 1);
-        documentRepository.save(originalDoc);
 
         log.info("User id={} successfully cloned Document id={} to cloned Document id={}",
                 currentUser.getId(), documentId, savedDoc.getId());
-
-        // Trả về DTO thông qua Mapper chuẩn của Document
         return DocumentResponseMapper.toResponse(savedDoc);
     }
 
@@ -143,32 +136,30 @@ public class MarketplaceCloneService {
      */
     @Transactional
     public QuizResponse cloneQuizInMarket(Long quizId, MarketplaceCloneRequest request) {
-        // 1. Lấy thông tin User hiện tại đang đăng nhập
         User currentUser = userService.getCurrentUser();
-
-        // 2. Tìm kiếm Quiz gốc trong database
-        Quiz originalQuiz = quizRepository.findById(quizId)
+        Quiz originalQuiz = cloneLockRepository.findQuizByIdForUpdate(quizId)
                 .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
+        validateQuizSource(originalQuiz, currentUser);
+        Notebook targetNotebook = resolveOwnedNotebook(request, currentUser);
 
-        // 3. Kiểm tra bảo mật: Quiz phải ở chế độ MARKETPLACE và trạng thái APPROVED (Đã duyệt)
-        if (originalQuiz.getVisibility() != Visibility.MARKETPLACE
-                || originalQuiz.getMarketStatus() != MarketStatus.APPROVED) {
-            throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
-        }
+        MarketplaceCloneReceipt receipt = cloneReceiptRepository
+                .findByUserIdAndTargetTypeAndSourceId(
+                        currentUser.getId(), MarketplaceCloneTargetType.QUIZ, quizId)
+                .orElse(null);
 
-        // 4. Kiểm tra Notebook đích nếu người dùng yêu cầu liên kết trực tiếp vào Notebook
-        Notebook targetNotebook = null;
-        if (request != null && request.getTargetNotebookId() != null) {
-            targetNotebook = notebookRepository.findById(request.getTargetNotebookId())
-                    .orElseThrow(() -> new AppException(ErrorCode.NOTEBOOK_NOT_FOUND));
-
-            // Phòng ngự lỗi: Chỉ cho phép gắn Quiz vào Notebook do chính mình sở hữu
-            if (!targetNotebook.getUser().getId().equals(currentUser.getId())) {
-                throw new AppException(ErrorCode.NOTEBOOK_ACCESS_DENIED);
+        Quiz existingClone = findExistingQuizClone(receipt, currentUser, originalQuiz);
+        if (existingClone != null) {
+            if (targetNotebook != null
+                    && (existingClone.getNotebook() == null
+                    || !existingClone.getNotebook().getId().equals(targetNotebook.getId()))) {
+                existingClone.setNotebook(targetNotebook);
+                existingClone = quizRepository.save(existingClone);
             }
+            log.info("Returning existing Quiz clone id={} for user id={} and source id={}",
+                    existingClone.getId(), currentUser.getId(), quizId);
+            return QuizResponseMapper.toResponse(existingClone);
         }
 
-        // 5. Tạo đối tượng Quiz bản sao (Gán creator = currentUser, set notebook đích trực tiếp)
         Quiz clonedQuiz = Quiz.builder()
                 .creator(currentUser)
                 .notebook(targetNotebook)
@@ -177,54 +168,165 @@ public class MarketplaceCloneService {
                 .description(originalQuiz.getDescription())
                 .academicTerm(originalQuiz.getAcademicTerm())
                 .examType(originalQuiz.getExamType())
-                .visibility(Visibility.PRIVATE) // Bản sao cá nhân luôn mặc định là PRIVATE
-                .marketStatus(MarketStatus.NONE) // Bản sao không liên kết trên Chợ nữa
-                .clonedFrom(originalQuiz) // Lưu vết nguồn gốc đề thi gốc
+                .visibility(Visibility.PRIVATE)
+                .marketStatus(MarketStatus.NONE)
+                .clonedFrom(originalQuiz)
                 .downloadCount(0)
                 .reviewCount(0)
                 .acceptPercentage(BigDecimal.ZERO)
                 .build();
-        // Lưu Quiz bản sao vào database
         Quiz savedQuiz = quizRepository.save(clonedQuiz);
 
-        // 6. Thực hiện nhân bản sâu (Deep Copy) toàn bộ câu hỏi và đáp án con
         List<QuizQuestion> originalQuestions = quizQuestionRepository.findByQuizIdOrderById(quizId);
         List<QuizQuestion> clonedQuestions = new ArrayList<>();
 
         for (QuizQuestion origQ : originalQuestions) {
             QuizQuestion clonedQ = QuizQuestion.builder()
-                    .quiz(savedQuiz) // Gắn câu hỏi mới vào Quiz vừa tạo ở bước trên
+                    .quiz(savedQuiz)
                     .questionText(origQ.getQuestionText())
                     .questionType(origQ.getQuestionType())
                     .explanation(origQ.getExplanation())
                     .build();
 
-            // Clone danh sách đáp án tương ứng của câu hỏi đó
             List<QuizOption> clonedOptions = new ArrayList<>();
             for (QuizOption origOpt : origQ.getOptions()) {
                 QuizOption clonedOpt = QuizOption.builder()
-                        .question(clonedQ) // Gắn đáp án mới vào câu hỏi mới tương ứng
+                        .question(clonedQ)
                         .optionText(origOpt.getOptionText())
                         .isCorrect(origOpt.getIsCorrect())
                         .build();
                 clonedOptions.add(clonedOpt);
             }
-            clonedQ.setOptions(clonedOptions); // Gán list options đã clone vào câu hỏi mới
+            clonedQ.setOptions(clonedOptions);
             clonedQuestions.add(clonedQ);
         }
 
-        // Lưu toàn bộ câu hỏi và đáp án mới vào database
         quizQuestionRepository.saveAll(clonedQuestions);
 
-        // 7. Tăng downloadCount của Quiz gốc trên chợ lên 1 đơn vị và lưu lại
-        originalQuiz.setDownloadCount(originalQuiz.getDownloadCount() + 1);
-        quizRepository.save(originalQuiz);
+        boolean firstCloneCredit = receipt == null;
+        saveCloneReceipt(receipt, currentUser, MarketplaceCloneTargetType.QUIZ, quizId, savedQuiz.getId());
+        if (firstCloneCredit) {
+            originalQuiz.setDownloadCount(safeDownloadCount(originalQuiz.getDownloadCount()) + 1);
+        }
 
         log.info("User id={} successfully cloned Quiz id={} to cloned Quiz id={}",
                 currentUser.getId(), quizId, savedQuiz.getId());
-
-        // Trả về DTO thông qua Mapper của Quiz
         return QuizResponseMapper.toResponse(savedQuiz);
+    }
+
+    private void validateDocumentSource(Document originalDoc, User currentUser) {
+        if (originalDoc.getVisibility() != Visibility.MARKETPLACE
+                || originalDoc.getMarketStatus() != MarketStatus.APPROVED) {
+            throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
+        }
+        if (originalDoc.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "You cannot clone your own marketplace document.");
+        }
+    }
+
+    private void validateQuizSource(Quiz originalQuiz, User currentUser) {
+        if (originalQuiz.getVisibility() != Visibility.MARKETPLACE
+                || originalQuiz.getMarketStatus() != MarketStatus.APPROVED) {
+            throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
+        }
+        if (originalQuiz.getCreator().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "You cannot clone your own marketplace quiz.");
+        }
+    }
+
+    private Notebook resolveOwnedNotebook(MarketplaceCloneRequest request, User currentUser) {
+        if (request == null || request.getTargetNotebookId() == null) {
+            return null;
+        }
+
+        Notebook notebook = notebookRepository.findById(request.getTargetNotebookId())
+                .orElseThrow(() -> new AppException(ErrorCode.NOTEBOOK_NOT_FOUND));
+        if (!notebook.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.NOTEBOOK_ACCESS_DENIED);
+        }
+        return notebook;
+    }
+
+    private Document findExistingDocumentClone(
+            MarketplaceCloneReceipt receipt,
+            User currentUser,
+            Document originalDoc) {
+        if (receipt == null || receipt.getClonedResourceId() == null) {
+            return null;
+        }
+
+        return documentRepository.findById(receipt.getClonedResourceId())
+                .filter(document -> document.getUser().getId().equals(currentUser.getId()))
+                .filter(document -> document.getClonedFrom() != null
+                        && document.getClonedFrom().getId().equals(originalDoc.getId()))
+                .orElse(null);
+    }
+
+    private Quiz findExistingQuizClone(
+            MarketplaceCloneReceipt receipt,
+            User currentUser,
+            Quiz originalQuiz) {
+        if (receipt == null || receipt.getClonedResourceId() == null) {
+            return null;
+        }
+
+        return quizRepository.findById(receipt.getClonedResourceId())
+                .filter(quiz -> quiz.getCreator().getId().equals(currentUser.getId()))
+                .filter(quiz -> quiz.getClonedFrom() != null
+                        && quiz.getClonedFrom().getId().equals(originalQuiz.getId()))
+                .orElse(null);
+    }
+
+    private FlashcardDeck findExistingFlashcardDeckClone(
+            MarketplaceCloneReceipt receipt,
+            User currentUser,
+            FlashcardDeck originalDeck) {
+        if (receipt == null || receipt.getClonedResourceId() == null) {
+            return null;
+        }
+
+        return flashcardDeckRepository.findById(receipt.getClonedResourceId())
+                .filter(deck -> deck.getUser().getId().equals(currentUser.getId()))
+                .filter(deck -> deck.getClonedFrom() != null
+                        && deck.getClonedFrom().getId().equals(originalDeck.getId()))
+                .orElse(null);
+    }
+
+    private void linkDocumentToNotebook(Document document, Notebook targetNotebook) {
+        if (targetNotebook == null
+                || notebookDocumentRepository.existsByNotebookIdAndDocumentId(
+                        targetNotebook.getId(), document.getId())) {
+            return;
+        }
+
+        notebookDocumentRepository.save(NotebookDocument.builder()
+                .notebook(targetNotebook)
+                .document(document)
+                .build());
+    }
+
+    private void saveCloneReceipt(
+            MarketplaceCloneReceipt receipt,
+            User currentUser,
+            MarketplaceCloneTargetType targetType,
+            Long sourceId,
+            Long clonedResourceId) {
+        MarketplaceCloneReceipt receiptToSave = receipt;
+        if (receiptToSave == null) {
+            receiptToSave = MarketplaceCloneReceipt.builder()
+                    .user(currentUser)
+                    .targetType(targetType)
+                    .sourceId(sourceId)
+                    .build();
+        }
+        receiptToSave.setClonedResourceId(clonedResourceId);
+        cloneReceiptRepository.save(receiptToSave);
+    }
+
+    private int safeDownloadCount(Integer downloadCount) {
+        return downloadCount != null ? downloadCount : 0;
     }
 
     /**
@@ -243,13 +345,17 @@ public class MarketplaceCloneService {
         User currentUser = userService.getCurrentUser();
 
         // 2. Tìm kiếm FlashcardDeck gốc trong database
-        FlashcardDeck originalDeck = flashcardDeckRepository.findById(deckId)
+        FlashcardDeck originalDeck = cloneLockRepository.findFlashcardDeckByIdForUpdate(deckId)
                 .orElseThrow(() -> new AppException(ErrorCode.FLASHCARD_DECK_NOT_FOUND));
 
         // 3. Kiểm tra bảo mật: Bộ thẻ phải ở chế độ MARKETPLACE và trạng thái APPROVED (Đã duyệt)
         if (originalDeck.getVisibility() != Visibility.MARKETPLACE
                 || originalDeck.getMarketStatus() != MarketStatus.APPROVED) {
             throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
+        }
+        if (originalDeck.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "You cannot clone your own marketplace flashcard deck.");
         }
 
         // 4. Kiểm tra Notebook đích nếu người dùng yêu cầu liên kết
@@ -262,6 +368,24 @@ public class MarketplaceCloneService {
             if (!targetNotebook.getUser().getId().equals(currentUser.getId())) {
                 throw new AppException(ErrorCode.NOTEBOOK_ACCESS_DENIED);
             }
+        }
+
+        MarketplaceCloneReceipt receipt = cloneReceiptRepository
+                .findByUserIdAndTargetTypeAndSourceId(
+                        currentUser.getId(), MarketplaceCloneTargetType.FLASHCARD_DECK, deckId)
+                .orElse(null);
+
+        FlashcardDeck existingClone = findExistingFlashcardDeckClone(receipt, currentUser, originalDeck);
+        if (existingClone != null) {
+            if (targetNotebook != null
+                    && (existingClone.getNotebook() == null
+                    || !existingClone.getNotebook().getId().equals(targetNotebook.getId()))) {
+                existingClone.setNotebook(targetNotebook);
+                existingClone = flashcardDeckRepository.save(existingClone);
+            }
+            log.info("Returning existing FlashcardDeck clone id={} for user id={} and source id={}",
+                    existingClone.getId(), currentUser.getId(), deckId);
+            return FlashcardDeckResponseMapper.toResponse(existingClone);
         }
 
         // 5. Tạo đối tượng FlashcardDeck bản sao (Gán user = currentUser, set notebook đích trực tiếp)
@@ -297,8 +421,16 @@ public class MarketplaceCloneService {
         FlashcardDeck savedDeck = flashcardDeckRepository.save(clonedDeck);
 
         // 7. Tăng downloadCount của FlashcardDeck gốc trên chợ lên 1 đơn vị và lưu lại
-        originalDeck.setDownloadCount(originalDeck.getDownloadCount() + 1);
-        flashcardDeckRepository.save(originalDeck);
+        boolean firstCloneCredit = receipt == null;
+        saveCloneReceipt(
+                receipt,
+                currentUser,
+                MarketplaceCloneTargetType.FLASHCARD_DECK,
+                deckId,
+                savedDeck.getId());
+        if (firstCloneCredit) {
+            originalDeck.setDownloadCount(safeDownloadCount(originalDeck.getDownloadCount()) + 1);
+        }
 
         log.info("User id={} successfully cloned FlashcardDeck id={} to cloned Deck id={}",
                 currentUser.getId(), deckId, savedDeck.getId());

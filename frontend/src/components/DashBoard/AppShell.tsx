@@ -568,7 +568,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main id="main-scroll-container" className="flex-1 lg:pl-[104px] px-4 md:px-6 lg:pr-8 pt-[72px] lg:pt-[88px] pb-24 lg:pb-8 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative z-0">
+        <main id="main-scroll-container" className="flex-1 lg:pl-[104px] px-4 md:px-6 lg:pr-8 pt-[72px] lg:pt-[88px] pb-24 lg:pb-8 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar">
           {/* Background Gradient Orbs */}
           <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
             {/* Light mode orbs — warm forest green */}

@@ -10,7 +10,7 @@ export interface AdminContentDTO {
   reviewCount?: number;
   acceptPercentage?: number;
   marketStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
-  visibility?: "PRIVATE" | "PUBLIC_LINK" | "WORKSPACE" | "MARKETPLACE";
+  visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
   submittedAt?: string;
   createdAt?: string;
   ownerId?: number;
@@ -90,7 +90,7 @@ export const marketplaceService = {
     return marketRequest(`/admin/contents/${targetType}/${targetId}`);
   },
 
-  updateVisibility(targetType: string, targetId: number, visibility: "PRIVATE" | "WORKSPACE" | "MARKETPLACE"): Promise<ApiResponse<AdminContentDTO>> {
+  updateVisibility(targetType: string, targetId: number, visibility: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE"): Promise<ApiResponse<AdminContentDTO>> {
     return marketRequest(`/admin/contents/${targetType}/${targetId}/visibility`, { method: "PATCH", body: JSON.stringify({ visibility }) });
   },
 
