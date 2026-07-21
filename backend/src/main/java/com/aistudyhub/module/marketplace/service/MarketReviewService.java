@@ -217,7 +217,11 @@ public class MarketReviewService {
                     .targetType("DOCUMENT")
                     .targetId(doc.getId())
                     .title(doc.getTitle())
-                    .submittedAt(doc.getUpdatedAt())
+                    .submittedAt(marketplaceSubmissionRepository
+                            .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
+                                    "DOCUMENT", doc.getId(), MarketStatus.PENDING)
+                            .map(MarketplaceSubmission::getSubmittedAt)
+                            .orElse(doc.getUpdatedAt()))
                     .subjectId(doc.getSubject().getId()).ownerId(doc.getUser().getId())
                     .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
                     .requiredVotes(queuePolicy.requiredVotes())
@@ -229,7 +233,11 @@ public class MarketReviewService {
                     .targetType("QUIZ")
                     .targetId(quiz.getId())
                     .title(quiz.getTitle())
-                    .submittedAt(quiz.getUpdatedAt())
+                    .submittedAt(marketplaceSubmissionRepository
+                            .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
+                                    "QUIZ", quiz.getId(), MarketStatus.PENDING)
+                            .map(MarketplaceSubmission::getSubmittedAt)
+                            .orElse(quiz.getUpdatedAt()))
                     .subjectId(quiz.getSubject().getId()).ownerId(quiz.getCreator().getId())
                     .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
                     .requiredVotes(queuePolicy.requiredVotes())
@@ -241,7 +249,11 @@ public class MarketReviewService {
                     .targetType("FLASHCARD_DECK")
                     .targetId(deck.getId())
                     .title(deck.getTitle())
-                    .submittedAt(deck.getUpdatedAt())
+                    .submittedAt(marketplaceSubmissionRepository
+                            .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
+                                    "FLASHCARD_DECK", deck.getId(), MarketStatus.PENDING)
+                            .map(MarketplaceSubmission::getSubmittedAt)
+                            .orElse(deck.getUpdatedAt()))
                     .subjectId(deck.getSubject().getId()).ownerId(deck.getUser().getId())
                     .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
                     .requiredVotes(queuePolicy.requiredVotes())
