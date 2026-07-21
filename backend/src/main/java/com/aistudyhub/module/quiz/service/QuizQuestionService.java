@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -136,11 +137,17 @@ public class QuizQuestionService {
     @Transactional
     public void deleteQuestion(Long questionId) {
         Long currentUserId = userService.getCurrentUserId();
-        QuizQuestion question = findQuestionOrThrow(questionId);
+        QuizQuestion question = quizQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new AppException(ErrorCode.QUESTION_NOT_FOUND));
         validateCreatorOwnership(question.getQuiz(), currentUserId);
 
-        quizQuestionRepository.delete(question);
-        log.info("Question id={} deleted by userId={}", questionId, currentUserId);
+        if (question.getDeletedAt() != null) {
+            return;
+        }
+
+        question.setDeletedAt(LocalDateTime.now());
+        quizQuestionRepository.save(question);
+        log.info("Question id={} soft-deleted by userId={}", questionId, currentUserId);
     }
 
     /**
@@ -169,7 +176,7 @@ public class QuizQuestionService {
     }
 
     private QuizQuestion findQuestionOrThrow(Long questionId) {
-        return quizQuestionRepository.findById(questionId)
+        return quizQuestionRepository.findByIdAndDeletedAtIsNull(questionId)
                 .orElseThrow(() -> new AppException(ErrorCode.QUESTION_NOT_FOUND));
     }
 
@@ -202,6 +209,24 @@ public class QuizQuestionService {
             if (type == QuestionType.MULTIPLE_CHOICE && correctOptions < 1) {
                 throw new AppException(ErrorCode.VALIDATION_ERROR,
                         "At least one option must be marked as correct");
+            }
+            return;
+        }
+
+        if (type == QuestionType.FILL_IN_THE_BLANK) {
+            if (options == null || options.size() != 1) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "FILL_IN_THE_BLANK questions require exactly one hidden correct answer option");
+            }
+
+            OptionRequest correctAnswer = options.get(0);
+            if (correctAnswer.getOptionText() == null || correctAnswer.getOptionText().isBlank()) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "FILL_IN_THE_BLANK correct answer must not be blank");
+            }
+            if (!Boolean.TRUE.equals(correctAnswer.getIsCorrect())) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "FILL_IN_THE_BLANK answer option must be marked as correct");
             }
         }
     }

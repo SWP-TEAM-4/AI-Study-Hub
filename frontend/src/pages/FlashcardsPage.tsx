@@ -98,14 +98,34 @@ export default function FlashcardsPage() {
     }
     setIsSavingDeck(true);
     try {
+      let createdDeck: FlashcardDeckDTO | null = null;
       if (editingDeck) {
-        await flashcardService.updateFlashcardDeck(editingDeck.id, deckForm);
+        const res = await flashcardService.updateFlashcardDeck(editingDeck.id, deckForm);
+        createdDeck = res.data;
         Notify.success("Đã cập nhật bộ thẻ");
       } else {
-        await flashcardService.createFlashcardDeck(deckForm);
+        const createRes = await flashcardService.createFlashcardDeck(deckForm);
+        createdDeck = createRes.data;
+
+        try {
+          const starterCardRes = await flashcardService.addCardToDeck(
+            createdDeck.id,
+            "Mặt trước mẫu",
+            "Mặt sau mẫu",
+          );
+          createdDeck = starterCardRes.data;
+        } catch {
+          Notify.warning("Bộ thẻ đã tạo, nhưng chưa thêm được thẻ mẫu. Bạn có thể thêm thẻ thủ công trong trang chi tiết.");
+        }
+
         Notify.success("Đã tạo bộ thẻ mới");
       }
+
       setIsEditorOpen(false);
+      if (createdDeck) {
+        setDetailDeck(createdDeck);
+        setActiveDeckId(null);
+      }
       await refetch();
     } catch (e: any) {
       Notify.failure(e.message || "Không thể lưu bộ thẻ");

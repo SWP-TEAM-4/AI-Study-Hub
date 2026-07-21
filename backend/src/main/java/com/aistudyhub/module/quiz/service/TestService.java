@@ -1,7 +1,10 @@
 package com.aistudyhub.module.quiz.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
@@ -91,7 +94,7 @@ public class TestService {
                 .user(currentUser)
                 .quiz(quiz)
                 .status(TestStatus.IN_PROGRESS)
-                .duration(request.getDuration()) // số phút làm bài
+                .duration(request.getDuration() != null ? request.getDuration() : 30) // số phút làm bài
                 .build();
 
         // 6. lưu vào db
@@ -108,7 +111,7 @@ public class TestService {
             if (questionIds == null || questionIds.isEmpty()) {
                 throw new AppException(ErrorCode.EMPTY_QUESTION_SELECTION);
             }
-            List<QuizQuestion> dbQuestions = quizQuestionRepository.findAllById(questionIds);
+            List<QuizQuestion> dbQuestions = quizQuestionRepository.findAllActiveById(questionIds);
 
             // Lỗi 2: Nếu số câu hỏi tìm thấy trong DB không khớp với số ID gửi lên,
             // hoặc có câu hỏi không thuộc về quizId này
@@ -163,11 +166,15 @@ public class TestService {
             // Map danh sách phương án lựa chọn option tương ứng của câu hỏi
             List<TestOptionResponse> optionResponses = new ArrayList<>();
 
-            for (QuizOption option : question.getOptions()) {
-                optionResponses.add(TestOptionResponse.builder()
-                        .id(option.getId())
-                        .optionText(option.getOptionText())
-                        .build());
+            // Đáp án chuẩn của câu điền từ được lưu như một option ẩn để chấm điểm,
+            // nhưng tuyệt đối không trả option này trong payload làm bài.
+            if (question.getQuestionType() != QuestionType.FILL_IN_THE_BLANK) {
+                for (QuizOption option : question.getOptions()) {
+                    optionResponses.add(TestOptionResponse.builder()
+                            .id(option.getId())
+                            .optionText(option.getOptionText())
+                            .build());
+                }
             }
 
             // trộn thứ tự các phương án
@@ -195,6 +202,7 @@ public class TestService {
                 .title(test.getTitle())
                 .totalScore(test.getTotalScore())
                 .duration(test.getDuration())
+                .expiresAt(calculateExpiresAt(test))
                 .status(test.getStatus())
                 .createdAt(test.getCreatedAt())
                 .questions(questionResponses)
@@ -212,6 +220,7 @@ public class TestService {
     /**
      * Lấy chi tiết bài test hiện tại và các câu hỏi kèm câu trả lời đã lưu
      */
+    @Transactional
     public TestResponse getTest(Long testId) {
 
         // 1.Lấy thông tin User hiện tại
@@ -238,19 +247,27 @@ public class TestService {
 
             // Map danh sach Option cua cau hoi
             List<TestOptionResponse> optionResponses = new ArrayList<>();
-            for (QuizOption option : question.getOptions()) {
-                optionResponses.add(TestOptionResponse.builder()
-                        .id(option.getId())
-                        .optionText(option.getOptionText())
-                        .build());
+            // Giữ cùng quy tắc với startTest: không làm lộ đáp án chuẩn khi resume.
+            if (question.getQuestionType() != QuestionType.FILL_IN_THE_BLANK) {
+                for (QuizOption option : question.getOptions()) {
+                    optionResponses.add(TestOptionResponse.builder()
+                            .id(option.getId())
+                            .optionText(option.getOptionText())
+                            .build());
+                }
             }
 
             // Map tiến trình trả lời của user (nếu đã từng trả lời thì sẽ có dữ liệu)
             UserAnswerResponse userAnswerResponse = null;
-            if (progress.getSelectedOption() != null || progress.getUserAnswerText() != null) {
+            if (progress.getSelectedOption() != null || !progress.getSelectedOptions().isEmpty()
+                    || progress.getUserAnswerText() != null) {
                 userAnswerResponse = UserAnswerResponse.builder()
                         .selectedOptionId(
                                 progress.getSelectedOption() != null ? progress.getSelectedOption().getId() : null)
+                        .selectedOptionIds(progress.getSelectedOptions().stream()
+                                .map(QuizOption::getId)
+                                .sorted()
+                                .toList())
                         .userAnswerText(progress.getUserAnswerText())
                         .build();
             }
@@ -276,6 +293,7 @@ public class TestService {
                 .title(test.getTitle())
                 .totalScore(test.getTotalScore())
                 .duration(test.getDuration())
+                .expiresAt(calculateExpiresAt(test))
                 .status(test.getStatus())
                 .createdAt(test.getCreatedAt())
                 .questions(questionResponses)
@@ -284,6 +302,26 @@ public class TestService {
 
         return testResponse;
 
+    }
+
+    /**
+     * Xóa một lượt làm bài của chính người dùng hiện tại.
+     * Tiến trình câu trả lời được xóa trước để hành vi nhất quán giữa schema
+     * production (Flyway) và schema H2 được Hibernate tạo trong test.
+     */
+    @Transactional
+    public void deleteTest(Long testId) {
+        User currentUser = userService.getCurrentUser();
+        Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new AppException(ErrorCode.TEST_NOT_FOUND));
+
+        if (!test.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.TEST_ACCESS_DENIED);
+        }
+
+        userQuizProgressRepository.deleteByTestId(testId);
+        testRepository.delete(test);
+        log.info("Test id={} deleted by userId={}", testId, currentUser.getId());
     }
 
     /**
@@ -308,6 +346,9 @@ public class TestService {
         if (test.getStatus() == TestStatus.COMPLETED) {
             throw new AppException(ErrorCode.TEST_ALREADY_COMPLETED);
         }
+        if (isExpired(test)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Test time has expired");
+        }
         // 5. Tìm bản ghi tiến trình (UserQuizProgress) của câu hỏi này trong bài test
         UserQuizProgress progress = userQuizProgressRepository
                 .findByTestIdAndQuestionId(testId, request.getQuestionId())
@@ -319,8 +360,7 @@ public class TestService {
         Boolean isCorrect = false;
 
         // 6.Xử lý tính toán đáp án đúng/sai dựa trên loại câu hỏi
-        if (question.getQuestionType() == QuestionType.SINGLE_CHOICE ||
-                question.getQuestionType() == QuestionType.MULTIPLE_CHOICE) {
+        if (question.getQuestionType() == QuestionType.SINGLE_CHOICE) {
 
             // Đối với câu hỏi trắc nghiệm, bắt buộc phải chọn option
             if (request.getSelectedOptionId() == null) {
@@ -337,6 +377,32 @@ public class TestService {
             }
 
             isCorrect = selectedOption.getIsCorrect();
+            progress.getSelectedOptions().clear();
+
+        } else if (question.getQuestionType() == QuestionType.MULTIPLE_CHOICE) {
+            if (request.getSelectedOptionIds() == null) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "selectedOptionIds is required");
+            }
+
+            Set<Long> requestedOptionIds = new LinkedHashSet<>(request.getSelectedOptionIds());
+            List<QuizOption> selectedOptions = quizOptionRepository.findAllById(requestedOptionIds);
+            if (selectedOptions.size() != requestedOptionIds.size()) {
+                throw new AppException(ErrorCode.OPTION_NOT_FOUND);
+            }
+            for (QuizOption option : selectedOptions) {
+                if (!option.getQuestion().getId().equals(question.getId())) {
+                    throw new AppException(ErrorCode.OPTION_NOT_FOUND);
+                }
+            }
+
+            Set<Long> correctOptionIds = question.getOptions().stream()
+                    .filter(option -> Boolean.TRUE.equals(option.getIsCorrect()))
+                    .map(QuizOption::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+            isCorrect = !requestedOptionIds.isEmpty() && requestedOptionIds.equals(correctOptionIds);
+            progress.setSelectedOption(null);
+            progress.getSelectedOptions().clear();
+            progress.getSelectedOptions().addAll(selectedOptions);
 
         } else if (question.getQuestionType() == QuestionType.FILL_IN_THE_BLANK) {
 
@@ -362,6 +428,8 @@ public class TestService {
                         : "";
                 isCorrect = cleanUserAnswer.equalsIgnoreCase(cleanCorrectAnswer);
             }
+            progress.setSelectedOption(null);
+            progress.getSelectedOptions().clear();
         }
         // 7. Cập nhật câu trả lời và kết quả đúng/sai âm thầm vào DB
         // Thay vì lưu trực tiếp cả hai:
@@ -375,8 +443,24 @@ public class TestService {
         // gian lận)
         return UserAnswerResponse.builder()
                 .selectedOptionId(selectedOption != null ? selectedOption.getId() : null)
+                .selectedOptionIds(progress.getSelectedOptions().stream()
+                        .map(QuizOption::getId)
+                        .sorted()
+                        .toList())
                 .userAnswerText(progress.getUserAnswerText()) // Lấy từ progress để đồng bộ với DB
                 .build();
+    }
+
+    private LocalDateTime calculateExpiresAt(Test test) {
+        if (test.getCreatedAt() == null || test.getDuration() == null || test.getDuration() <= 0) {
+            return null;
+        }
+        return test.getCreatedAt().plusMinutes(test.getDuration());
+    }
+
+    private boolean isExpired(Test test) {
+        LocalDateTime expiresAt = calculateExpiresAt(test);
+        return expiresAt != null && !LocalDateTime.now().isBefore(expiresAt);
     }
 
 }

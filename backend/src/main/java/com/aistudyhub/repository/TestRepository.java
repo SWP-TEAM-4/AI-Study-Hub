@@ -6,6 +6,11 @@ import com.aistudyhub.entity.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 public interface TestRepository extends JpaRepository<Test, Long> {
 
@@ -42,4 +47,25 @@ public interface TestRepository extends JpaRepository<Test, Long> {
 
     Page<Test> findByUserIdAndQuizIdAndTitleContainingIgnoreCaseAndStatus(Long userId, Long quizId, String title,
             TestStatus status, Pageable pageable);
+
+    @Query("""
+            SELECT t.quiz.id AS quizId, COUNT(t.id) AS attemptCount, MAX(t.totalScore) AS bestScore
+            FROM Test t
+            WHERE t.user.id = :userId
+              AND t.quiz.id IN :quizIds
+              AND t.status = :status
+            GROUP BY t.quiz.id
+            """)
+    List<UserQuizTestSummary> summarizeUserTestsByQuizIds(
+            @Param("userId") Long userId,
+            @Param("quizIds") List<Long> quizIds,
+            @Param("status") TestStatus status);
+
+    interface UserQuizTestSummary {
+        Long getQuizId();
+
+        Long getAttemptCount();
+
+        BigDecimal getBestScore();
+    }
 }

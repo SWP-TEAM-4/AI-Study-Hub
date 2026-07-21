@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import com.aistudyhub.common.enums.QuestionType;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +40,9 @@ public class QuizQuestion {
 
     @Column(columnDefinition = "TEXT")
     private String explanation;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     /**
      * Danh sách đáp án của câu hỏi.
