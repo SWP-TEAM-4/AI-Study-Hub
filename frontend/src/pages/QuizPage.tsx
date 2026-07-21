@@ -12,6 +12,7 @@ import {
   Play,
   Plus,
   Search,
+  Send,
   ShieldCheck,
   Trash2,
   Trophy,
@@ -22,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { Confirm, Notify } from "notiflix";
 import QuizEditorModal, { QuizEditorMode } from "../components/Quiz/QuizEditorModal";
 import CustomSelect from "../components/ui/CustomSelect";
+import MarketplacePublishModal, { MarketplacePublishValues } from "../components/ui/MarketplacePublishModal";
 import { useSubjects } from "../hooks/useSubjects";
 import { academicService } from "../services/academicService";
 import { notebookService } from "../services/notebookService";
@@ -67,10 +69,12 @@ interface QuizCardProps {
   subjectLabel: string;
   index: number;
   isDeleting: boolean;
+  isSubmitting: boolean;
   onOpen: () => void;
   onPlay: () => void;
   onRename: () => void;
   onEdit: () => void;
+  onSubmitToMarketplace: () => void;
   onDelete: () => void;
 }
 
@@ -84,10 +88,12 @@ function QuizCard({
   subjectLabel,
   index,
   isDeleting,
+  isSubmitting,
   onOpen,
   onPlay,
   onRename,
   onEdit,
+  onSubmitToMarketplace,
   onDelete,
 }: QuizCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -168,6 +174,18 @@ function QuizCard({
                 <button role="menuitem" type="button" onClick={() => runMenuAction(onOpen)} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-sm transition-colors hover:bg-muted">
                   <BookOpen size={15} className="text-muted-foreground" /> Quản lý câu hỏi
                 </button>
+                {!quiz.clonedFromId && (!quiz.marketStatus || quiz.marketStatus === "NONE" || quiz.marketStatus === "REJECTED") && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => runMenuAction(onSubmitToMarketplace)}
+                    className="flex min-h-11 w-full items-center gap-2.5 px-3.5 text-left text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <Send size={15} />
+                    {isSubmitting ? "Đang gửi..." : quiz.marketStatus === "REJECTED" ? "Gửi duyệt lại" : "Đăng lên cộng đồng"}
+                  </button>
+                )}
                 <div className="my-1 border-t border-border/70" />
                 <button
                   role="menuitem"
@@ -260,6 +278,7 @@ export default function QuizPage() {
   const [activeTestSession, setActiveTestSession] = useState<TestDTO | null>(null);
   const [activeDetailId, setActiveDetailId] = useState<number | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
+  const [publishQuiz, setPublishQuiz] = useState<QuizDTO | null>(null);
   const isStartingTest = useRef(false);
   const { subjects, subjectMap } = useSubjects();
 
@@ -337,6 +356,37 @@ export default function QuizPage() {
     onError: (error: any) => Notify.failure(error?.message || "Không thể xóa Quiz Bank"),
   });
 
+  const submitMarketplaceMutation = useMutation({
+    mutationFn: async ({ quiz, values }: { quiz: QuizDTO; values: MarketplacePublishValues }) => {
+      const description = values.description || "";
+      const examType = values.examType || "PRACTICE";
+      const metadataChanged = quiz.title !== values.title
+        || quiz.subjectId !== values.subjectId
+        || (quiz.description || "") !== description
+        || (quiz.examType || "PRACTICE") !== examType;
+
+      if (metadataChanged) {
+        await quizService.updateQuiz(quiz.id, {
+          title: values.title,
+          description,
+          notebookId: quiz.notebookId,
+          subjectId: values.subjectId,
+          academicTermId: quiz.academicTermId,
+          examType,
+          visibility: quiz.visibility || "PRIVATE",
+        });
+      }
+
+      return quizService.submitQuizToMarketplace(quiz.id, values.reviewNote);
+    },
+    onSuccess: async (_response, variables) => {
+      setPublishQuiz(null);
+      await queryClient.invalidateQueries({ queryKey: ["quizzes", "mine"] });
+      Notify.success(`Đã gửi “${variables.values.title}” lên cộng đồng và đang chờ duyệt.`);
+    },
+    onError: (error: any) => Notify.failure(error?.message || "Không thể đăng Quiz Bank lên cộng đồng"),
+  });
+
   const submitEditor = (payload: QuizPayload) => {
     if (!editorState) return;
     saveMutation.mutate({ state: editorState, payload });
@@ -355,6 +405,20 @@ export default function QuizPage() {
       "Hủy",
       () => deleteMutation.mutate(quiz),
     );
+  };
+
+  const requestMarketplaceSubmit = (quiz: QuizDTO) => {
+    if (quiz.clonedFromId) {
+      Notify.warning("Quiz Bank clone từ Marketplace không thể đăng lại lên cộng đồng.");
+      return;
+    }
+
+    if ((quiz.questionCount ?? 0) === 0) {
+      Notify.warning("Quiz Bank cần có ít nhất một câu hỏi trước khi đăng lên cộng đồng.");
+      return;
+    }
+
+    setPublishQuiz(quiz);
   };
 
   const startPractice = async (quizId: number, config: StartTestPayload = { quizSelectionMode: "ALL" }) => {
@@ -517,10 +581,12 @@ export default function QuizPage() {
               index={index}
               subjectLabel={(quiz.subjectId ? subjectMap[quiz.subjectId]?.code : null) || quiz.subjectName || "Tự do"}
               isDeleting={deleteMutation.isPending && deleteMutation.variables?.id === quiz.id}
+              isSubmitting={submitMarketplaceMutation.isPending && submitMarketplaceMutation.variables?.quiz.id === quiz.id}
               onOpen={() => setActiveDetailId(quiz.id)}
               onPlay={() => void startPractice(quiz.id)}
               onRename={() => setEditorState({ mode: "rename", quiz })}
               onEdit={() => setEditorState({ mode: "edit", quiz })}
+              onSubmitToMarketplace={() => requestMarketplaceSubmit(quiz)}
               onDelete={() => requestDelete(quiz)}
             />
           ))}
@@ -552,6 +618,26 @@ export default function QuizPage() {
         isSubmitting={saveMutation.isPending}
         onClose={() => !saveMutation.isPending && setEditorState(null)}
         onSubmit={submitEditor}
+      />
+
+      <MarketplacePublishModal
+        isOpen={Boolean(publishQuiz)}
+        kind="QUIZ"
+        target={publishQuiz ? {
+          id: publishQuiz.id,
+          title: publishQuiz.title,
+          subjectId: publishQuiz.subjectId,
+          description: publishQuiz.description,
+          examType: publishQuiz.examType,
+          itemCount: publishQuiz.questionCount ?? 0,
+          isResubmission: publishQuiz.marketStatus === "REJECTED",
+        } : null}
+        subjects={subjects}
+        isSubmitting={submitMarketplaceMutation.isPending}
+        onClose={() => !submitMarketplaceMutation.isPending && setPublishQuiz(null)}
+        onSubmit={(values) => {
+          if (publishQuiz) submitMarketplaceMutation.mutate({ quiz: publishQuiz, values });
+        }}
       />
     </motion.div>
   );

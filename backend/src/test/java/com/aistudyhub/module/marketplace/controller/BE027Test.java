@@ -243,6 +243,34 @@ class BE027Test {
         }
 
         @Test
+        void submitQuiz_ValidationError_WhenReviewNoteIsMissing() throws Exception {
+                Quiz quiz = quizRepository.save(Quiz.builder()
+                                .creator(currentUser)
+                                .subject(subject)
+                                .title("SWR302 Quiz With No Review Note")
+                                .description("Quiz has complete metadata")
+                                .examType("PRACTICE")
+                                .visibility(Visibility.PRIVATE)
+                                .marketStatus(MarketStatus.NONE)
+                                .build());
+
+                quizQuestionRepository.save(QuizQuestion.builder()
+                                .quiz(quiz)
+                                .questionText("What is a review note?")
+                                .questionType(QuestionType.SINGLE_CHOICE)
+                                .build());
+
+                mockMvc.perform(post("/api/marketplace/quizzes/{id}/submit", quiz.getId())
+                                .with(SecurityMockMvcRequestPostProcessors.user(userDetails(currentUser)))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                                .andExpect(jsonPath("$.message").value("Review note is required"));
+        }
+
+        @Test
         void submitQuiz_Forbidden_WhenNotOwner() throws Exception {
                 Quiz quiz = quizRepository.save(Quiz.builder()
                                 .creator(otherUser)
@@ -319,6 +347,33 @@ class BE027Test {
                 FlashcardDeck updated = flashcardDeckRepository.findById(savedDeck.getId()).orElseThrow();
                 assertEquals(Visibility.MARKETPLACE, updated.getVisibility());
                 assertEquals(MarketStatus.PENDING, updated.getMarketStatus());
+        }
+
+        @Test
+        void submitFlashcardDeck_ValidationError_WhenReviewNoteIsMissing() throws Exception {
+                FlashcardDeck deck = FlashcardDeck.builder()
+                                .user(currentUser)
+                                .subject(subject)
+                                .title("SWR302 Cards With No Review Note")
+                                .visibility(Visibility.PRIVATE)
+                                .marketStatus(MarketStatus.NONE)
+                                .build();
+
+                deck.getCards().add(Flashcard.builder()
+                                .deck(deck)
+                                .frontText("Reviewer")
+                                .backText("A person who checks submitted content")
+                                .build());
+                FlashcardDeck savedDeck = flashcardDeckRepository.save(deck);
+
+                mockMvc.perform(post("/api/marketplace/flashcard-decks/{id}/submit", savedDeck.getId())
+                                .with(SecurityMockMvcRequestPostProcessors.user(userDetails(currentUser)))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                                .andExpect(jsonPath("$.message").value("Review note is required"));
         }
 
         @Test

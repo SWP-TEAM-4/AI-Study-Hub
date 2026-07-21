@@ -189,12 +189,13 @@ public class MarketPlaceService {
         if (questions == null || questions.isEmpty()) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Quiz must contain at least one question.");
         }
+        String reviewNote = requireReviewNote(note);
         assertCanSubmit(quiz.getMarketStatus());
-        marketplaceSubmissionService.create("QUIZ", quiz.getId(), quiz.getSubject(), quiz.getCreator(), note);
+        marketplaceSubmissionService.create("QUIZ", quiz.getId(), quiz.getSubject(), quiz.getCreator(), reviewNote);
         // Bước 7: Cập nhật Visibility, MarketStatus và SubmitNote
         quiz.setVisibility(Visibility.MARKETPLACE);
         quiz.setMarketStatus(MarketStatus.PENDING);
-        quiz.setSubmitNote(note);
+        quiz.setSubmitNote(reviewNote);
         // Bước 8: Lưu thực thể và ghi log
         Quiz savedQuiz = quizRepository.save(quiz);
         log.info("Quiz id={} has been submitted to the marketplace by userId={}", quizId, currentUserId);
@@ -252,12 +253,13 @@ public class MarketPlaceService {
         if (deck.getCards() == null || deck.getCards().isEmpty()) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Flashcard deck must contain at least one card.");
         }
+        String reviewNote = requireReviewNote(note);
         assertCanSubmit(deck.getMarketStatus());
-        marketplaceSubmissionService.create("FLASHCARD_DECK", deck.getId(), deck.getSubject(), deck.getUser(), note);
+        marketplaceSubmissionService.create("FLASHCARD_DECK", deck.getId(), deck.getSubject(), deck.getUser(), reviewNote);
         // Bước 6: Cập nhật Visibility, MarketStatus và SubmitNote
         deck.setVisibility(Visibility.MARKETPLACE);
         deck.setMarketStatus(MarketStatus.PENDING);
-        deck.setSubmitNote(note);
+        deck.setSubmitNote(reviewNote);
         // Bước 7: Lưu thực thể và ghi log
         FlashcardDeck savedDeck = flashcardDeckRepository.save(deck);
         log.info("FlashcardDeck id={} has been submitted to the marketplace by userId={}", deckId, currentUserId);
@@ -572,5 +574,16 @@ public class MarketPlaceService {
         if (status == MarketStatus.APPROVED) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Approved content cannot be submitted again");
         }
+    }
+
+    private String requireReviewNote(String note) {
+        if (note == null || note.trim().isEmpty()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Review note is required");
+        }
+        String normalizedNote = note.trim();
+        if (normalizedNote.length() > 1000) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Review note cannot exceed 1000 characters");
+        }
+        return normalizedNote;
     }
 }
