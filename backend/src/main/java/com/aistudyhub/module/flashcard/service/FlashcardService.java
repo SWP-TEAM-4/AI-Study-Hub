@@ -194,6 +194,12 @@ public class FlashcardService {
             throw new AppException(ErrorCode.FLASHCARD_DECK_ACCESS_DENIED);
         }
 
+        String requestedTitle = request.getTitle().trim();
+        if (deck.getClonedFrom() != null && !deck.getTitle().equals(requestedTitle)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "The title of a cloned flashcard deck cannot be changed.");
+        }
+
         // Validate Notebook liên kết
         Notebook notebook = null;
         if (request.getNotebookId() != null) {
@@ -214,7 +220,7 @@ public class FlashcardService {
         }
 
         // Cập nhật thông tin
-        deck.setTitle(request.getTitle().trim());
+        deck.setTitle(requestedTitle);
         deck.setNotebook(notebook);
         deck.setSubject(subject);
         if (request.getVisibility() != null) {

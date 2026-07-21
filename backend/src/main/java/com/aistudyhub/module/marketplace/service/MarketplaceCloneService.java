@@ -279,6 +279,21 @@ public class MarketplaceCloneService {
                 .orElse(null);
     }
 
+    private FlashcardDeck findExistingFlashcardDeckClone(
+            MarketplaceCloneReceipt receipt,
+            User currentUser,
+            FlashcardDeck originalDeck) {
+        if (receipt == null || receipt.getClonedResourceId() == null) {
+            return null;
+        }
+
+        return flashcardDeckRepository.findById(receipt.getClonedResourceId())
+                .filter(deck -> deck.getUser().getId().equals(currentUser.getId()))
+                .filter(deck -> deck.getClonedFrom() != null
+                        && deck.getClonedFrom().getId().equals(originalDeck.getId()))
+                .orElse(null);
+    }
+
     private void linkDocumentToNotebook(Document document, Notebook targetNotebook) {
         if (targetNotebook == null
                 || notebookDocumentRepository.existsByNotebookIdAndDocumentId(
@@ -330,13 +345,17 @@ public class MarketplaceCloneService {
         User currentUser = userService.getCurrentUser();
 
         // 2. Tìm kiếm FlashcardDeck gốc trong database
-        FlashcardDeck originalDeck = flashcardDeckRepository.findById(deckId)
+        FlashcardDeck originalDeck = cloneLockRepository.findFlashcardDeckByIdForUpdate(deckId)
                 .orElseThrow(() -> new AppException(ErrorCode.FLASHCARD_DECK_NOT_FOUND));
 
         // 3. Kiểm tra bảo mật: Bộ thẻ phải ở chế độ MARKETPLACE và trạng thái APPROVED (Đã duyệt)
         if (originalDeck.getVisibility() != Visibility.MARKETPLACE
                 || originalDeck.getMarketStatus() != MarketStatus.APPROVED) {
             throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
+        }
+        if (originalDeck.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "You cannot clone your own marketplace flashcard deck.");
         }
 
         // 4. Kiểm tra Notebook đích nếu người dùng yêu cầu liên kết
@@ -349,6 +368,24 @@ public class MarketplaceCloneService {
             if (!targetNotebook.getUser().getId().equals(currentUser.getId())) {
                 throw new AppException(ErrorCode.NOTEBOOK_ACCESS_DENIED);
             }
+        }
+
+        MarketplaceCloneReceipt receipt = cloneReceiptRepository
+                .findByUserIdAndTargetTypeAndSourceId(
+                        currentUser.getId(), MarketplaceCloneTargetType.FLASHCARD_DECK, deckId)
+                .orElse(null);
+
+        FlashcardDeck existingClone = findExistingFlashcardDeckClone(receipt, currentUser, originalDeck);
+        if (existingClone != null) {
+            if (targetNotebook != null
+                    && (existingClone.getNotebook() == null
+                    || !existingClone.getNotebook().getId().equals(targetNotebook.getId()))) {
+                existingClone.setNotebook(targetNotebook);
+                existingClone = flashcardDeckRepository.save(existingClone);
+            }
+            log.info("Returning existing FlashcardDeck clone id={} for user id={} and source id={}",
+                    existingClone.getId(), currentUser.getId(), deckId);
+            return FlashcardDeckResponseMapper.toResponse(existingClone);
         }
 
         // 5. Tạo đối tượng FlashcardDeck bản sao (Gán user = currentUser, set notebook đích trực tiếp)
@@ -384,8 +421,16 @@ public class MarketplaceCloneService {
         FlashcardDeck savedDeck = flashcardDeckRepository.save(clonedDeck);
 
         // 7. Tăng downloadCount của FlashcardDeck gốc trên chợ lên 1 đơn vị và lưu lại
-        originalDeck.setDownloadCount(originalDeck.getDownloadCount() + 1);
-        flashcardDeckRepository.save(originalDeck);
+        boolean firstCloneCredit = receipt == null;
+        saveCloneReceipt(
+                receipt,
+                currentUser,
+                MarketplaceCloneTargetType.FLASHCARD_DECK,
+                deckId,
+                savedDeck.getId());
+        if (firstCloneCredit) {
+            originalDeck.setDownloadCount(safeDownloadCount(originalDeck.getDownloadCount()) + 1);
+        }
 
         log.info("User id={} successfully cloned FlashcardDeck id={} to cloned Deck id={}",
                 currentUser.getId(), deckId, savedDeck.getId());

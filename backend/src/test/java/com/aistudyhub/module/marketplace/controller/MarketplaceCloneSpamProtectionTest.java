@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,6 +29,8 @@ import com.aistudyhub.common.enums.QuestionType;
 import com.aistudyhub.common.enums.Role;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.entity.Document;
+import com.aistudyhub.entity.Flashcard;
+import com.aistudyhub.entity.FlashcardDeck;
 import com.aistudyhub.entity.Quiz;
 import com.aistudyhub.entity.QuizOption;
 import com.aistudyhub.entity.QuizQuestion;
@@ -36,6 +39,7 @@ import com.aistudyhub.entity.User;
 import com.aistudyhub.module.marketplace.model.MarketplaceCloneTargetType;
 import com.aistudyhub.module.marketplace.repository.MarketplaceCloneReceiptRepository;
 import com.aistudyhub.repository.DocumentRepository;
+import com.aistudyhub.repository.FlashcardDeckRepository;
 import com.aistudyhub.repository.NotebookDocumentRepository;
 import com.aistudyhub.repository.QuizOptionRepository;
 import com.aistudyhub.repository.QuizQuestionRepository;
@@ -77,6 +81,9 @@ class MarketplaceCloneSpamProtectionTest {
     private DocumentRepository documentRepository;
 
     @Autowired
+    private FlashcardDeckRepository flashcardDeckRepository;
+
+    @Autowired
     private SubjectRepository subjectRepository;
 
     @Autowired
@@ -87,6 +94,7 @@ class MarketplaceCloneSpamProtectionTest {
     private User secondCloner;
     private Document marketplaceDocument;
     private Quiz marketplaceQuiz;
+    private FlashcardDeck marketplaceFlashcardDeck;
 
     @BeforeEach
     void setUp() {
@@ -95,6 +103,7 @@ class MarketplaceCloneSpamProtectionTest {
         quizOptionRepository.deleteAll();
         quizQuestionRepository.deleteAll();
         quizRepository.deleteAll();
+        flashcardDeckRepository.deleteAll();
         documentRepository.deleteAll();
         subjectRepository.deleteAll();
         userRepository.deleteAll();
@@ -155,6 +164,29 @@ class MarketplaceCloneSpamProtectionTest {
                 .isCorrect(false)
                 .build());
         quizQuestionRepository.save(question);
+
+        marketplaceFlashcardDeck = FlashcardDeck.builder()
+                .user(owner)
+                .subject(subject)
+                .title("Marketplace Flashcard Deck")
+                .visibility(Visibility.MARKETPLACE)
+                .marketStatus(MarketStatus.APPROVED)
+                .downloadCount(15)
+                .reviewCount(0)
+                .acceptPercentage(BigDecimal.ZERO)
+                .cards(new ArrayList<>())
+                .build();
+        marketplaceFlashcardDeck.getCards().add(Flashcard.builder()
+                .deck(marketplaceFlashcardDeck)
+                .frontText("Idempotent")
+                .backText("Repeated requests return the existing clone")
+                .build());
+        marketplaceFlashcardDeck.getCards().add(Flashcard.builder()
+                .deck(marketplaceFlashcardDeck)
+                .frontText("Receipt")
+                .backText("Persists the first clone credit")
+                .build());
+        marketplaceFlashcardDeck = flashcardDeckRepository.save(marketplaceFlashcardDeck);
     }
 
     @Test
@@ -196,7 +228,7 @@ class MarketplaceCloneSpamProtectionTest {
     }
 
     @Test
-    void ownerCannotCloneOwnDocumentOrQuiz() throws Exception {
+    void ownerCannotCloneOwnMarketplaceResources() throws Exception {
         mockMvc.perform(post("/api/marketplace/documents/{id}/clone", marketplaceDocument.getId())
                         .with(user(new CustomUserDetails(owner)))
                         .contentType(MediaType.APPLICATION_JSON))
@@ -209,9 +241,17 @@ class MarketplaceCloneSpamProtectionTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
 
+        mockMvc.perform(post("/api/marketplace/flashcard-decks/{id}/clone", marketplaceFlashcardDeck.getId())
+                        .with(user(new CustomUserDetails(owner)))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
         assertEquals(0, cloneReceiptRepository.count());
         assertEquals(5, documentRepository.findById(marketplaceDocument.getId()).orElseThrow().getDownloadCount());
         assertEquals(10, quizRepository.findById(marketplaceQuiz.getId()).orElseThrow().getDownloadCount());
+        assertEquals(15, flashcardDeckRepository.findById(marketplaceFlashcardDeck.getId())
+                .orElseThrow().getDownloadCount());
     }
 
     @Test
@@ -224,6 +264,57 @@ class MarketplaceCloneSpamProtectionTest {
         assertEquals(1, quizQuestionRepository.findByQuizIdOrderById(firstCloneId).size());
         assertEquals(11, quizRepository.findById(marketplaceQuiz.getId()).orElseThrow().getDownloadCount());
         assertEquals(1, cloneReceiptRepository.count());
+    }
+
+    @Test
+    void repeatedFlashcardCloneDoesNotDeepCopyCardsAgain() throws Exception {
+        long firstCloneId = cloneFlashcardDeck(marketplaceFlashcardDeck.getId(), cloner);
+        long secondCloneId = cloneFlashcardDeck(marketplaceFlashcardDeck.getId(), cloner);
+
+        assertEquals(firstCloneId, secondCloneId);
+        assertEquals(1, flashcardClonesOwnedBy(cloner).size());
+        assertEquals(2, flashcardDeckRepository.findById(firstCloneId).orElseThrow().getCards().size());
+        assertEquals(16, flashcardDeckRepository.findById(marketplaceFlashcardDeck.getId())
+                .orElseThrow().getDownloadCount());
+        assertEquals(1, cloneReceiptRepository.count());
+    }
+
+    @Test
+    void deletingFlashcardCloneDoesNotGrantAnotherDownloadCredit() throws Exception {
+        long firstCloneId = cloneFlashcardDeck(marketplaceFlashcardDeck.getId(), cloner);
+        flashcardDeckRepository.deleteById(firstCloneId);
+        flashcardDeckRepository.flush();
+
+        long replacementCloneId = cloneFlashcardDeck(marketplaceFlashcardDeck.getId(), cloner);
+
+        assertNotEquals(firstCloneId, replacementCloneId);
+        assertEquals(1, flashcardClonesOwnedBy(cloner).size());
+        assertEquals(16, flashcardDeckRepository.findById(marketplaceFlashcardDeck.getId())
+                .orElseThrow().getDownloadCount());
+        assertEquals(replacementCloneId, cloneReceiptRepository
+                .findByUserIdAndTargetTypeAndSourceId(
+                        cloner.getId(), MarketplaceCloneTargetType.FLASHCARD_DECK,
+                        marketplaceFlashcardDeck.getId())
+                .orElseThrow()
+                .getClonedResourceId());
+    }
+
+    @Test
+    void clonedResourceTitlesCannotBeChanged() throws Exception {
+        long documentCloneId = cloneDocument(marketplaceDocument.getId(), cloner);
+        long quizCloneId = cloneQuiz(marketplaceQuiz.getId(), cloner);
+        long deckCloneId = cloneFlashcardDeck(marketplaceFlashcardDeck.getId(), cloner);
+
+        assertTitleUpdateRejected("/api/documents/{id}", documentCloneId, "Renamed document");
+        assertTitleUpdateRejected("/api/quizzes/{id}", quizCloneId, "Renamed quiz");
+        assertTitleUpdateRejected("/api/flashcard-decks/{id}", deckCloneId, "Renamed deck");
+
+        assertEquals(marketplaceDocument.getTitle(),
+                documentRepository.findById(documentCloneId).orElseThrow().getTitle());
+        assertEquals(marketplaceQuiz.getTitle(),
+                quizRepository.findById(quizCloneId).orElseThrow().getTitle());
+        assertEquals(marketplaceFlashcardDeck.getTitle(),
+                flashcardDeckRepository.findById(deckCloneId).orElseThrow().getTitle());
     }
 
     private User saveUser(String email, String name) {
@@ -253,6 +344,24 @@ class MarketplaceCloneSpamProtectionTest {
         return responseResourceId(result);
     }
 
+    private long cloneFlashcardDeck(Long sourceId, User userAccount) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/marketplace/flashcard-decks/{id}/clone", sourceId)
+                        .with(user(new CustomUserDetails(userAccount)))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+        return responseResourceId(result);
+    }
+
+    private void assertTitleUpdateRejected(String endpoint, Long resourceId, String newTitle) throws Exception {
+        mockMvc.perform(put(endpoint, resourceId)
+                        .with(user(new CustomUserDetails(cloner)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"" + newTitle + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
     private long responseResourceId(MvcResult result) throws Exception {
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         return response.path("data").path("id").asLong();
@@ -269,6 +378,13 @@ class MarketplaceCloneSpamProtectionTest {
         return quizRepository.findAll().stream()
                 .filter(quiz -> quiz.getCreator().getId().equals(userAccount.getId()))
                 .filter(quiz -> quiz.getClonedFrom() != null)
+                .toList();
+    }
+
+    private List<FlashcardDeck> flashcardClonesOwnedBy(User userAccount) {
+        return flashcardDeckRepository.findAll().stream()
+                .filter(deck -> deck.getUser().getId().equals(userAccount.getId()))
+                .filter(deck -> deck.getClonedFrom() != null)
                 .toList();
     }
 }
