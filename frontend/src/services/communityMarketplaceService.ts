@@ -13,10 +13,13 @@ export interface MarketplaceItemDTO {
   targetId: number;
   title: string;
   subjectId?: number | null;
+  creatorId?: number | null;
   creatorName?: string | null;
   downloadCount?: number | null;
   reviewCount?: number | null;
   acceptPercentage?: number | string | null;
+  communityReviewCount?: number | null;
+  communityRatingAvg?: number | string | null;
   marketStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
   clonedFromId?: number | null;

@@ -20,6 +20,8 @@ import {
   Cpu,
   MessageSquare,
   Send,
+  Gauge,
+  History,
   ChevronDown,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
@@ -32,6 +34,7 @@ import { notebookService } from "../services/notebookService";
 import { documentService } from "../services/documentService";
 import { flashcardService } from "../services/flashcardService";
 import { academicService, ComboDTO, SemesterDTO } from "../services/academicService";
+import { reputationService, type AiQuotaStatusDTO, type ReputationEventDTO } from "../services/reputationService";
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { useAuthStore } from "../store/useAuthStore";
 import { safeLocalStorage } from "../utils/safeStorage";
@@ -138,6 +141,8 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
   const [testHistory, setTestHistory] = useState<TestHistoryDTO[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogDTO[]>([]);
   const [aiUsage, setAiUsage] = useState<AIUsageDTO | null>(null);
+  const [aiQuota, setAiQuota] = useState<AiQuotaStatusDTO | null>(null);
+  const [reputationEvents, setReputationEvents] = useState<ReputationEventDTO[]>([]);
   const [myReferral, setMyReferral] = useState<ReferralDTO | null>(null);
   const [myRoles, setMyRoles] = useState<CommunityRoleDTO[]>([]);
   const [stats, setStats] = useState(emptyStats);
@@ -189,11 +194,13 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
         setEditComboId(profileRes.data.comboId);
       }
 
-      const [badgesRes, testsRes, logsRes, aiRes, refRes, rolesRes, notebooksRes, documentsRes, flashcardsRes, semestersRes, combosRes] = await Promise.allSettled([
+      const [badgesRes, testsRes, logsRes, aiRes, quotaRes, reputationRes, refRes, rolesRes, notebooksRes, documentsRes, flashcardsRes, semestersRes, combosRes] = await Promise.allSettled([
         userService.getMyBadges(),
         userService.getMyTestHistory({ page: 0, size: 5, sort: "newest" }),
         userService.getMyActivityLogs({ page: 0, size: 100, sort: "newest" }),
         userService.getMyAIUsage(),
+        reputationService.getMyAiQuota(),
+        reputationService.getMyReputationEvents(0, 8),
         communityService.getMyReferralInfo(),
         communityRoleService.getMyCommunityRoles(),
         notebookService.getNotebooks(0, 1),
@@ -229,6 +236,8 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
       }
 
       setAiUsage(aiRes.status === "fulfilled" && aiRes.value.success ? aiRes.value.data : null);
+      setAiQuota(quotaRes.status === "fulfilled" && quotaRes.value.success ? quotaRes.value.data : null);
+      setReputationEvents(reputationRes.status === "fulfilled" && reputationRes.value.success ? reputationRes.value.data.items || [] : []);
       setMyReferral(refRes.status === "fulfilled" && refRes.value.success ? refRes.value.data : null);
       setMyRoles(rolesRes.status === "fulfilled" && rolesRes.value.success ? rolesRes.value.data : []);
 
@@ -412,6 +421,37 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     { label: "Tokens", value: (aiUsage?.totalTokens ?? 0).toLocaleString() },
   ];
 
+  const quotaUsageCards = aiQuota ? [
+    {
+      label: "Chat",
+      dailyUsed: aiQuota.dailyChatUsed,
+      dailyLimit: aiQuota.tier?.dailyChatLimit ?? 0,
+      monthlyUsed: aiQuota.monthlyChatUsed,
+      monthlyLimit: aiQuota.tier?.monthlyChatLimit ?? 0,
+      available: aiQuota.chatAvailable !== false,
+    },
+    {
+      label: "Tóm tắt",
+      dailyUsed: aiQuota.dailySummaryUsed,
+      dailyLimit: aiQuota.tier?.dailySummaryLimit ?? 0,
+      monthlyUsed: aiQuota.monthlySummaryUsed,
+      monthlyLimit: aiQuota.tier?.monthlySummaryLimit ?? 0,
+      available: aiQuota.summaryAvailable !== false,
+    },
+    {
+      label: "Sinh nội dung",
+      dailyUsed: aiQuota.dailyGenerationUsed,
+      dailyLimit: aiQuota.tier?.dailyGenerationLimit ?? 0,
+      monthlyUsed: aiQuota.monthlyGenerationUsed,
+      monthlyLimit: aiQuota.tier?.monthlyGenerationLimit ?? 0,
+      available: aiQuota.generationAvailable !== false,
+    },
+  ] : [];
+
+  const quotaPercent = (used: number, limit: number) => {
+    if (!limit || limit <= 0) return 0;
+    return Math.min(100, Math.round((used / limit) * 100));
+  };
   const streakCount = (() => {
     const loginDays = new Set(activityLogs
       .filter((log) => log.action === "LOGIN")
@@ -506,6 +546,89 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
               <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">{item.label}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="surface-card p-5 lg:col-span-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 text-left">
+            <div>
+              <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2">
+                <Gauge size={18} className="text-primary" /> Quota AI theo reputation
+              </h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
+                Tier hiện tại: <span className="font-bold text-foreground">{aiQuota?.tier?.name || "Chưa có tier"}</span>
+              </p>
+            </div>
+            <div className="text-xs font-mono px-3 py-1.5 rounded-full bg-muted/50 border border-border text-muted-foreground">
+              {aiQuota ? `${aiQuota.reputationPoints.toLocaleString("vi-VN")} điểm` : "N/A"}
+            </div>
+          </div>
+          {quotaUsageCards.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-left">Chưa có dữ liệu quota AI.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {quotaUsageCards.map((item) => {
+                const dailyPercent = quotaPercent(item.dailyUsed, item.dailyLimit);
+                const monthlyPercent = quotaPercent(item.monthlyUsed, item.monthlyLimit);
+                return (
+                  <div key={item.label} className="rounded-xl bg-muted/35 border border-border p-4 text-left">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-bold text-foreground">{item.label}</div>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.available ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                        {item.available ? "Available" : "Limited"}
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <div className="flex justify-between text-[11px] font-semibold text-muted-foreground">
+                          <span>Ngày</span><span>{item.dailyUsed}/{item.dailyLimit}</span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-border/60 overflow-hidden">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${dailyPercent}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-[11px] font-semibold text-muted-foreground">
+                          <span>Tháng</span><span>{item.monthlyUsed}/{item.monthlyLimit}</span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-border/60 overflow-hidden">
+                          <div className="h-full rounded-full bg-coral" style={{ width: `${monthlyPercent}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="surface-card p-5">
+          <div className="text-left mb-4">
+            <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2">
+              <History size={16} className="text-amber-500" /> Lịch sử điểm
+            </h2>
+          </div>
+          <div className="space-y-3 text-left">
+            {reputationEvents.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4">Chưa có event cộng/trừ điểm.</p>
+            ) : (
+              reputationEvents.map((event) => (
+                <div key={event.id} className="flex items-start justify-between gap-3 rounded-xl border border-border/50 bg-muted/20 p-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-mono text-[11px] font-bold text-foreground">{event.eventType}</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      {event.createdAt ? new Date(event.createdAt).toLocaleDateString("vi-VN") : event.periodKey || "N/A"}
+                    </div>
+                  </div>
+                  <div className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-black ${event.pointsDelta >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                    {event.pointsDelta >= 0 ? "+" : ""}{event.pointsDelta}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </section>
 

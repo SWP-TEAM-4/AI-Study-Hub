@@ -53,6 +53,8 @@ public class ChatPracticeDraftService {
                                                      PracticePromptParser.ParsedPracticePrompt parsedPrompt) {
         ChatSession session = chatAccessService.resolveOwnedSession(sessionId, userId);
         int topK = request.getTopK() == null ? DEFAULT_TOP_K : request.getTopK();
+        AiActionType aiActionType = resolveUsageActionType(parsedPrompt.practiceType());
+        aiUsageService.assertQuotaAvailable(userId, aiActionType);
 
         List<DocumentChunkResponse> relevantChunks = documentChunkService.findRelevantChunks(
                 session.getNotebook().getId(),
@@ -82,7 +84,7 @@ public class ChatPracticeDraftService {
             int estimatedTokens = estimateTokenCount(parsedPrompt.promptWithoutPrefix(), relevantChunks, aiMessage);
             logPracticeGeneration(userId, session, parsedPrompt.practiceType(), aiMessage, relevantChunks.size(),
                     estimatedTokens, parsedPrompt.promptWithoutPrefix());
-            safeLogAiUsage(userId, resolveUsageActionType(parsedPrompt.practiceType()), estimatedTokens);
+            safeLogAiUsage(userId, aiActionType, estimatedTokens);
             return buildSendResponse(userMessage, aiMessage);
         }
 
@@ -125,7 +127,7 @@ public class ChatPracticeDraftService {
         int estimatedTokens = estimateTokenCount(parsedPrompt.promptWithoutPrefix(), relevantChunks, aiMessage);
         logPracticeGeneration(userId, session, parsedPrompt.practiceType(), aiMessage, relevantChunks.size(),
                 estimatedTokens, parsedPrompt.promptWithoutPrefix());
-        safeLogAiUsage(userId, resolveUsageActionType(parsedPrompt.practiceType()), estimatedTokens);
+        safeLogAiUsage(userId, aiActionType, estimatedTokens);
         return buildSendResponse(userMessage, aiMessage);
     }
 

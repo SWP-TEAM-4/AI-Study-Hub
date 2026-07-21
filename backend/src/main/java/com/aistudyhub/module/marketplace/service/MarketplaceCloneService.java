@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.aistudyhub.common.enums.ReputationEventType;
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Visibility;
@@ -28,6 +29,7 @@ import com.aistudyhub.module.quiz.dto.QuizResponseMapper;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponseMapper;
 import com.aistudyhub.module.marketplace.dto.MarketplaceCloneRequest;
+import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.module.marketplace.entity.MarketplaceCloneReceipt;
 import com.aistudyhub.module.marketplace.model.MarketplaceCloneTargetType;
 import com.aistudyhub.module.marketplace.repository.MarketplaceCloneLockRepository;
@@ -60,6 +62,7 @@ public class MarketplaceCloneService {
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
+    private final ReputationService reputationService;
     private final MarketplaceCloneReceiptRepository cloneReceiptRepository;
     private final MarketplaceCloneLockRepository cloneLockRepository;
 
@@ -118,6 +121,18 @@ public class MarketplaceCloneService {
         if (firstCloneCredit) {
             originalDoc.setDownloadCount(safeDownloadCount(originalDoc.getDownloadCount()) + 1);
         }
+
+        // 6. Tăng downloadCount của tài liệu gốc trên chợ lên 1 đơn vị và lưu lại
+        originalDoc.setDownloadCount(originalDoc.getDownloadCount() + 1);
+        documentRepository.save(originalDoc);
+        rewardMarketplaceClone(
+                originalDoc.getUser(),
+                originalDoc.getSubject() != null ? originalDoc.getSubject().getId() : null,
+                "DOCUMENT",
+                originalDoc.getId(),
+                savedDoc.getId(),
+                originalDoc.getDownloadCount(),
+                currentUser);
 
         log.info("User id={} successfully cloned Document id={} to cloned Document id={}",
                 currentUser.getId(), documentId, savedDoc.getId());
@@ -203,6 +218,17 @@ public class MarketplaceCloneService {
 
         quizQuestionRepository.saveAll(clonedQuestions);
 
+        // 7. Tăng downloadCount của Quiz gốc trên chợ lên 1 đơn vị và lưu lại
+        originalQuiz.setDownloadCount(originalQuiz.getDownloadCount() + 1);
+        quizRepository.save(originalQuiz);
+        rewardMarketplaceClone(
+                originalQuiz.getCreator(),
+                originalQuiz.getSubject() != null ? originalQuiz.getSubject().getId() : null,
+                "QUIZ",
+                originalQuiz.getId(),
+                savedQuiz.getId(),
+                originalQuiz.getDownloadCount(),
+                currentUser);
         boolean firstCloneCredit = receipt == null;
         saveCloneReceipt(receipt, currentUser, MarketplaceCloneTargetType.QUIZ, quizId, savedQuiz.getId());
         if (firstCloneCredit) {
@@ -421,6 +447,16 @@ public class MarketplaceCloneService {
         FlashcardDeck savedDeck = flashcardDeckRepository.save(clonedDeck);
 
         // 7. Tăng downloadCount của FlashcardDeck gốc trên chợ lên 1 đơn vị và lưu lại
+        originalDeck.setDownloadCount(originalDeck.getDownloadCount() + 1);
+        flashcardDeckRepository.save(originalDeck);
+        rewardMarketplaceClone(
+                originalDeck.getUser(),
+                originalDeck.getSubject() != null ? originalDeck.getSubject().getId() : null,
+                "FLASHCARD_DECK",
+                originalDeck.getId(),
+                savedDeck.getId(),
+                originalDeck.getDownloadCount(),
+                currentUser);
         boolean firstCloneCredit = receipt == null;
         saveCloneReceipt(
                 receipt,
@@ -437,5 +473,46 @@ public class MarketplaceCloneService {
 
         // Trả về DTO thông qua Mapper của FlashcardDeck
         return FlashcardDeckResponseMapper.toResponse(savedDeck);
+    }
+
+    private void rewardMarketplaceClone(
+            User owner,
+            Long subjectId,
+            String targetType,
+            Long targetId,
+            Long clonedId,
+            Integer downloadCount,
+            User actor) {
+
+        if (owner == null || actor == null || owner.getId().equals(actor.getId())) {
+            return;
+        }
+
+        reputationService.applyConfiguredEvent(
+                owner.getId(),
+                subjectId,
+                ReputationEventType.MARKETPLACE_CLONE_RECEIVED,
+                targetType,
+                targetId,
+                "MARKETPLACE_CLONE",
+                clonedId,
+                "Marketplace clone received",
+                "MARKETPLACE_CLONE:" + actor.getId() + ":" + targetType + ":" + targetId,
+                actor.getId());
+
+        Integer threshold = reputationService.getRuleThreshold(ReputationEventType.CONTENT_DOWNLOAD_MILESTONE);
+        if (threshold != null && downloadCount != null && downloadCount > 0 && downloadCount % threshold == 0) {
+            reputationService.applyConfiguredEvent(
+                    owner.getId(),
+                    subjectId,
+                    ReputationEventType.CONTENT_DOWNLOAD_MILESTONE,
+                    targetType,
+                    targetId,
+                    "MARKETPLACE_CLONE",
+                    clonedId,
+                    "Marketplace download milestone " + downloadCount,
+                    "CONTENT_DOWNLOAD_MILESTONE:" + targetType + ":" + targetId + ":" + downloadCount,
+                    actor.getId());
+        }
     }
 }
