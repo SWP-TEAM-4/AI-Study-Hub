@@ -28,4 +28,6 @@ public interface AiUsageService {
             AiActionType actionType);
 
     void assertQuotaAvailable(Long userId, AiActionType actionType);
+
+    void assertQuotaAvailable(Long userId, AiActionType actionType, int requestCount);
 }

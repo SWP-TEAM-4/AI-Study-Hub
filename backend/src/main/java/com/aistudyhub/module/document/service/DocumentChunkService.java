@@ -75,7 +75,7 @@ public class DocumentChunkService {
             throw new AppException(ErrorCode.DOCUMENT_ALREADY_PROCESSING);
         }
 
-        aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_CHUNKING);
+        aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_CHUNKING, 2);
         updateProcessingStatus(documentId, ProcessingStatus.PROCESSING);
 
         try {
@@ -131,6 +131,8 @@ public class DocumentChunkService {
         if (request == null || request.getTextContent() == null || request.getTextContent().trim().isBlank()) {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT, "Chunk text content must not be blank");
         }
+
+        aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_EMBEDDING);
 
         DocumentChunk chunk = documentChunkRepository.findByIdAndDocumentId(chunkId, documentId)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND, "Document chunk not found"));

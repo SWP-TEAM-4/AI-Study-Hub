@@ -30,6 +30,9 @@ public class MarketReviewResponse {
     private Integer requiredVotes;
     private Integer approvalPercentageRequired;
     private boolean decisionReached;
+    private Integer reviewerRewardPointsDelta;
+    private String reviewerRewardTitle;
+    private String reviewerRewardMessage;
 
     /**
      * Map MarketReview entity to MarketReviewResponse DTO.

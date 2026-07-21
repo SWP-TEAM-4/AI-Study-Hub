@@ -19,6 +19,8 @@ public class ReputationEventResponse {
     private Long sourceId;
     private Integer pointsDelta;
     private String reason;
+    private String displayTitle;
+    private String displayMessage;
     private String periodKey;
     private LocalDateTime createdAt;
 }

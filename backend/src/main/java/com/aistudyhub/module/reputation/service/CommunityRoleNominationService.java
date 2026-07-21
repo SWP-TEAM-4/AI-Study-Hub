@@ -13,6 +13,7 @@ import com.aistudyhub.entity.Subject;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.module.community.dto.CreateCommunityRoleRequest;
 import com.aistudyhub.module.community.service.CommunityRoleService;
+import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.module.reputation.dto.CommunityRoleNominationResponse;
 import com.aistudyhub.module.reputation.dto.ReviewNominationRequest;
 import com.aistudyhub.module.systemconfig.SystemConfigKeys;
@@ -24,6 +25,7 @@ import com.aistudyhub.repository.UserRepository;
 import com.aistudyhub.repository.projection.ReputationLeaderboardProjection;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -41,6 +43,7 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CommunityRoleNominationService {
 
     private static final Set<ReputationEventType> CONTRIBUTOR_EVENTS = EnumSet.of(
@@ -62,6 +65,7 @@ public class CommunityRoleNominationService {
     private final SubjectRepository subjectRepository;
     private final SystemConfigService systemConfigService;
     private final CommunityRoleService communityRoleService;
+    private final NotificationService notificationService;
 
     @Transactional
     public List<CommunityRoleNominationResponse> generateMonthlyNominations(String rawPeriodKey) {
@@ -111,7 +115,9 @@ public class CommunityRoleNominationService {
                 .reason(StringUtils.hasText(reason) ? reason.trim() : "Manual reviewer nomination")
                 .build();
 
-        return toResponse(nominationRepository.save(nomination));
+        CommunityRoleNomination saved = nominationRepository.save(nomination);
+        notifyNominationCreated(saved);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -190,7 +196,9 @@ public class CommunityRoleNominationService {
         nomination.setReviewNote(request != null ? request.getReviewNote() : null);
         nomination.setEffectiveStartAt(roleRequest.getStartAt());
         nomination.setEffectiveEndAt(roleRequest.getEndAt());
-        return toResponse(nominationRepository.save(nomination));
+        CommunityRoleNomination saved = nominationRepository.save(nomination);
+        notifyNominationReviewed(saved, true);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -206,7 +214,9 @@ public class CommunityRoleNominationService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND)));
         nomination.setReviewedAt(LocalDateTime.now());
         nomination.setReviewNote(request != null ? request.getReviewNote() : null);
-        return toResponse(nominationRepository.save(nomination));
+        CommunityRoleNomination saved = nominationRepository.save(nomination);
+        notifyNominationReviewed(saved, false);
+        return toResponse(saved);
     }
 
     private List<CommunityRoleNominationResponse> createTopModeratorNominations(
@@ -301,7 +311,9 @@ public class CommunityRoleNominationService {
                 .effectiveStartAt(defaultEffectiveStart(periodKey))
                 .effectiveEndAt(defaultEffectiveEnd(periodKey))
                 .build();
-        return toResponse(nominationRepository.save(nomination));
+        CommunityRoleNomination saved = nominationRepository.save(nomination);
+        notifyNominationCreated(saved);
+        return toResponse(saved);
     }
 
     private LocalDateTime defaultEffectiveStart(String periodKey) {
@@ -391,5 +403,52 @@ public class CommunityRoleNominationService {
                 .reviewNote(nomination.getReviewNote())
                 .createdAt(nomination.getCreatedAt())
                 .build();
+    }
+
+    private void notifyNominationCreated(CommunityRoleNomination nomination) {
+        if (nomination == null || nomination.getUser() == null || nomination.getUser().getId() == null) {
+            return;
+        }
+
+        try {
+            notificationService.createNotification(
+                    nomination.getUser().getId(),
+                    "Bạn được đề cử vai trò cộng đồng",
+                    buildNominationMessage(nomination, "Đề cử đang chờ admin duyệt."));
+        } catch (Exception ex) {
+            log.warn("Failed to create nomination notification id={}: {}",
+                    nomination.getId(), ex.getMessage());
+        }
+    }
+
+    private void notifyNominationReviewed(CommunityRoleNomination nomination, boolean approved) {
+        if (nomination == null || nomination.getUser() == null || nomination.getUser().getId() == null) {
+            return;
+        }
+
+        try {
+            notificationService.createNotification(
+                    nomination.getUser().getId(),
+                    approved ? "Đề cử cộng đồng đã được duyệt" : "Đề cử cộng đồng chưa được duyệt",
+                    buildNominationMessage(nomination,
+                            approved
+                                    ? "Bạn đã được cấp quyền theo phạm vi được duyệt."
+                                    : "Admin đã từ chối đề cử ở lần xét này."));
+        } catch (Exception ex) {
+            log.warn("Failed to create nomination review notification id={}: {}",
+                    nomination.getId(), ex.getMessage());
+        }
+    }
+
+    private String buildNominationMessage(CommunityRoleNomination nomination, String suffix) {
+        String subject = nomination.getSubject() != null
+                ? nomination.getSubject().getCode()
+                : "toàn hệ thống";
+        String role = nomination.getRoleType() != null ? nomination.getRoleType().name() : "COMMUNITY_ROLE";
+        String period = StringUtils.hasText(nomination.getPeriodKey()) ? nomination.getPeriodKey() : "hiện tại";
+        String note = StringUtils.hasText(nomination.getReviewNote())
+                ? " Ghi chú: " + nomination.getReviewNote().trim()
+                : "";
+        return "Vai trò " + role + " cho môn/phạm vi " + subject + " kỳ " + period + ". " + suffix + note;
     }
 }

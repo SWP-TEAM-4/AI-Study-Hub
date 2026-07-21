@@ -1,6 +1,7 @@
 import { ApiResponse, PaginatedResponse } from "./types";
 import { safeLocalStorage } from "../utils/safeStorage";
 import { safeParseJson } from "../utils/safeParseJson";
+import type { BadgeDTO } from "./badgeService";
 
 // ─── DTOS ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,48 @@ export interface ReferralDTO {
   appliedByUserId: number | null;
   status: "ACTIVE" | "APPLIED";
   rewardPoints: number;
+}
+
+export interface CommunityProfileSubjectDTO {
+  subjectId: number;
+  subjectCode?: string | null;
+  subjectName?: string | null;
+  score: number;
+  eventCount: number;
+}
+
+export interface CommunityProfileContributionDTO {
+  targetType: "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK";
+  targetId: number;
+  title: string;
+  subjectId?: number | null;
+  subjectCode?: string | null;
+  downloadCount: number;
+  communityReviewCount: number;
+  communityRatingAvg?: number | null;
+  approvedAt?: string | null;
+}
+
+export interface CommunityProfileReviewDTO {
+  id: number;
+  targetType?: string | null;
+  targetId?: number | null;
+  targetTitle?: string | null;
+  rating?: number | null;
+  content?: string | null;
+  createdAt?: string | null;
+}
+
+export interface CommunityProfileDTO {
+  userId: number;
+  fullName: string;
+  avatarUrl?: string | null;
+  reputationPoints: number;
+  joinedAt?: string | null;
+  badges: BadgeDTO[];
+  topSubjects: CommunityProfileSubjectDTO[];
+  contributions: CommunityProfileContributionDTO[];
+  reviewHistory: CommunityProfileReviewDTO[];
 }
 
 // ─── BASE CONFIG ─────────────────────────────────────────────────────────────
@@ -82,6 +125,10 @@ export const communityService = {
   // 1. GET /api/community/leaderboard/contributors
   async getLeaderboardContributors(page: number = 0, size: number = 10): Promise<ApiResponse<PaginatedResponse<ContributorDTO>>> {
     return communityRequest(`/community/leaderboard/contributors?page=${page}&size=${size}`, { method: "GET" });
+  },
+
+  async getCommunityProfile(userId: number): Promise<ApiResponse<CommunityProfileDTO>> {
+    return communityRequest(`/community/users/${userId}/profile`, { method: "GET" });
   },
 
   // 2. GET /api/referrals/me

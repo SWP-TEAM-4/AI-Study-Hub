@@ -31,6 +31,7 @@ public final class SystemConfigKeys {
     public static final String COMMUNITY_REVIEWER_ELIGIBLE_POINTS = "COMMUNITY_REVIEWER_ELIGIBLE_POINTS";
     public static final String COMMUNITY_REVIEWER_NOMINATION_LIMIT_PER_SUBJECT =
             "COMMUNITY_REVIEWER_NOMINATION_LIMIT_PER_SUBJECT";
+    public static final String CONTENT_REPORT_DAILY_LIMIT = "CONTENT_REPORT_DAILY_LIMIT";
 
     public static final Set<String> PUBLIC_KEYS = Set.of(
             MAX_UPLOAD_FILE_SIZE_BYTES,
@@ -50,7 +51,8 @@ public final class SystemConfigKeys {
             REWARD_REPUTATION_MILESTONE_POINTS,
             COMMUNITY_MODERATOR_NOMINATION_LIMIT_PER_SUBJECT,
             COMMUNITY_REVIEWER_ELIGIBLE_POINTS,
-            COMMUNITY_REVIEWER_NOMINATION_LIMIT_PER_SUBJECT
+            COMMUNITY_REVIEWER_NOMINATION_LIMIT_PER_SUBJECT,
+            CONTENT_REPORT_DAILY_LIMIT
     );
 
     private SystemConfigKeys() {

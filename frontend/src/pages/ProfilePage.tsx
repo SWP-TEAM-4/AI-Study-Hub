@@ -48,6 +48,30 @@ const emptyStats = {
   flashcardDecks: 0,
 };
 
+const reputationEventLabels: Record<string, string> = {
+  CONTENT_APPROVED_DOCUMENT: "Tài liệu được duyệt",
+  CONTENT_APPROVED_QUIZ: "Quiz được duyệt",
+  CONTENT_APPROVED_FLASHCARD_DECK: "Flashcard được duyệt",
+  MARKETPLACE_CLONE_RECEIVED: "Có lượt clone từ cộng đồng",
+  CONTENT_DOWNLOAD_MILESTONE: "Đạt mốc lượt tải",
+  COMMUNITY_REVIEW_GOOD: "Nội dung được đánh giá tốt",
+  COMMUNITY_REVIEW_BAD: "Nội dung bị đánh giá thấp",
+  REVIEWER_MARKETPLACE_VOTE: "Hoàn thành lượt duyệt",
+  REVIEWER_DECISION_ALIGNED: "Duyệt khớp quyết định cuối",
+  CONTENT_REPORT_ACCEPTED: "Báo cáo hợp lệ",
+  CONTENT_REPORT_REJECTED: "Báo cáo bị từ chối",
+  CONTENT_REPORT_OWNER_PENALTY: "Nội dung bị report xấu",
+  CONTENT_HIDDEN_PENALTY: "Nội dung bị ẩn",
+};
+
+function reputationEventTitle(event: ReputationEventDTO): string {
+  return event.displayTitle || reputationEventLabels[event.eventType] || event.eventType;
+}
+
+function reputationEventSubtitle(event: ReputationEventDTO): string {
+  return event.displayMessage || event.reason || event.periodKey || "Điểm uy tín được cập nhật";
+}
+
 /**
  * Tính initials an toàn từ fullName. Trả về "" nếu rỗng/null/undefined.
  */
@@ -600,8 +624,11 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
               reputationEvents.map((event) => (
                 <div key={event.id} className="flex items-start justify-between gap-3 rounded-xl border border-border/50 bg-muted/20 p-3">
                   <div className="min-w-0">
-                    <div className="truncate font-mono text-[11px] font-bold text-foreground">{event.eventType}</div>
-                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                    <div className="truncate text-xs font-bold text-foreground">{reputationEventTitle(event)}</div>
+                    <div className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">
+                      {reputationEventSubtitle(event)}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground/70">
                       {event.createdAt ? new Date(event.createdAt).toLocaleDateString("vi-VN") : event.periodKey || "N/A"}
                     </div>
                   </div>

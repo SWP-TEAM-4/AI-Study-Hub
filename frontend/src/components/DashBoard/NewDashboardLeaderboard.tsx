@@ -1,15 +1,24 @@
 "use client";
 
 import { memo, useState } from "react";
-import { Award, Medal, RefreshCw, ShieldCheck, Star, Trophy, X } from "lucide-react";
+import { Award, BookOpen, Medal, MessageSquareText, RefreshCw, ShieldCheck, Star, Trophy, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useSubjects } from "../../hooks/useSubjects";
 import { reputationService, type ReputationLeaderboardItemDTO, type ReputationLeaderboardKind } from "../../services/reputationService";
-import { userService, type BadgeDTO } from "../../services/userService";
+import { communityService } from "../../services/communityService";
+import { userService } from "../../services/userService";
 import { SkeletonCard } from "../ui/SkeletonCard";
 
 const springConfig = { type: "spring" as const, stiffness: 360, damping: 30 };
+
+type PublicBadge = {
+  id: number;
+  name: string;
+  description?: string | null;
+  iconUrl?: string | null;
+  createdAt?: string | null;
+};
 
 function currentPeriodKey() {
   return new Date().toISOString().slice(0, 7);
@@ -17,6 +26,16 @@ function currentPeriodKey() {
 
 function formatNumber(value?: number | null) {
   return Number(value ?? 0).toLocaleString("vi-VN");
+}
+
+function formatDate(value?: string | null) {
+  return value ? new Date(value).toLocaleDateString("vi-VN") : "";
+}
+
+function contributionTypeLabel(type?: string | null) {
+  if (type === "QUIZ") return "Quiz";
+  if (type === "FLASHCARD_DECK") return "Flashcard";
+  return "Tài liệu";
 }
 
 function initials(name?: string | null) {
@@ -39,7 +58,7 @@ function Avatar({ user, size = "size-11" }: { user: ReputationLeaderboardItemDTO
   );
 }
 
-function BadgeChips({ badges, limit = 2 }: { badges?: BadgeDTO[]; limit?: number }) {
+function BadgeChips({ badges, limit = 2 }: { badges?: PublicBadge[]; limit?: number }) {
   const visible = (badges ?? []).slice(0, limit);
   if (visible.length === 0) {
     return <span className="text-[11px] font-semibold text-muted-foreground">Chưa có huy hiệu</span>;
@@ -92,7 +111,7 @@ function LeaderRow({
           <span>{formatNumber(user.eventCount)} sự kiện</span>
         </div>
         <div className="mt-1.5">
-          <BadgeChips badges={user.badges as BadgeDTO[] | undefined} />
+          <BadgeChips badges={user.badges} />
         </div>
       </div>
     </button>
@@ -127,8 +146,17 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const selectedProfileQuery = useQuery({
+    queryKey: ["dashboardCommunityProfile", selectedUser?.userId],
+    queryFn: async () => (await communityService.getCommunityProfile(selectedUser!.userId)).data,
+    enabled: !!selectedUser?.userId,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const leaders = leaderboardQuery.data ?? [];
   const top3 = leaders.slice(0, 3);
+  const selectedProfile = selectedProfileQuery.data;
+  const selectedBadges = selectedProfile?.badges ?? selectedUser?.badges ?? [];
   const selectedSubject = subjectId !== "all" ? subjectMap[Number(subjectId)] : null;
   const scopeLabel = selectedSubject ? `${selectedSubject.code} · ${periodKey}` : `Tất cả môn · ${periodKey}`;
 
@@ -283,7 +311,7 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.96, y: 12 }}
               onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl"
+              className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
@@ -304,11 +332,11 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
                 <div className="mb-2 flex items-center gap-2 text-sm font-bold">
                   <Star size={15} className="text-amber-500" /> Danh hiệu đã đạt
                 </div>
-                {(selectedUser.badges?.length ?? 0) === 0 ? (
+                {(selectedBadges.length ?? 0) === 0 ? (
                   <p className="rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Thành viên này chưa có huy hiệu công khai.</p>
                 ) : (
                   <div className="grid gap-2">
-                    {selectedUser.badges?.map((badge) => (
+                    {selectedBadges.map((badge) => (
                       <div key={badge.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
                         <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
                           {badge.iconUrl ? <img src={badge.iconUrl} alt="" className="size-6 rounded object-cover" /> : <Award size={17} />}
@@ -322,6 +350,55 @@ export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
                   </div>
                 )}
               </div>
+
+              {selectedProfileQuery.isLoading && (
+                <p className="mt-4 rounded-xl border border-border bg-muted/20 p-3 text-sm text-muted-foreground">Đang tải hồ sơ cộng đồng...</p>
+              )}
+
+              {selectedProfile?.topSubjects?.length ? (
+                <div className="mt-5">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-bold">
+                    <BookOpen size={15} className="text-primary" /> Top môn nổi bật
+                  </div>
+                  <div className="grid gap-2">
+                    {selectedProfile.topSubjects.slice(0, 3).map((subject) => (
+                      <div key={subject.subjectId} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/15 p-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-foreground">{subject.subjectCode || subject.subjectName || `Môn #${subject.subjectId}`}</div>
+                          <div className="truncate text-xs text-muted-foreground">{subject.subjectName || "Đóng góp theo môn học"}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-black text-primary">{formatNumber(subject.score)}</div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">{formatNumber(subject.eventCount)} sự kiện</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {selectedProfile?.contributions?.length ? (
+                <div className="mt-5">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-bold">
+                    <MessageSquareText size={15} className="text-emerald-600" /> Đóng góp gần đây
+                  </div>
+                  <div className="grid gap-2">
+                    {selectedProfile.contributions.slice(0, 3).map((item) => (
+                      <div key={`${item.targetType}-${item.targetId}`} className="rounded-xl border border-border bg-muted/15 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{contributionTypeLabel(item.targetType)}</span>
+                          <span className="text-[11px] font-semibold text-muted-foreground">{formatDate(item.approvedAt)}</span>
+                        </div>
+                        <div className="mt-1 truncate text-sm font-bold text-foreground">{item.title}</div>
+                        <div className="mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-muted-foreground">
+                          <span>{formatNumber(item.downloadCount)} lượt clone/download</span>
+                          <span>{formatNumber(item.communityReviewCount)} review</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </motion.div>
           </motion.div>
         )}

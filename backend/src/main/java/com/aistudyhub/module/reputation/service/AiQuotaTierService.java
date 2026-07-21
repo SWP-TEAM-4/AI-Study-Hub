@@ -127,22 +127,28 @@ public class AiQuotaTierService {
 
     @Transactional(readOnly = true)
     public void assertQuotaAvailable(Long userId, AiActionType actionType) {
+        assertQuotaAvailable(userId, actionType, 1);
+    }
+
+    @Transactional(readOnly = true)
+    public void assertQuotaAvailable(Long userId, AiActionType actionType, int requestCount) {
         if (userId == null || actionType == null) {
             return;
         }
+        int requiredRequests = Math.max(requestCount, 1);
 
         AiQuotaStatusResponse status = getQuotaStatus(userId);
         AiQuotaTierResponse tier = status.getTier();
 
         if (actionType == AiActionType.CHAT) {
             assertWithinLimit("chat", status.getDailyChatUsed(), tier.getDailyChatLimit(),
-                    status.getMonthlyChatUsed(), tier.getMonthlyChatLimit());
+                    status.getMonthlyChatUsed(), tier.getMonthlyChatLimit(), requiredRequests);
         } else if (actionType == AiActionType.SUMMARY) {
             assertWithinLimit("summary", status.getDailySummaryUsed(), tier.getDailySummaryLimit(),
-                    status.getMonthlySummaryUsed(), tier.getMonthlySummaryLimit());
+                    status.getMonthlySummaryUsed(), tier.getMonthlySummaryLimit(), requiredRequests);
         } else if (GENERATION_ACTIONS.contains(actionType)) {
             assertWithinLimit("generation", status.getDailyGenerationUsed(), tier.getDailyGenerationLimit(),
-                    status.getMonthlyGenerationUsed(), tier.getMonthlyGenerationLimit());
+                    status.getMonthlyGenerationUsed(), tier.getMonthlyGenerationLimit(), requiredRequests);
         }
     }
 
@@ -179,12 +185,17 @@ public class AiQuotaTierService {
                 userId, GENERATION_ACTIONS, from, to);
     }
 
-    private void assertWithinLimit(String quotaName, long dailyUsed, int dailyLimit, long monthlyUsed, int monthlyLimit) {
-        if (dailyUsed >= dailyLimit) {
+    private void assertWithinLimit(String quotaName,
+                                   long dailyUsed,
+                                   int dailyLimit,
+                                   long monthlyUsed,
+                                   int monthlyLimit,
+                                   int requiredRequests) {
+        if (dailyUsed + requiredRequests > dailyLimit) {
             throw new AppException(ErrorCode.AI_QUOTA_EXCEEDED,
                     "Daily " + quotaName + " AI quota exceeded");
         }
-        if (monthlyUsed >= monthlyLimit) {
+        if (monthlyUsed + requiredRequests > monthlyLimit) {
             throw new AppException(ErrorCode.AI_QUOTA_EXCEEDED,
                     "Monthly " + quotaName + " AI quota exceeded");
         }

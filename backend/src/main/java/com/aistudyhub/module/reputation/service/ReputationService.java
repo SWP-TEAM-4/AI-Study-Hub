@@ -10,6 +10,7 @@ import com.aistudyhub.entity.User;
 import com.aistudyhub.entity.UserBadge;
 import com.aistudyhub.module.badge.dto.BadgeResponse;
 import com.aistudyhub.module.community.service.RewardBadgeService;
+import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.module.reputation.dto.ReputationEventResponse;
 import com.aistudyhub.module.reputation.dto.ReputationLeaderboardItemResponse;
 import com.aistudyhub.module.reputation.dto.RewardRuleRequest;
@@ -21,6 +22,7 @@ import com.aistudyhub.repository.UserBadgeRepository;
 import com.aistudyhub.repository.UserRepository;
 import com.aistudyhub.repository.projection.ReputationLeaderboardProjection;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReputationService {
 
     private final RewardRuleRepository rewardRuleRepository;
@@ -47,6 +50,7 @@ public class ReputationService {
     private final SubjectRepository subjectRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final RewardBadgeService rewardBadgeService;
+    private final NotificationService notificationService;
 
     @Transactional
     public ReputationEventResponse applyConfiguredEvent(
@@ -115,6 +119,7 @@ public class ReputationService {
         user.setReputationPoints(Math.max(0, currentPoints + pointsDelta));
         userRepository.save(user);
         rewardBadgeService.awardReputationMilestoneBadge(user);
+        notifyReputationEvent(user, saved);
 
         return toResponse(saved);
     }
@@ -216,6 +221,8 @@ public class ReputationService {
                 .sourceId(event.getSourceId())
                 .pointsDelta(event.getPointsDelta())
                 .reason(event.getReason())
+                .displayTitle(resolveDisplayTitle(event.getEventType()))
+                .displayMessage(resolveDisplayMessage(event))
                 .periodKey(event.getPeriodKey())
                 .createdAt(event.getCreatedAt())
                 .build();
@@ -276,5 +283,57 @@ public class ReputationService {
 
     private String normalizeCode(String value) {
         return StringUtils.hasText(value) ? value.trim().toUpperCase() : null;
+    }
+
+    private void notifyReputationEvent(User user, ReputationEvent event) {
+        if (user == null || user.getId() == null || event == null || event.getPointsDelta() == null) {
+            return;
+        }
+
+        try {
+            int delta = event.getPointsDelta();
+            String title = delta >= 0
+                    ? "Bạn được cộng " + delta + " điểm uy tín"
+                    : "Bạn bị trừ " + Math.abs(delta) + " điểm uy tín";
+            notificationService.createNotification(
+                    user.getId(),
+                    title,
+                    resolveDisplayMessage(event));
+        } catch (Exception ex) {
+            log.warn("Failed to create reputation notification for userId={}: {}", user.getId(), ex.getMessage());
+        }
+    }
+
+    private String resolveDisplayTitle(ReputationEventType eventType) {
+        if (eventType == null) {
+            return "Điểm uy tín được cập nhật";
+        }
+        return switch (eventType) {
+            case CONTENT_APPROVED_DOCUMENT -> "Tài liệu được duyệt";
+            case CONTENT_APPROVED_QUIZ -> "Quiz được duyệt";
+            case CONTENT_APPROVED_FLASHCARD_DECK -> "Flashcard được duyệt";
+            case MARKETPLACE_CLONE_RECEIVED -> "Có lượt clone từ cộng đồng";
+            case CONTENT_DOWNLOAD_MILESTONE -> "Đạt mốc lượt clone/download";
+            case COMMUNITY_REVIEW_GOOD -> "Nội dung được đánh giá tốt";
+            case COMMUNITY_REVIEW_BAD -> "Nội dung bị đánh giá thấp";
+            case REVIEWER_MARKETPLACE_VOTE -> "Hoàn thành lượt duyệt marketplace";
+            case REVIEWER_DECISION_ALIGNED -> "Duyệt khớp quyết định cuối";
+            case CONTENT_REPORT_ACCEPTED -> "Báo cáo vi phạm hợp lệ";
+            case CONTENT_REPORT_REJECTED -> "Báo cáo vi phạm bị từ chối";
+            case CONTENT_REPORT_OWNER_PENALTY -> "Nội dung bị báo cáo xấu";
+            case CONTENT_HIDDEN_PENALTY -> "Nội dung bị ẩn";
+        };
+    }
+
+    private String resolveDisplayMessage(ReputationEvent event) {
+        String title = resolveDisplayTitle(event.getEventType());
+        String delta = event.getPointsDelta() == null
+                ? ""
+                : (event.getPointsDelta() >= 0 ? "+" : "") + event.getPointsDelta() + " điểm";
+        String reason = StringUtils.hasText(event.getReason()) ? event.getReason().trim() : title;
+        String target = StringUtils.hasText(event.getTargetType()) && event.getTargetId() != null
+                ? " (" + event.getTargetType() + " #" + event.getTargetId() + ")"
+                : "";
+        return title + target + ": " + delta + ". " + reason;
     }
 }

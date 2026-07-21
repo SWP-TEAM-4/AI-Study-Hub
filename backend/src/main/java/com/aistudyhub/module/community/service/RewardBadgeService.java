@@ -5,6 +5,7 @@ import com.aistudyhub.entity.Badge;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.entity.UserBadge;
 import com.aistudyhub.module.community.dto.ContributorLeaderboardItemResponse;
+import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import com.aistudyhub.module.systemconfig.service.SystemConfigService;
 import com.aistudyhub.repository.BadgeRepository;
@@ -71,6 +72,7 @@ public class RewardBadgeService {
     private final ReferralRepository referralRepository;
     private final MarketReviewRepository marketReviewRepository;
     private final SystemConfigService systemConfigService;
+    private final NotificationService notificationService;
 
     @Transactional
     public void awardContributorBadges(List<ContributorLeaderboardItemResponse> rankedItems) {
@@ -161,9 +163,21 @@ public class RewardBadgeService {
                     .user(user)
                     .badge(badge)
                     .build());
+            notifyBadgeAwarded(user, badge);
             log.info("Auto-assigned badge '{}' to userId={}", badge.getName(), user.getId());
         } catch (DataIntegrityViolationException ex) {
             log.debug("Badge '{}' was already assigned to userId={}", badge.getName(), user.getId());
+        }
+    }
+
+    private void notifyBadgeAwarded(User user, Badge badge) {
+        try {
+            notificationService.createNotification(
+                    user.getId(),
+                    "Bạn vừa nhận huy hiệu mới",
+                    "Huy hiệu \"" + badge.getName() + "\" đã được gắn vào hồ sơ cộng đồng của bạn.");
+        } catch (Exception ex) {
+            log.warn("Failed to create badge notification for userId={}: {}", user.getId(), ex.getMessage());
         }
     }
 

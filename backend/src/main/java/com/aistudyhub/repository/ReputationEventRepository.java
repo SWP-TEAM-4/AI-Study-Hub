@@ -3,6 +3,7 @@ package com.aistudyhub.repository;
 import com.aistudyhub.common.enums.ReputationEventType;
 import com.aistudyhub.entity.ReputationEvent;
 import com.aistudyhub.repository.projection.ReputationLeaderboardProjection;
+import com.aistudyhub.repository.projection.UserTopSubjectProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -55,5 +56,28 @@ public interface ReputationEventRepository extends JpaRepository<ReputationEvent
             @Param("subjectId") Long subjectId,
             @Param("periodKey") String periodKey,
             @Param("eventTypes") Collection<ReputationEventType> eventTypes,
+            Pageable pageable);
+
+    @Query(value = """
+            SELECT event.subject.id AS subjectId,
+                   event.subject.code AS subjectCode,
+                   event.subject.name AS subjectName,
+                   COALESCE(SUM(event.pointsDelta), 0) AS score,
+                   COUNT(event.id) AS eventCount
+            FROM ReputationEvent event
+            WHERE event.user.id = :userId
+              AND event.subject IS NOT NULL
+            GROUP BY event.subject.id, event.subject.code, event.subject.name
+            HAVING COALESCE(SUM(event.pointsDelta), 0) <> 0
+            ORDER BY COALESCE(SUM(event.pointsDelta), 0) DESC, COUNT(event.id) DESC, event.subject.code ASC
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT event.subject.id)
+            FROM ReputationEvent event
+            WHERE event.user.id = :userId
+              AND event.subject IS NOT NULL
+            """)
+    Page<UserTopSubjectProjection> findTopSubjectsByUserId(
+            @Param("userId") Long userId,
             Pageable pageable);
 }
