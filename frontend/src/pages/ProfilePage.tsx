@@ -192,7 +192,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
       const [badgesRes, testsRes, logsRes, aiRes, refRes, rolesRes, notebooksRes, documentsRes, flashcardsRes, semestersRes, combosRes] = await Promise.allSettled([
         userService.getMyBadges(),
         userService.getMyTestHistory({ page: 0, size: 5, sort: "newest" }),
-        userService.getMyActivityLogs({ page: 0, size: 400, sort: "newest" }),
+        userService.getMyActivityLogs({ page: 0, size: 100, sort: "newest" }),
         userService.getMyAIUsage(),
         communityService.getMyReferralInfo(),
         communityRoleService.getMyCommunityRoles(),
@@ -412,6 +412,23 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     { label: "Tokens", value: (aiUsage?.totalTokens ?? 0).toLocaleString() },
   ];
 
+  const streakCount = (() => {
+    const loginDays = new Set(activityLogs
+      .filter((log) => log.action === "LOGIN")
+      .map((log) => new Date(log.createdAt).setHours(0, 0, 0, 0)));
+    if (loginDays.size === 0) return 0;
+
+    let count = 0;
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    if (!loginDays.has(day.getTime())) day.setDate(day.getDate() - 1);
+    while (loginDays.has(day.getTime())) {
+      count++;
+      day.setDate(day.getDate() - 1);
+    }
+    return count;
+  })();
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 relative app-shell-font">
 
@@ -437,7 +454,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
               <span className="inline-flex items-center gap-1"><Mail size={13} className="text-primary/70" /> {userInfo.email}</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-coral/10 text-coral text-xs font-semibold border border-coral/10"><Flame size={12} fill="currentColor" /> Chuỗi {learningStreak} ngày</div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-coral/10 text-coral text-xs font-semibold border border-coral/10"><Flame size={12} fill="currentColor" /> Chuỗi đăng nhập {streakCount} ngày</div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning/10 text-warning-foreground text-xs font-semibold border border-warning/10"><Award size={12} /> {userInfo.reputationPoints.toLocaleString()} reputation</div>
             </div>
           </div>

@@ -194,7 +194,7 @@ export default function AdminMarketplaceTab() {
                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
                           <span>{item.creatorName || "Ẩn danh"}</span>
                           {item.subjectId && <span>• Môn #{item.subjectId}</span>}
-                          {item.submittedAt && <span>• Gửi: {new Date(item.submittedAt).toLocaleDateString()}</span>}
+                          {item.submittedAt && <span>• Gửi: {new Date(item.submittedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">
