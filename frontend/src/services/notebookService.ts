@@ -46,11 +46,11 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
 
   if (response.status === 401) {
     safeLocalStorage.removeItem("auth_token");
-      safeLocalStorage.removeItem("auth_user");
-      safeLocalStorage.removeItem("auth-storage");
-      if (typeof window !== "undefined") {
-        window.location.href = "/";
-      }
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
     throw { status: 401, message: "Phien dang nhap da het han, vui long dang nhap lai." };
   }
 
@@ -68,15 +68,13 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
 function getUserId(): number {
   try {
     const user = safeLocalStorage.getJSON<any>("auth_user", null);
-      const userId = Number(user.userId ?? user.id);
-      if (Number.isFinite(userId) && userId > 0) return userId;
-    }
+    const userId = Number(user?.userId ?? user?.id);
+    if (Number.isFinite(userId) && userId > 0) return userId;
 
     const parsed = safeLocalStorage.getJSON<any>("auth-storage", null);
-      const user = parsed?.state?.user;
-      const userId = Number(user?.userId ?? user?.id);
-      if (Number.isFinite(userId) && userId > 0) return userId;
-    }
+    const storedUser = parsed?.state?.user;
+    const storedUserId = Number(storedUser?.userId ?? storedUser?.id);
+    if (Number.isFinite(storedUserId) && storedUserId > 0) return storedUserId;
   } catch (e) {
     console.error("Error parsing auth_user in getUserId:", e);
   }

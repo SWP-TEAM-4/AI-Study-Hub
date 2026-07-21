@@ -56,6 +56,9 @@ export const badgeService = {
     return await safeRequest(`/admin/users/${userId}/badges/${badgeId}`, { method: "POST" });
   },
   async getBadges() {
-    return await safeRequest(`/badges`);
+    return await safeRequest<ApiResponse<BadgeDTO[]>>(`/badges`);
+  },
+  async getUserBadges(userId: number | string) {
+    return await safeRequest<ApiResponse<BadgeDTO[]>>(`/users/${userId}/badges`);
   },
 };

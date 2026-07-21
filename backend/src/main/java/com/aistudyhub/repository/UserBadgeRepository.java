@@ -4,6 +4,7 @@ import com.aistudyhub.entity.UserBadge;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
@@ -12,4 +13,7 @@ public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
 
     @EntityGraph(attributePaths = "badge")
     List<UserBadge> findAllByUser_IdOrderByEarnedAtDescIdDesc(Long userId);
+
+    @EntityGraph(attributePaths = { "user", "badge" })
+    List<UserBadge> findAllByUser_IdInOrderByEarnedAtDescIdDesc(Collection<Long> userIds);
 }

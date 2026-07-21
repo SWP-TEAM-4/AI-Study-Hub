@@ -38,7 +38,8 @@ import {
   BellRing,
   CircleUserRound,
   ShieldCheck,
-  Flag
+  Flag,
+  Trophy
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
@@ -71,6 +72,7 @@ const adminNav = [
   { id: "reports", labelKey: "appShell.adminNav.reports", icon: AlertTriangle },
   { id: "marketplace", labelKey: "appShell.adminNav.marketplace", icon: BookMarked },
   { id: "badges", labelKey: "appShell.adminNav.badges", icon: Award },
+  { id: "reputation", labelKey: "appShell.adminNav.reputation", icon: Trophy },
   { id: "system-configs", labelKey: "appShell.adminNav.systemConfigs", icon: Shield },
 ];
 

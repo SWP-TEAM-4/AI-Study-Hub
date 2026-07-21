@@ -132,6 +132,11 @@ public class RewardBadgeService {
         awardReputationMilestoneIfReached(reviewer);
     }
 
+    @Transactional
+    public void awardReputationMilestoneBadge(User user) {
+        awardReputationMilestoneIfReached(user);
+    }
+
     private void awardReputationMilestoneIfReached(User user) {
         int reputationThreshold = configuredInt(SystemConfigKeys.REWARD_REPUTATION_MILESTONE_POINTS,
                 DEFAULT_REPUTATION_MILESTONE_POINTS);

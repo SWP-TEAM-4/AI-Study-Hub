@@ -75,6 +75,8 @@ public class BadgeService {
 
     @Transactional(readOnly = true)
     public List<BadgeResponse> getUserBadges(Long userId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         return userBadgeRepository.findAllByUser_IdOrderByEarnedAtDescIdDesc(userId)
                 .stream()
                 .map(UserBadge::getBadge)

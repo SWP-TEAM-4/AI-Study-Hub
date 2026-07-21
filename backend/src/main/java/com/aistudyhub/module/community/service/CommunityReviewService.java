@@ -1,11 +1,15 @@
 package com.aistudyhub.module.community.service;
 
+import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.ReputationEventType;
+import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.entity.*;
 import com.aistudyhub.module.community.dto.CommunityReviewRequest;
 import com.aistudyhub.module.community.dto.CommunityReviewResponse;
+import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +20,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * Service xử lý nghiệp vụ đánh giá/bình luận cộng đồng (Community Review).
@@ -35,6 +42,7 @@ public class CommunityReviewService {
     private final QuizRepository quizRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
     private final UserService userService;
+    private final ReputationService reputationService;
 
     // ── 1. Tạo đánh giá cộng đồng ─────────────────────────────────────────────
 
@@ -107,6 +115,8 @@ public class CommunityReviewService {
 
         // Bước 4: Lưu vào DB
         review = marketReviewRepository.save(review);
+        updateCommunityMetrics(targetType, targetId);
+        rewardOwnerFromCommunityRating(review, targetType, targetId, currentUser.getId());
 
         log.info("Community review created: id={}, userId={}, targetType={}, targetId={}",
                 review.getId(), userId, targetType, targetId);
@@ -154,6 +164,7 @@ public class CommunityReviewService {
         // Bước 5: Xác định targetType và targetId để trả response
         String targetType = resolveTargetType(review);
         Long targetId = resolveTargetId(review);
+        updateCommunityMetrics(targetType, targetId);
 
         log.info("Community review updated: id={}, userId={}", id, currentUser.getId());
 
@@ -188,8 +199,12 @@ public class CommunityReviewService {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
 
+        String targetType = resolveTargetType(review);
+        Long targetId = resolveTargetId(review);
+
         // Bước 4: Xóa khỏi DB
         marketReviewRepository.delete(review);
+        updateCommunityMetrics(targetType, targetId);
 
         log.info("Community review deleted: id={}, userId={}", id, currentUser.getId());
     }
@@ -252,6 +267,119 @@ public class CommunityReviewService {
         return targetType.trim().toUpperCase();
     }
 
+    private void updateCommunityMetrics(String targetType, Long targetId) {
+        if (targetId == null) {
+            return;
+        }
+        switch (targetType) {
+            case "DOCUMENT" -> {
+                Document document = documentRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+                document.setCommunityReviewCount((int) marketReviewRepository
+                        .countByDocumentIdAndVoteResultIsNull(targetId));
+                document.setCommunityRatingAvg(toRatingAverage(
+                        marketReviewRepository.averageCommunityRatingByDocumentId(targetId)));
+                documentRepository.save(document);
+            }
+            case "QUIZ" -> {
+                Quiz quiz = quizRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
+                quiz.setCommunityReviewCount((int) marketReviewRepository
+                        .countByQuizIdAndVoteResultIsNull(targetId));
+                quiz.setCommunityRatingAvg(toRatingAverage(
+                        marketReviewRepository.averageCommunityRatingByQuizId(targetId)));
+                quizRepository.save(quiz);
+            }
+            case "FLASHCARD_DECK" -> {
+                FlashcardDeck deck = flashcardDeckRepository.findById(targetId)
+                        .orElseThrow(() -> new AppException(ErrorCode.FLASHCARD_DECK_NOT_FOUND));
+                deck.setCommunityReviewCount((int) marketReviewRepository
+                        .countByFlashcardDeckIdAndVoteResultIsNull(targetId));
+                deck.setCommunityRatingAvg(toRatingAverage(
+                        marketReviewRepository.averageCommunityRatingByFlashcardDeckId(targetId)));
+                flashcardDeckRepository.save(deck);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private BigDecimal toRatingAverage(Double ratingAverage) {
+        return ratingAverage == null
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(ratingAverage).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void rewardOwnerFromCommunityRating(MarketReview review, String targetType, Long targetId, Long actorUserId) {
+        Integer rating = review.getRating();
+        if (rating == null) {
+            return;
+        }
+
+        ContentOwner owner = resolveOwner(review);
+        if (owner == null || owner.userId() == null) {
+            return;
+        }
+        if (owner.userId().equals(actorUserId)) {
+            return;
+        }
+
+        RewardRule goodRule = reputationService.getRuleOrNull(ReputationEventType.COMMUNITY_REVIEW_GOOD);
+        int goodMinRating = goodRule != null && goodRule.getMinRating() != null ? goodRule.getMinRating() : 4;
+        if (rating >= goodMinRating) {
+            reputationService.applyConfiguredEvent(
+                    owner.userId(),
+                    owner.subjectId(),
+                    ReputationEventType.COMMUNITY_REVIEW_GOOD,
+                    targetType,
+                    targetId,
+                    "COMMUNITY_REVIEW",
+                    review.getId(),
+                    "Community rating " + rating,
+                    "COMMUNITY_REVIEW_RATING:" + review.getId(),
+                    actorUserId);
+            return;
+        }
+
+        RewardRule badRule = reputationService.getRuleOrNull(ReputationEventType.COMMUNITY_REVIEW_BAD);
+        int badMaxRating = badRule != null && badRule.getMaxRating() != null ? badRule.getMaxRating() : 2;
+        if (rating <= badMaxRating) {
+            reputationService.applyConfiguredEvent(
+                    owner.userId(),
+                    owner.subjectId(),
+                    ReputationEventType.COMMUNITY_REVIEW_BAD,
+                    targetType,
+                    targetId,
+                    "COMMUNITY_REVIEW",
+                    review.getId(),
+                    "Community rating " + rating,
+                    "COMMUNITY_REVIEW_RATING:" + review.getId(),
+                    actorUserId);
+        }
+    }
+
+    private ContentOwner resolveOwner(MarketReview review) {
+        if (review.getDocument() != null) {
+            Document document = review.getDocument();
+            return new ContentOwner(
+                    document.getUser() != null ? document.getUser().getId() : null,
+                    document.getSubject() != null ? document.getSubject().getId() : null);
+        }
+        if (review.getQuiz() != null) {
+            Quiz quiz = review.getQuiz();
+            return new ContentOwner(
+                    quiz.getCreator() != null ? quiz.getCreator().getId() : null,
+                    quiz.getSubject() != null ? quiz.getSubject().getId() : null);
+        }
+        if (review.getFlashcardDeck() != null) {
+            FlashcardDeck deck = review.getFlashcardDeck();
+            return new ContentOwner(
+                    deck.getUser() != null ? deck.getUser().getId() : null,
+                    deck.getSubject() != null ? deck.getSubject().getId() : null);
+        }
+        return null;
+    }
+
     /**
      * Xác định targetType từ entity MarketReview dựa vào FK nào không null.
      */
@@ -289,5 +417,8 @@ public class CommunityReviewService {
                 .reviewerAvatarUrl(reviewer != null ? reviewer.getAvatarUrl() : null)
                 .createdAt(review.getCreatedAt())
                 .build();
+    }
+
+    private record ContentOwner(Long userId, Long subjectId) {
     }
 }

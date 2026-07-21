@@ -63,8 +63,12 @@ export const useAuthStore = create<AuthState>()(
       // zustand's createJSONStorage cần raw storage; wrap với safeLocalStorage để bắt SecurityError
       storage: createJSONStorage(() => ({
         getItem: (key) => safeLocalStorage.getItem(key),
-        setItem: (key, value) => safeLocalStorage.setItem(key, value),
-        removeItem: (key) => safeLocalStorage.removeItem(key),
+        setItem: (key, value) => {
+          safeLocalStorage.setItem(key, value);
+        },
+        removeItem: (key) => {
+          safeLocalStorage.removeItem(key);
+        },
       })),
     }
   )

@@ -26,4 +26,6 @@ public interface AiUsageService {
             LocalDate toDate,
             Long userId,
             AiActionType actionType);
+
+    void assertQuotaAvailable(Long userId, AiActionType actionType);
 }

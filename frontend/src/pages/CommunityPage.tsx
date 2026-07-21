@@ -1,6 +1,7 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
+  Award,
   BookOpen,
   CheckCircle2,
   Download,
@@ -10,7 +11,9 @@ import {
   Search,
   Star,
   TrendingUp,
+  Trophy,
   Users,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -24,8 +27,9 @@ import {
   type CommunityCategory,
   type CommunitySort,
   type MarketplaceItemDTO,
-  type ContributorDTO,
 } from "../services/communityMarketplaceService";
+import { reputationService, type ReputationLeaderboardItemDTO, type ReputationLeaderboardKind } from "../services/reputationService";
+import { badgeService, type BadgeDTO } from "../services/badgeService";
 import CommunityDetailPage from "./CommunityDetailPage";
 
 type CategoryFilter = CommunityCategory | "leaderboard";
@@ -80,8 +84,18 @@ function ratingFromAcceptPercentage(value?: number | string | null) {
   return Math.min(5, numeric / 20);
 }
 
+function ratingFromMarketplaceItem(item: MarketplaceItemDTO) {
+  const average = Number(item.communityRatingAvg ?? 0);
+  if (Number.isFinite(average) && average > 0) return Math.min(5, average);
+  return ratingFromAcceptPercentage(item.acceptPercentage);
+}
+
 function formatNumber(value?: number | null) {
   return Number(value ?? 0).toLocaleString("vi-VN");
+}
+
+function currentPeriodKey() {
+  return new Date().toISOString().slice(0, 7);
 }
 
 function asMarketplaceCategory(category: CategoryFilter): CommunityCategory {
@@ -128,22 +142,111 @@ function SectionHeader({
   );
 }
 
+function BadgeChips({ badges, limit = 2 }: { badges?: BadgeDTO[]; limit?: number }) {
+  const visible = (badges ?? []).slice(0, limit);
+  if (visible.length === 0) {
+    return <span className="text-[11px] font-semibold text-muted-foreground">Chưa có huy hiệu</span>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      {visible.map((badge) => (
+        <span key={badge.id} className="inline-flex max-w-[150px] items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+          {badge.iconUrl ? <img src={badge.iconUrl} alt="" className="size-3 rounded-full object-cover" /> : <Award size={11} />}
+          <span className="truncate">{badge.name}</span>
+        </span>
+      ))}
+      {(badges?.length ?? 0) > limit && (
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+          +{(badges?.length ?? 0) - limit}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function HonorModal({
+  user,
+  loading,
+  onClose,
+}: {
+  user: { userId: number; fullName: string; badges: BadgeDTO[] } | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  if (!user) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ scale: 0.96, y: 12 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.96, y: 12 }}
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="truncate font-display text-lg font-bold text-foreground">{user.fullName || `User #${user.userId}`}</h3>
+            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">Danh hiệu công khai của thành viên</p>
+          </div>
+          <button onClick={onClose} className="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground">
+            <X size={16} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="mt-5 space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-14 animate-pulse rounded-xl bg-muted" />
+            ))}
+          </div>
+        ) : user.badges.length === 0 ? (
+          <p className="mt-5 rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Thành viên này chưa có huy hiệu công khai.</p>
+        ) : (
+          <div className="mt-5 grid gap-2">
+            {user.badges.map((badge) => (
+              <div key={badge.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
+                  {badge.iconUrl ? <img src={badge.iconUrl} alt="" className="size-6 rounded object-cover" /> : <Award size={17} />}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold text-foreground">{badge.name}</div>
+                  <div className="line-clamp-2 text-xs text-muted-foreground">{badge.description || "Danh hiệu cộng đồng"}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function ItemCard({
   item,
   subjectLabel,
   cloneResult,
   onOpen,
   onClone,
+  onOpenCreator,
 }: {
   item: MarketplaceItemDTO;
   subjectLabel: string;
   cloneResult?: CloneResultDTO;
   onOpen: () => void;
   onClone: () => void;
+  onOpenCreator: (userId: number, fullName: string) => void;
 }) {
   const style = typeStyle[item.targetType] ?? typeStyle.DOCUMENT;
   const Icon = style.icon;
-  const rating = ratingFromAcceptPercentage(item.acceptPercentage);
+  const rating = ratingFromMarketplaceItem(item);
 
   return (
     <motion.article
@@ -178,17 +281,29 @@ function ItemCard({
 
       <h3 className="line-clamp-2 flex-1 font-display text-base font-semibold leading-snug">{item.title}</h3>
 
-      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (item.creatorId) onOpenCreator(item.creatorId, item.creatorName || "Ẩn danh");
+        }}
+        disabled={!item.creatorId}
+        className="mt-4 flex min-w-0 items-center gap-2 text-left text-xs text-muted-foreground transition-colors hover:text-primary disabled:cursor-default disabled:hover:text-muted-foreground"
+      >
         <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
           {(item.creatorName || "U").slice(0, 2).toUpperCase()}
         </div>
         <span className="truncate">{item.creatorName || "Ẩn danh"}</span>
-      </div>
+        {item.creatorId && <Award size={12} className="shrink-0 text-amber-500" />}
+      </button>
 
       <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-4">
         <div className="flex items-center gap-3 text-xs">
           <span className="inline-flex items-center gap-1 font-semibold text-amber-600">
             <Star size={13} className={rating ? "fill-current" : ""} /> {rating ? rating.toFixed(1) : "N/A"}
+          </span>
+          <span className="hidden items-center gap-1 text-muted-foreground sm:inline-flex">
+            {formatNumber(item.communityReviewCount ?? item.reviewCount)} review
           </span>
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <Download size={13} /> {formatNumber(item.downloadCount)}
@@ -214,12 +329,14 @@ function ItemGrid({
   clonedItems,
   onOpen,
   onClone,
+  onOpenCreator,
 }: {
   items: MarketplaceItemDTO[];
   subjectMap: Map<number, string>;
   clonedItems: Record<string, CloneResultDTO>;
   onOpen: (item: MarketplaceItemDTO) => void;
   onClone: (item: MarketplaceItemDTO) => void;
+  onOpenCreator: (userId: number, fullName: string) => void;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -231,9 +348,75 @@ function ItemGrid({
           cloneResult={clonedItems[itemKey(item)]}
           onOpen={() => onOpen(item)}
           onClone={() => onClone(item)}
+          onOpenCreator={onOpenCreator}
         />
       ))}
     </div>
+  );
+}
+
+function LeaderboardTable({
+  items,
+  kind,
+  periodKey,
+  onOpenUser,
+}: {
+  items: ReputationLeaderboardItemDTO[];
+  kind: ReputationLeaderboardKind;
+  periodKey: string;
+  onOpenUser: (user: ReputationLeaderboardItemDTO) => void;
+}) {
+  const scoreLabel = kind === "reviewers" ? "Điểm reviewer" : "Điểm đóng góp";
+  const eventLabel = kind === "reviewers" ? "Lượt duyệt" : "Sự kiện";
+
+  if (items.length === 0) {
+    return (
+      <div className="px-6 py-14 text-center text-sm text-muted-foreground">
+        Chưa có dữ liệu xếp hạng cho kỳ {periodKey}.
+      </div>
+    );
+  }
+
+  return (
+    <table className="w-full text-left text-sm">
+      <thead className="border-b border-border/50 bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+        <tr>
+          <th className="w-16 px-6 py-4 text-center">Hạng</th>
+          <th className="px-6 py-4">Thành viên</th>
+          <th className="px-6 py-4 text-center">{scoreLabel}</th>
+          <th className="px-6 py-4 text-center">{eventLabel}</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border/60">
+        {items.map((item, index) => (
+          <tr key={`${kind}-${item.userId}`} className="transition-colors hover:bg-muted/20">
+            <td className="px-6 py-4 text-center font-display text-base font-bold">
+              {item.rank || index + 1}
+            </td>
+            <td className="px-6 py-4">
+              <button type="button" onClick={() => onOpenUser(item)} className="flex min-w-0 items-center gap-3 text-left">
+                <div className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-bold text-primary">
+                  {item.avatarUrl ? (
+                    <img src={item.avatarUrl} alt={item.fullName} className="h-full w-full object-cover" />
+                  ) : (
+                    (item.fullName || "U").slice(0, 1).toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <div className="font-semibold">{item.fullName || "Ẩn danh"}</div>
+                  <div className="text-xs text-muted-foreground">User #{item.userId}</div>
+                  <div className="mt-1">
+                    <BadgeChips badges={item.badges as BadgeDTO[] | undefined} limit={2} />
+                  </div>
+                </div>
+              </button>
+            </td>
+            <td className="px-6 py-4 text-center font-semibold">{formatNumber(item.score)}</td>
+            <td className="px-6 py-4 text-center font-semibold">{formatNumber(item.eventCount)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -252,10 +435,14 @@ export default function CommunityPage() {
   const [latestDocuments, setLatestDocuments] = useState<MarketplaceItemDTO[]>([]);
   const [latestQuizzes, setLatestQuizzes] = useState<MarketplaceItemDTO[]>([]);
   const [latestFlashcards, setLatestFlashcards] = useState<MarketplaceItemDTO[]>([]);
-  const [contributors, setContributors] = useState<ContributorDTO[]>([]);
+  const [leaderboardType, setLeaderboardType] = useState<ReputationLeaderboardKind>("contributors");
+  const [leaderboardPeriod, setLeaderboardPeriod] = useState(currentPeriodKey());
+  const [leaderboardItems, setLeaderboardItems] = useState<ReputationLeaderboardItemDTO[]>([]);
   const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
   const [semesters, setSemesters] = useState<SemesterDTO[]>([]);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItemDTO | null>(null);
+  const [selectedHonorUser, setSelectedHonorUser] = useState<{ userId: number; fullName: string; badges: BadgeDTO[] } | null>(null);
+  const [loadingHonorUser, setLoadingHonorUser] = useState(false);
   const [clonedItems, setClonedItems] = useState<Record<string, CloneResultDTO>>({});
   const [loading, setLoading] = useState(true);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
@@ -354,8 +541,14 @@ export default function CommunityPage() {
     async function loadLeaderboard() {
       setLoadingLeaderboard(true);
       try {
-        const response = await communityMarketplaceService.getLeaderboard(0, 20);
-        if (mounted) setContributors(response.data.items ?? []);
+        const subjectId = filters.subjectId !== "all" ? Number(filters.subjectId) : undefined;
+        const response = await reputationService.getReputationLeaderboard(leaderboardType, {
+          page: 0,
+          size: 20,
+          subjectId,
+          periodKey: leaderboardPeriod,
+        });
+        if (mounted) setLeaderboardItems(response.data.items ?? []);
       } catch (err: any) {
         Notify.failure(err?.message || "Không tải được leaderboard.");
       } finally {
@@ -367,7 +560,7 @@ export default function CommunityPage() {
     return () => {
       mounted = false;
     };
-  }, [filters.category]);
+  }, [filters.category, filters.subjectId, leaderboardPeriod, leaderboardType]);
 
   const resetFilters = () => {
     setFilters({
@@ -405,8 +598,24 @@ export default function CommunityPage() {
       clonedItems={clonedItems}
       onOpen={setSelectedItem}
       onClone={cloneItem}
+      onOpenCreator={openUserHonors}
     />
   );
+
+  async function openUserHonors(userId: number, fullName: string, initialBadges?: BadgeDTO[]) {
+    setSelectedHonorUser({ userId, fullName, badges: initialBadges ?? [] });
+    if (initialBadges && initialBadges.length > 0) return;
+
+    setLoadingHonorUser(true);
+    try {
+      const response = await badgeService.getUserBadges(userId);
+      setSelectedHonorUser({ userId, fullName, badges: response.data ?? [] });
+    } catch (err: any) {
+      Notify.failure(err?.message || "Không tải được danh hiệu thành viên.");
+    } finally {
+      setLoadingHonorUser(false);
+    }
+  }
 
   // Show detail page if item selected
   if (selectedItem) {
@@ -417,7 +626,7 @@ export default function CommunityPage() {
       author: selectedItem.creatorName || "Ẩn danh",
       subject: selectedItem.subjectId ? (subjectMap.get(selectedItem.subjectId) || `Môn #${selectedItem.subjectId}`) : "Chưa gắn môn",
       downloads: selectedItem.downloadCount || 0,
-      rating: ratingFromAcceptPercentage(selectedItem.acceptPercentage) || 0,
+      rating: ratingFromMarketplaceItem(selectedItem) || 0,
       kind: (selectedItem.targetType === "DOCUMENT" ? "doc" : selectedItem.targetType === "QUIZ" ? "quiz" : "deck") as "doc" | "quiz" | "deck",
       isVerified: true,
     };
@@ -449,10 +658,15 @@ export default function CommunityPage() {
             <input
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder={t("pages.community.search", "Tìm trong cộng đồng...")}
+              placeholder={
+                filters.category === "leaderboard"
+                  ? "Leaderboard lọc theo môn và tháng"
+                  : t("pages.community.search", "Tìm trong cộng đồng...")
+              }
+              disabled={filters.category === "leaderboard"}
               autoComplete="off"
               spellCheck="false"
-              className="h-11 w-full rounded-xl border border-transparent bg-muted/50 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:bg-card"
+              className="h-11 w-full rounded-xl border border-transparent bg-muted/50 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:bg-card disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
@@ -463,17 +677,17 @@ export default function CommunityPage() {
               className="min-w-[150px]"
               data={CATEGORY_OPTIONS}
             />
+            <CustomSelect
+              value={filters.subjectId}
+              onChange={(value) => setFilters((current) => ({ ...current, subjectId: value }))}
+              className="min-w-[190px]"
+              data={[
+                { label: "Tất cả môn", value: "all" },
+                ...subjects.map((subject) => ({ label: `${subject.code} · ${subject.name}`, value: String(subject.id) })),
+              ]}
+            />
             {filters.category !== "leaderboard" && (
               <>
-                <CustomSelect
-                  value={filters.subjectId}
-                  onChange={(value) => setFilters((current) => ({ ...current, subjectId: value }))}
-                  className="min-w-[190px]"
-                  data={[
-                    { label: "Tất cả môn", value: "all" },
-                    ...subjects.map((subject) => ({ label: `${subject.code} · ${subject.name}`, value: String(subject.id) })),
-                  ]}
-                />
                 <CustomSelect
                   value={filters.academicTermId}
                   onChange={(value) => setFilters((current) => ({ ...current, academicTermId: value }))}
@@ -489,6 +703,36 @@ export default function CommunityPage() {
                   className="min-w-[150px]"
                   data={SORT_OPTIONS}
                 />
+              </>
+            )}
+            {filters.category === "leaderboard" && (
+              <>
+                <input
+                  type="month"
+                  value={leaderboardPeriod}
+                  onChange={(event) => setLeaderboardPeriod(event.target.value || currentPeriodKey())}
+                  className="h-11 min-w-[145px] rounded-xl border border-transparent bg-muted/50 px-3 text-sm outline-none transition-all focus:border-primary focus:bg-card"
+                />
+                <div className="flex h-11 rounded-xl border border-border/50 bg-muted p-1">
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardType("contributors")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all ${
+                      leaderboardType === "contributors" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    <Trophy size={14} /> Contributor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardType("reviewers")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all ${
+                      leaderboardType === "reviewers" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    <Star size={14} /> Reviewer
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -509,6 +753,22 @@ export default function CommunityPage() {
 
       {filters.category === "leaderboard" ? (
         <div className="surface-card overflow-hidden rounded-2xl border border-border/40 shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-border/50 bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                <Trophy size={19} className="text-amber-500" />
+                {leaderboardType === "contributors" ? "Top đóng góp" : "Top reviewer"}
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {filters.subjectId === "all"
+                  ? `Toàn bộ môn trong kỳ ${leaderboardPeriod}`
+                  : `${subjectMap.get(Number(filters.subjectId)) ?? `Môn #${filters.subjectId}`} · ${leaderboardPeriod}`}
+              </p>
+            </div>
+            <div className="rounded-full border border-border/60 bg-card px-3 py-1 text-xs font-bold text-muted-foreground">
+              {formatNumber(leaderboardItems.length)} thành viên
+            </div>
+          </div>
           {loadingLeaderboard ? (
             <div className="space-y-3 p-5">
               {Array.from({ length: 6 }).map((_, index) => (
@@ -516,38 +776,12 @@ export default function CommunityPage() {
               ))}
             </div>
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border/50 bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="w-16 px-6 py-4 text-center">Hạng</th>
-                  <th className="px-6 py-4">Contributor</th>
-                  <th className="px-6 py-4 text-center">Nội dung duyệt</th>
-                  <th className="px-6 py-4 text-center">Reputation</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {contributors.map((contributor, index) => (
-                  <tr key={contributor.userId} className="transition-colors hover:bg-muted/20">
-                    <td className="px-6 py-4 text-center font-display text-base font-bold">
-                      {contributor.rank || index + 1}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                          {(contributor.fullName || "C").slice(0, 1)}
-                        </div>
-                        <div>
-                          <div className="font-semibold">{contributor.fullName}</div>
-                          <div className="text-xs text-muted-foreground">User #{contributor.userId}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center font-semibold">{formatNumber(contributor.approvedContents)}</td>
-                    <td className="px-6 py-4 text-center font-semibold">{formatNumber(contributor.reputationPoints)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <LeaderboardTable
+              items={leaderboardItems}
+              kind={leaderboardType}
+              periodKey={leaderboardPeriod}
+              onOpenUser={(user) => openUserHonors(user.userId, user.fullName || `User #${user.userId}`, user.badges as BadgeDTO[] | undefined)}
+            />
           )}
         </div>
       ) : loading ? (
@@ -580,7 +814,7 @@ export default function CommunityPage() {
             <SectionHeader
               icon={<Star size={19} className="fill-amber-500 text-amber-500" />}
               title="Top rated"
-              subtitle="Dựa trên acceptPercentage/review score từ backend"
+              subtitle="Dựa trên điểm review cộng đồng, fallback theo tỷ lệ duyệt khi chưa đủ review"
             />
             {renderGrid(topRatedItems.length ? topRatedItems : items.slice(0, 8))}
           </section>
@@ -612,6 +846,16 @@ export default function CommunityPage() {
           </section>
         </div>
       )}
+      <AnimatePresence>
+        <HonorModal
+          user={selectedHonorUser}
+          loading={loadingHonorUser}
+          onClose={() => {
+            setSelectedHonorUser(null);
+            setLoadingHonorUser(false);
+          }}
+        />
+      </AnimatePresence>
       {/* Detail page is rendered above when selectedItem is set */}
     </motion.div>
   );

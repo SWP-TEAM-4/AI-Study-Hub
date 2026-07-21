@@ -285,6 +285,7 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
     }
     setInput("");
     setThinking(true);
+    let tempUserMessageId: number | null = null;
     try {
       let sessionId = activeSessionId;
       if (!sessionId) {
@@ -295,7 +296,7 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
         setActiveSessionId(sessionId);
       }
 
-      const tempUserMessage: MessageDTO = {
+      const pendingUserMessage: MessageDTO = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         sessionId,
         messageSequence: messages.length + 1,
@@ -304,7 +305,8 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
         citedSources: [],
         createdAt: new Date().toISOString(),
       };
-      setMessages((items) => [...items, tempUserMessage]);
+      tempUserMessageId = pendingUserMessage.id;
+      setMessages((items) => [...items, pendingUserMessage]);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -313,7 +315,7 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
       const aiMessage = response.data.aiMessage;
       const fullContent = aiMessage.content ?? "";
       setMessages((items) => [
-        ...items.filter((item) => item.id !== tempUserMessage.id),
+        ...items.filter((item) => item.id !== tempUserMessageId),
         response.data.userMessage,
         { ...aiMessage, content: "" },
       ]);
@@ -353,7 +355,9 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
       setThinking(false);
       if (error?.name !== "AbortError") {
         Notify.failure(error?.message || "Không thể gửi tin nhắn");
-        setMessages((items) => items.filter((item) => item.id !== tempUserMessage.id));
+        if (tempUserMessageId !== null) {
+          setMessages((items) => items.filter((item) => item.id !== tempUserMessageId));
+        }
       }
     } finally { abortRef.current = null; }
   };

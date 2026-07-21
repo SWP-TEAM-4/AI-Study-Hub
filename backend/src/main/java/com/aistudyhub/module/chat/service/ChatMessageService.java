@@ -64,6 +64,8 @@ public class ChatMessageService {
                                                         CreateChatMessageRequest request) {
         ChatSession session = chatAccessService.resolveOwnedSession(sessionId, userId);
         int topK = request.getTopK() == null ? DEFAULT_TOP_K : request.getTopK();
+        AiActionType aiActionType = resolveStandardActionType(normalizedQuestion);
+        aiUsageService.assertQuotaAvailable(userId, aiActionType);
         int nextSequence = chatMessageRepository.findMaxMessageSequenceBySessionId(sessionId).orElse(0) + 1;
 
         ChatMessage userMessage = chatMessageRepository.save(ChatMessage.builder()
@@ -101,7 +103,6 @@ public class ChatMessageService {
         metadata.put("topK", topK);
         metadata.put("citationCount", citations.size());
         metadata.put("questionPreview", summarizeForLog(normalizedQuestion));
-        AiActionType aiActionType = resolveStandardActionType(normalizedQuestion);
         int estimatedTokens = estimateTokenCount(normalizedQuestion, relevantChunks, aiAnswer);
         metadata.put("aiUsageActionType", aiActionType.name());
         metadata.put("estimatedTokens", estimatedTokens);
