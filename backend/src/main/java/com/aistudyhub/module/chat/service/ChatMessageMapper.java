@@ -29,6 +29,7 @@ public class ChatMessageMapper {
     public List<ChatMessageCitationResponse> buildCitedSources(List<DocumentChunkResponse> relevantChunks) {
         return relevantChunks.stream()
                 .map(chunk -> ChatMessageCitationResponse.builder()
+                        .chunkId(chunk.getId())
                         .documentId(chunk.getDocumentId())
                         .documentTitle(chunk.getDocumentTitle())
                         .chunkIndex(chunk.getChunkIndex())
