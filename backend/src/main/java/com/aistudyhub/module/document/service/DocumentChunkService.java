@@ -2,12 +2,18 @@ package com.aistudyhub.module.document.service;
 
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.AiActionType;
+import com.aistudyhub.common.enums.DocumentModerationStatus;
+import com.aistudyhub.common.enums.DocumentViolationSeverity;
+import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.ReputationEventType;
+import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.DocumentChunk;
 import com.aistudyhub.entity.Notebook;
 import com.aistudyhub.entity.NotebookDocument;
+import com.aistudyhub.entity.User;
 import com.aistudyhub.module.AiUsageLogs.service.AiUsageService;
 import com.aistudyhub.module.document.dto.DocumentChunkResponse;
 import com.aistudyhub.module.document.dto.DocumentDeleteChunksResponse;
@@ -15,18 +21,27 @@ import com.aistudyhub.module.document.dto.DocumentProcessRequest;
 import com.aistudyhub.module.document.dto.DocumentProcessResponse;
 import com.aistudyhub.module.document.dto.UpdateDocumentChunkRequest;
 import com.aistudyhub.module.community.service.CommunityPermissionService;
+import com.aistudyhub.module.notification.service.NotificationService;
+import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.repository.DocumentChunkRepository;
 import com.aistudyhub.repository.DocumentRepository;
+import com.aistudyhub.repository.DocumentShareLinkRepository;
 import com.aistudyhub.repository.NotebookRepository;
 import com.aistudyhub.repository.NotebookDocumentRepository;
+import com.aistudyhub.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
@@ -47,14 +62,20 @@ public class DocumentChunkService {
 
     private final DocumentRepository documentRepository;
     private final DocumentChunkRepository documentChunkRepository;
+    private final DocumentShareLinkRepository documentShareLinkRepository;
     private final NotebookRepository notebookRepository;
     private final NotebookDocumentRepository notebookDocumentRepository;
+    private final UserRepository userRepository;
     private final TextExtractionService textExtractionService;
     private final GeminiChunkingService geminiChunkingService;
     private final OpenAIEmbeddingService openAIEmbeddingService;
+    private final StorageService storageService;
     private final AiUsageService aiUsageService;
     private final CommunityPermissionService communityPermissionService;
+    private final ReputationService reputationService;
+    private final NotificationService notificationService;
     private final PlatformTransactionManager transactionManager;
+    private final ConcurrentMap<Long, ReentrantLock> processingLocks = new ConcurrentHashMap<>();
 
     // ── 1. Process document → chunks ─────────────────────────────────────────
 
@@ -63,30 +84,89 @@ public class DocumentChunkService {
      * Nếu document đã có chunks (re-process), xóa chunks cũ trước.
      */
     public DocumentProcessResponse processDocument(Long documentId, Long userId, DocumentProcessRequest request) {
-        Document document = documentRepository.findByIdAndUserId(documentId, userId)
-                .orElseThrow(() -> {
-                    if (documentRepository.existsById(documentId)) {
-                        return new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED);
-                    }
-                    return new AppException(ErrorCode.DOCUMENT_NOT_FOUND);
-                });
-
-        if (document.getProcessingStatus() == ProcessingStatus.PROCESSING) {
+        if (!tryAcquireProcessingLock(documentId)) {
             throw new AppException(ErrorCode.DOCUMENT_ALREADY_PROCESSING);
         }
 
-        aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_CHUNKING, 2);
-        updateProcessingStatus(documentId, ProcessingStatus.PROCESSING);
-
+        boolean processingStarted = false;
         try {
+            Document document = documentRepository.findByIdAndUserId(documentId, userId)
+                    .orElseThrow(() -> {
+                        if (documentRepository.existsById(documentId)) {
+                            return new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED);
+                        }
+                        return new AppException(ErrorCode.DOCUMENT_NOT_FOUND);
+                    });
+
+            if (document.getProcessingStatus() == ProcessingStatus.PROCESSING) {
+                throw new AppException(ErrorCode.DOCUMENT_ALREADY_PROCESSING);
+            }
+
+            aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_CHUNKING, 2);
+            updateProcessingStatus(documentId, ProcessingStatus.PROCESSING);
+            processingStarted = true;
+
             return transactionTemplate().execute(status -> processDocumentInternal(documentId, request));
         } catch (AppException e) {
-            failProcessing(documentId, e.getMessage());
+            if (processingStarted) {
+                failProcessing(documentId, e.getMessage());
+            }
             throw e;
         } catch (Exception e) {
-            failProcessing(documentId, e.getMessage());
+            if (processingStarted) {
+                failProcessing(documentId, e.getMessage());
+            }
             throw new AppException(ErrorCode.DOCUMENT_PROCESSING_FAILED,
                     "Processing failed: " + e.getMessage());
+        } finally {
+            releaseProcessingLock(documentId);
+        }
+    }
+
+    public void autoProcessUploadedDocument(Long documentId, Long userId) {
+        if (!tryAcquireProcessingLock(documentId)) {
+            log.info("Skip automatic document processing: documentId={} is already being processed", documentId);
+            return;
+        }
+
+        boolean processingStarted = false;
+        try {
+            Optional<Document> optionalDocument = documentRepository.findByIdAndUserId(documentId, userId);
+            if (optionalDocument.isEmpty()) {
+                log.warn("Skip automatic document processing: documentId={} userId={} is not available",
+                        documentId, userId);
+                return;
+            }
+
+            Document document = optionalDocument.get();
+            if (document.getProcessingStatus() == ProcessingStatus.PROCESSING
+                    || document.getProcessingStatus() == ProcessingStatus.SUCCESS) {
+                log.debug("Skip automatic document processing: documentId={} status={}",
+                        documentId, document.getProcessingStatus());
+                return;
+            }
+
+            aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_CHUNKING, 2);
+            updateProcessingStatus(documentId, ProcessingStatus.PROCESSING);
+            processingStarted = true;
+            DocumentProcessResponse response =
+                    transactionTemplate().execute(status -> processDocumentInternal(documentId, new DocumentProcessRequest()));
+            if (response != null && DocumentModerationStatus.BLOCKED.name().equals(response.getModerationStatus())) {
+                log.warn("Automatic document processing blocked documentId={} severity={}",
+                        documentId, response.getViolationSeverity());
+            }
+        } catch (AppException e) {
+            if (processingStarted) {
+                failProcessing(documentId, e.getMessage());
+            }
+            log.warn("Automatic document processing failed for documentId={}: {}", documentId, e.getMessage());
+        } catch (Exception e) {
+            if (processingStarted) {
+                failProcessing(documentId, e.getMessage());
+            }
+            log.error("Automatic document processing failed for documentId={}", documentId, e);
+        } finally {
+            releaseProcessingLock(documentId);
         }
     }
 
@@ -148,6 +228,8 @@ public class DocumentChunkService {
         chunk.setVectorId(embeddingResult.vectorId());
 
         DocumentChunk savedChunk = documentChunkRepository.save(chunk);
+        invalidateDistributionAfterChunkMutation(document,
+                "Chunk content was manually edited; document must be reprocessed and safety-checked again.");
         safeLogAiUsage(userId, AiActionType.DOCUMENT_EMBEDDING, savedChunk.getTokenEstimate());
 
         log.info("Updated text and embedding for document {} chunk {}", documentId, chunkId);
@@ -173,8 +255,8 @@ public class DocumentChunkService {
         long deletedCount = documentChunkRepository.countByDocumentId(documentId);
         documentChunkRepository.deleteByDocumentId(documentId);
 
-        // Reset processing status
-        document.setProcessingStatus(ProcessingStatus.PENDING);
+        invalidateDistributionAfterChunkMutation(document,
+                "Document chunks were deleted; document must be processed and safety-checked again before distribution.");
         documentRepository.save(document);
 
         log.info("Deleted {} chunks for document {}. Status reset to PENDING.", deletedCount, documentId);
@@ -252,6 +334,18 @@ public class DocumentChunkService {
             documentIds = requestedDocumentIds.stream().distinct().toList();
         }
 
+        List<Long> safeDocumentIds = filterDocumentsReadyForRag(documentIds);
+        if (requestedDocumentIds != null && !requestedDocumentIds.isEmpty()
+                && safeDocumentIds.size() != documentIds.size()) {
+            throw new AppException(ErrorCode.DOCUMENT_NOT_SAFE_FOR_DISTRIBUTION,
+                    "One or more selected documents have not passed safety review.");
+        }
+        documentIds = safeDocumentIds;
+        if (documentIds.isEmpty()) {
+            log.debug("No safety-reviewed documents available in notebook {}", notebookId);
+            return List.of();
+        }
+
         // 2. Lấy tất cả chunks thuộc các documents
         List<DocumentChunk> allChunks = documentChunkRepository
                 .findByDocumentIdInOrderByDocumentIdAscChunkIndexAsc(documentIds);
@@ -294,6 +388,37 @@ public class DocumentChunkService {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
+
+    private boolean tryAcquireProcessingLock(Long documentId) {
+        ReentrantLock lock = processingLocks.computeIfAbsent(documentId, ignored -> new ReentrantLock());
+        return lock.tryLock();
+    }
+
+    private void releaseProcessingLock(Long documentId) {
+        ReentrantLock lock = processingLocks.get(documentId);
+        if (lock == null || !lock.isHeldByCurrentThread()) {
+            return;
+        }
+        lock.unlock();
+        if (!lock.isLocked() && !lock.hasQueuedThreads()) {
+            processingLocks.remove(documentId, lock);
+        }
+    }
+
+    private List<Long> filterDocumentsReadyForRag(List<Long> documentIds) {
+        if (documentIds == null || documentIds.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> safeIds = documentRepository.findAllById(documentIds).stream()
+                .filter(document -> document.getProcessingStatus() == ProcessingStatus.SUCCESS)
+                .filter(document -> document.getModerationStatus() == DocumentModerationStatus.SAFE)
+                .map(Document::getId)
+                .collect(Collectors.toSet());
+        return documentIds.stream()
+                .filter(safeIds::contains)
+                .distinct()
+                .toList();
+    }
 
     private record ScoredChunk(DocumentChunk chunk, int score) {
     }
@@ -402,7 +527,7 @@ public class DocumentChunkService {
     }
 
     private DocumentProcessResponse processDocumentInternal(Long documentId, DocumentProcessRequest request) {
-        Document document = documentRepository.findById(documentId)
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         documentChunkRepository.deleteByDocumentId(documentId);
@@ -416,15 +541,32 @@ public class DocumentChunkService {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
         }
 
-        GeminiChunkingService.ChunkingOutcome chunkingOutcome = geminiChunkingService.chunkTextWithMetadata(
+        GeminiChunkingService.ModeratedChunkingOutcome chunkingOutcome = geminiChunkingService.chunkTextWithSafetyReview(
                 rawText,
                 request != null ? request.getChunkSize() : null,
                 request != null ? request.getOverlap() : null);
         List<TextChunkingService.ChunkResult> chunkResults = chunkingOutcome.chunks();
+        GeminiChunkingService.SafetyReview safetyReview = chunkingOutcome.safetyReview();
+
+        if (shouldBlockDocument(safetyReview)) {
+            applyModerationBlock(document, safetyReview);
+            logDocumentAiUsage(document.getUser().getId(), rawText, chunkingOutcome.strategy(), chunkResults, false);
+
+            return DocumentProcessResponse.builder()
+                    .documentId(documentId)
+                    .processingStatus(ProcessingStatus.FAILED.name())
+                    .moderationStatus(DocumentModerationStatus.BLOCKED.name())
+                    .violationSeverity(resolveSeverity(safetyReview).name())
+                    .moderationNote(buildModerationNote(safetyReview))
+                    .chunkCount(0)
+                    .chunks(List.of())
+                    .message("Document blocked by Gemini safety moderation: " + buildModerationNote(safetyReview))
+                    .build();
+        }
 
         if (chunkResults.isEmpty()) {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT,
-                    "Gemini semantic chunking produced no results");
+                    "Gemini safety review produced no chunks");
         }
 
         Map<Integer, OpenAIEmbeddingService.EmbeddingResult> embeddingResults =
@@ -455,29 +597,37 @@ public class DocumentChunkService {
 
         List<DocumentChunk> savedChunks = documentChunkRepository.saveAll(chunks);
         document.setProcessingStatus(ProcessingStatus.SUCCESS);
+        document.setModerationStatus(DocumentModerationStatus.SAFE);
+        document.setViolationSeverity(resolveSeverity(safetyReview));
+        document.setModerationNote(buildModerationNote(safetyReview));
+        document.setModeratedAt(LocalDateTime.now());
+        document.setAiVerdictNote("Gemini safety review passed: " + buildModerationNote(safetyReview));
         documentRepository.save(document);
 
         List<DocumentChunkResponse> responses = savedChunks.stream()
                 .map(chunk -> toResponse(chunk, document.getTitle()))
                 .toList();
 
-        logDocumentAiUsage(document.getUser().getId(), rawText, chunkingOutcome, chunkResults);
+        logDocumentAiUsage(document.getUser().getId(), rawText, chunkingOutcome.strategy(), chunkResults, true);
 
-        log.info("Document {} processed successfully with {} + OpenAI embeddings: {} chunks created",
+        log.info("Document {} processed safely with {} + OpenAI embeddings: {} chunks created",
                 documentId,
                 chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
-                        ? "Gemini semantic chunking"
+                        ? "Gemini safety review and semantic chunking"
                         : "local heuristic chunking fallback",
                 responses.size());
 
         return DocumentProcessResponse.builder()
                 .documentId(documentId)
                 .processingStatus(ProcessingStatus.SUCCESS.name())
+                .moderationStatus(DocumentModerationStatus.SAFE.name())
+                .violationSeverity(resolveSeverity(safetyReview).name())
+                .moderationNote(buildModerationNote(safetyReview))
                 .chunkCount(responses.size())
                 .chunks(responses)
                 .message("Processed with "
                         + (chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
-                        ? "Gemini semantic chunking"
+                        ? "Gemini safety review and semantic chunking"
                         : "local heuristic chunking fallback")
                         + " and OpenAI embeddings: "
                         + responses.size()
@@ -485,9 +635,196 @@ public class DocumentChunkService {
                 .build();
     }
 
+    private void invalidateDistributionAfterChunkMutation(Document document, String reason) {
+        document.setProcessingStatus(ProcessingStatus.PENDING);
+        document.setModerationStatus(DocumentModerationStatus.PENDING);
+        document.setViolationSeverity(DocumentViolationSeverity.NONE);
+        document.setModerationNote(reason);
+        document.setModeratedAt(null);
+        document.setVisibility(Visibility.PRIVATE);
+        document.setMarketStatus(MarketStatus.NONE);
+        disableShareLink(document.getId());
+    }
+
+    private boolean shouldBlockDocument(GeminiChunkingService.SafetyReview safetyReview) {
+        return safetyReview == null
+                || !safetyReview.safe()
+                || severityAtLeast(resolveSeverity(safetyReview), DocumentViolationSeverity.MEDIUM);
+    }
+
+    private void applyModerationBlock(Document document, GeminiChunkingService.SafetyReview safetyReview) {
+        String moderationNote = buildModerationNote(safetyReview);
+        DocumentViolationSeverity severity = resolveSeverity(safetyReview);
+
+        documentChunkRepository.deleteByDocumentId(document.getId());
+        disableShareLink(document.getId());
+        deleteStoredFile(document);
+
+        document.setProcessingStatus(ProcessingStatus.FAILED);
+        document.setModerationStatus(DocumentModerationStatus.BLOCKED);
+        document.setViolationSeverity(severity);
+        document.setModerationNote(moderationNote);
+        document.setModeratedAt(LocalDateTime.now());
+        document.setVisibility(Visibility.PRIVATE);
+        document.setMarketStatus(MarketStatus.REJECTED);
+        document.setAiVerdictNote("Gemini safety review blocked this document: " + moderationNote);
+        documentRepository.save(document);
+
+        applyModerationPenalty(document, moderationNote);
+        banOwnerIfCritical(document, severity, moderationNote);
+        notifyModerationBlocked(document, severity, moderationNote);
+
+        log.warn("Document {} blocked by Gemini safety review. severity={}, note={}",
+                document.getId(), severity, moderationNote);
+    }
+
+    private void deleteStoredFile(Document document) {
+        if (!StringUtils.hasText(document.getCloudFilePath())) {
+            document.setFileUrl(null);
+            document.setCloudFilePath(null);
+            return;
+        }
+        try {
+            storageService.deleteFile(document.getCloudFilePath());
+        } catch (Exception ex) {
+            log.warn("Failed to delete blocked document file documentId={} path={}: {}",
+                    document.getId(), document.getCloudFilePath(), ex.getMessage());
+        }
+        document.setFileUrl(null);
+        document.setCloudFilePath(null);
+    }
+
+    private void applyModerationPenalty(Document document, String moderationNote) {
+        if (document.getUser() == null || document.getUser().getId() == null) {
+            return;
+        }
+        try {
+            reputationService.applyConfiguredEvent(
+                    document.getUser().getId(),
+                    document.getSubject() != null ? document.getSubject().getId() : null,
+                    ReputationEventType.CONTENT_HIDDEN_PENALTY,
+                    "DOCUMENT",
+                    document.getId(),
+                    "DOCUMENT_MODERATION",
+                    document.getId(),
+                    moderationNote,
+                    "document-moderation-blocked-" + document.getId(),
+                    null);
+        } catch (Exception ex) {
+            log.warn("Failed to apply moderation reputation penalty for documentId={}: {}",
+                    document.getId(), ex.getMessage());
+        }
+    }
+
+    private void banOwnerIfCritical(Document document, DocumentViolationSeverity severity, String moderationNote) {
+        if (severity != DocumentViolationSeverity.CRITICAL
+                || document.getUser() == null
+                || document.getUser().getId() == null) {
+            return;
+        }
+        try {
+            User user = userRepository.findById(document.getUser().getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            user.setIsActive(false);
+            userRepository.save(user);
+            notificationService.createNotification(
+                    user.getId(),
+                    "Tài khoản đã bị khóa do vi phạm nghiêm trọng",
+                    "Tài liệu \"" + document.getTitle() + "\" bị chặn ở mức CRITICAL. " + moderationNote);
+            log.warn("User {} deactivated because document {} was classified as CRITICAL",
+                    user.getId(), document.getId());
+        } catch (Exception ex) {
+            log.warn("Failed to deactivate owner after critical moderation documentId={}: {}",
+                    document.getId(), ex.getMessage());
+        }
+    }
+
+    private void notifyModerationBlocked(Document document, DocumentViolationSeverity severity, String moderationNote) {
+        if (document.getUser() == null || document.getUser().getId() == null) {
+            return;
+        }
+        try {
+            notificationService.createNotification(
+                    document.getUser().getId(),
+                    "Tài liệu bị chặn bởi kiểm duyệt an toàn",
+                    "Tài liệu \"" + document.getTitle() + "\" bị vô hiệu hóa ở mức "
+                            + severity + ". " + moderationNote);
+        } catch (Exception ex) {
+            log.warn("Failed to create moderation notification for documentId={}: {}",
+                    document.getId(), ex.getMessage());
+        }
+    }
+
+    private void disableShareLink(Long documentId) {
+        documentShareLinkRepository.findByDocumentId(documentId).ifPresent(shareLink -> {
+            shareLink.setEnabled(false);
+            shareLink.setAllowPreview(false);
+            shareLink.setAllowDownload(false);
+            documentShareLinkRepository.save(shareLink);
+            log.info("Disabled share link {} for document {}", shareLink.getId(), documentId);
+        });
+    }
+
+    private DocumentViolationSeverity resolveSeverity(GeminiChunkingService.SafetyReview safetyReview) {
+        if (safetyReview == null || safetyReview.severity() == null) {
+            return DocumentViolationSeverity.HIGH;
+        }
+        return safetyReview.severity();
+    }
+
+    private boolean severityAtLeast(DocumentViolationSeverity actual, DocumentViolationSeverity threshold) {
+        return severityRank(actual) >= severityRank(threshold);
+    }
+
+    private int severityRank(DocumentViolationSeverity severity) {
+        if (severity == null) {
+            return severityRank(DocumentViolationSeverity.HIGH);
+        }
+        return switch (severity) {
+            case NONE -> 0;
+            case LOW -> 1;
+            case MEDIUM -> 2;
+            case HIGH -> 3;
+            case CRITICAL -> 4;
+        };
+    }
+
+    private String buildModerationNote(GeminiChunkingService.SafetyReview safetyReview) {
+        if (safetyReview == null) {
+            return "severity=HIGH; category=UNKNOWN; confidence=0.00; reason=Gemini safety review was missing.";
+        }
+        String flags = safetyReview.policyFlags() == null || safetyReview.policyFlags().isEmpty()
+                ? "NONE"
+                : String.join(",", safetyReview.policyFlags());
+        return "severity=" + resolveSeverity(safetyReview).name()
+                + "; category=" + normalizeReason(safetyReview.category(), "UNKNOWN")
+                + "; confidence=" + String.format(Locale.ROOT, "%.2f", safetyReview.confidence())
+                + "; flags=" + flags
+                + "; reason=" + normalizeReason(safetyReview.reason(), "Gemini did not provide a reason.");
+    }
+
+    private String normalizeReason(String value, String fallback) {
+        return StringUtils.hasText(value) ? value.trim() : fallback;
+    }
+
     private void failProcessing(Long documentId, String reason) {
         log.error("Document {} processing failed: {}", documentId, reason);
-        updateProcessingStatus(documentId, ProcessingStatus.FAILED);
+        transactionTemplate().executeWithoutResult(transactionStatus -> {
+            Document managedDocument = documentRepository.findById(documentId)
+                    .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+            managedDocument.setProcessingStatus(ProcessingStatus.FAILED);
+            if (managedDocument.getModerationStatus() != DocumentModerationStatus.BLOCKED) {
+                managedDocument.setModerationStatus(DocumentModerationStatus.REVIEW_REQUIRED);
+                managedDocument.setViolationSeverity(DocumentViolationSeverity.LOW);
+                managedDocument.setModerationNote(normalizeReason(reason,
+                        "Document processing failed; safety review did not complete."));
+                managedDocument.setModeratedAt(LocalDateTime.now());
+                managedDocument.setVisibility(Visibility.PRIVATE);
+                managedDocument.setMarketStatus(MarketStatus.NONE);
+                disableShareLink(documentId);
+            }
+            documentRepository.save(managedDocument);
+        });
     }
 
     private void updateProcessingStatus(Long documentId, ProcessingStatus status) {
@@ -495,20 +832,29 @@ public class DocumentChunkService {
             Document managedDocument = documentRepository.findById(documentId)
                     .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
             managedDocument.setProcessingStatus(status);
+            if (status == ProcessingStatus.PROCESSING) {
+                managedDocument.setModerationStatus(DocumentModerationStatus.PENDING);
+                managedDocument.setViolationSeverity(DocumentViolationSeverity.NONE);
+                managedDocument.setModerationNote("Document is being safety-checked by Gemini.");
+                managedDocument.setModeratedAt(null);
+            }
             documentRepository.save(managedDocument);
         });
     }
 
     private void logDocumentAiUsage(Long userId,
                                     String rawText,
-                                    GeminiChunkingService.ChunkingOutcome chunkingOutcome,
-                                    List<TextChunkingService.ChunkResult> chunkResults) {
-        if (chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC) {
+                                    GeminiChunkingService.ChunkingStrategy chunkingStrategy,
+                                    List<TextChunkingService.ChunkResult> chunkResults,
+                                    boolean includeEmbeddingUsage) {
+        if (chunkingStrategy == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC) {
             safeLogAiUsage(userId, AiActionType.DOCUMENT_CHUNKING,
                     estimateDocumentChunkingTokens(rawText, chunkResults));
         }
-        safeLogAiUsage(userId, AiActionType.DOCUMENT_EMBEDDING,
-                estimateDocumentEmbeddingTokens(chunkResults));
+        if (includeEmbeddingUsage) {
+            safeLogAiUsage(userId, AiActionType.DOCUMENT_EMBEDDING,
+                    estimateDocumentEmbeddingTokens(chunkResults));
+        }
     }
 
     private int estimateDocumentChunkingTokens(String rawText, List<TextChunkingService.ChunkResult> chunkResults) {

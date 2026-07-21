@@ -36,6 +36,7 @@ public class DocumentServiceImpl implements DocumentService {
         private final SubjectRepository subjectRepository;
         private final ActivityLogService activityLogService;
         private final StorageService storageService;
+        private final DocumentSafetyGuard documentSafetyGuard;
 
         @Override
         public DocumentResponse createDocument(Long userId, CreateDocumentRequest request) {
@@ -96,6 +97,9 @@ public class DocumentServiceImpl implements DocumentService {
                 document.setDescription(request.getDescription());
                 document.setSubject(subject);
                 if (request.getVisibility() != null) {
+                        if (request.getVisibility() != Visibility.PRIVATE) {
+                                documentSafetyGuard.assertDistributable(document);
+                        }
                         document.setVisibility(request.getVisibility());
                 }
                 document = documentRepository.save(document);
@@ -126,6 +130,7 @@ public class DocumentServiceImpl implements DocumentService {
         public DocumentFileDownload downloadDocument(Long id, Long userId) {
                 Document document = documentRepository.findByIdAndUserId(id, userId)
                                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED));
+                documentSafetyGuard.assertDistributable(document);
                 if (!StringUtils.hasText(document.getCloudFilePath())) {
                         throw new AppException(ErrorCode.DOCUMENT_NO_FILE);
                 }

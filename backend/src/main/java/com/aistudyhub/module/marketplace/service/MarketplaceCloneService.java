@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.aistudyhub.common.enums.DocumentModerationStatus;
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.ReputationEventType;
@@ -14,6 +15,7 @@ import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.Document;
+import com.aistudyhub.entity.DocumentChunk;
 import com.aistudyhub.entity.Flashcard;
 import com.aistudyhub.entity.FlashcardDeck;
 import com.aistudyhub.entity.Notebook;
@@ -24,6 +26,7 @@ import com.aistudyhub.entity.QuizQuestion;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.module.document.dto.DocumentResponse;
 import com.aistudyhub.module.document.dto.DocumentResponseMapper;
+import com.aistudyhub.module.document.service.DocumentSafetyGuard;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponseMapper;
 import com.aistudyhub.module.marketplace.dto.MarketplaceCloneRequest;
@@ -35,6 +38,7 @@ import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizResponseMapper;
 import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.module.user.service.UserService;
+import com.aistudyhub.repository.DocumentChunkRepository;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.FlashcardDeckRepository;
 import com.aistudyhub.repository.NotebookDocumentRepository;
@@ -55,6 +59,7 @@ public class MarketplaceCloneService {
 
     private final UserService userService;
     private final DocumentRepository documentRepository;
+    private final DocumentChunkRepository documentChunkRepository;
     private final NotebookDocumentRepository notebookDocumentRepository;
     private final NotebookRepository notebookRepository;
     private final QuizRepository quizRepository;
@@ -63,6 +68,7 @@ public class MarketplaceCloneService {
     private final ReputationService reputationService;
     private final MarketplaceCloneReceiptRepository cloneReceiptRepository;
     private final MarketplaceCloneLockRepository cloneLockRepository;
+    private final DocumentSafetyGuard documentSafetyGuard;
 
     @Transactional
     public DocumentResponse cloneDocumentInMarket(Long documentId, MarketplaceCloneRequest request) {
@@ -79,6 +85,7 @@ public class MarketplaceCloneService {
 
         Document existingClone = findExistingDocumentClone(receipt, currentUser, originalDoc);
         if (existingClone != null) {
+            existingClone = synchronizeClonedDocumentSafety(existingClone, originalDoc);
             saveCloneReceipt(receipt, currentUser, MarketplaceCloneTargetType.DOCUMENT, documentId, existingClone.getId());
             linkDocumentToNotebook(existingClone, targetNotebook);
             log.info("Returning existing Document clone id={} for user id={} and source id={}",
@@ -98,12 +105,18 @@ public class MarketplaceCloneService {
                 .visibility(Visibility.PRIVATE)
                 .marketStatus(MarketStatus.NONE)
                 .processingStatus(ProcessingStatus.SUCCESS)
+                .moderationStatus(originalDoc.getModerationStatus())
+                .violationSeverity(originalDoc.getViolationSeverity())
+                .moderationNote(originalDoc.getModerationNote())
+                .moderatedAt(originalDoc.getModeratedAt())
+                .aiVerdictNote(originalDoc.getAiVerdictNote())
                 .clonedFrom(originalDoc)
                 .downloadCount(0)
                 .reviewCount(0)
                 .acceptPercentage(BigDecimal.ZERO)
                 .build();
         Document savedDoc = documentRepository.save(clonedDoc);
+        copyDocumentChunks(originalDoc, savedDoc);
         linkDocumentToNotebook(savedDoc, targetNotebook);
 
         boolean firstCloneCredit = receipt == null;
@@ -291,6 +304,10 @@ public class MarketplaceCloneService {
                 || originalDoc.getMarketStatus() != MarketStatus.APPROVED) {
             throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
         }
+        if (originalDoc.getModerationStatus() != DocumentModerationStatus.SAFE) {
+            throw new AppException(ErrorCode.DOCUMENT_NOT_SAFE_FOR_DISTRIBUTION);
+        }
+        documentSafetyGuard.assertDistributable(originalDoc);
         if (originalDoc.getUser().getId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.VALIDATION_ERROR,
                     "You cannot clone your own marketplace document.");
@@ -399,6 +416,59 @@ public class MarketplaceCloneService {
         return flashcardDeckRepository
                 .findFirstByUserIdAndClonedFrom_IdOrderByIdAsc(currentUser.getId(), originalDeck.getId())
                 .orElse(null);
+    }
+
+    private Document synchronizeClonedDocumentSafety(Document clonedDoc, Document originalDoc) {
+        documentSafetyGuard.assertDistributable(originalDoc);
+        clonedDoc.setFileUrl(originalDoc.getFileUrl());
+        clonedDoc.setCloudFilePath(originalDoc.getCloudFilePath());
+        clonedDoc.setProcessingStatus(ProcessingStatus.SUCCESS);
+        clonedDoc.setModerationStatus(originalDoc.getModerationStatus());
+        clonedDoc.setViolationSeverity(originalDoc.getViolationSeverity());
+        clonedDoc.setModerationNote(originalDoc.getModerationNote());
+        clonedDoc.setModeratedAt(originalDoc.getModeratedAt());
+        clonedDoc.setAiVerdictNote(originalDoc.getAiVerdictNote());
+        clonedDoc = documentRepository.save(clonedDoc);
+        copyDocumentChunks(originalDoc, clonedDoc);
+        return clonedDoc;
+    }
+
+    private void copyDocumentChunks(Document sourceDocument, Document targetDocument) {
+        if (documentChunkRepository.countByDocumentId(targetDocument.getId()) > 0) {
+            return;
+        }
+
+        List<DocumentChunk> sourceChunks =
+                documentChunkRepository.findByDocumentIdOrderByChunkIndexAsc(sourceDocument.getId());
+        if (sourceChunks.isEmpty()) {
+            throw new AppException(ErrorCode.DOCUMENT_NOT_SAFE_FOR_DISTRIBUTION);
+        }
+
+        List<DocumentChunk> clonedChunks = sourceChunks.stream()
+                .map(sourceChunk -> DocumentChunk.builder()
+                        .document(targetDocument)
+                        .chunkIndex(sourceChunk.getChunkIndex())
+                        .textContent(sourceChunk.getTextContent())
+                        .tokenEstimate(sourceChunk.getTokenEstimate())
+                        .sourcePage(sourceChunk.getSourcePage())
+                        .sourceSection(sourceChunk.getSourceSection())
+                        .embeddingVector(sourceChunk.getEmbeddingVector())
+                        .embeddingModel(sourceChunk.getEmbeddingModel())
+                        .vectorId(buildClonedVectorId(targetDocument, sourceChunk))
+                        .build())
+                .toList();
+        documentChunkRepository.saveAll(clonedChunks);
+    }
+
+    private String buildClonedVectorId(Document clonedDocument, DocumentChunk sourceChunk) {
+        String model = sourceChunk.getEmbeddingModel();
+        if (model != null && !model.isBlank()) {
+            return "openai:" + model + ":" + clonedDocument.getId() + ":" + sourceChunk.getChunkIndex();
+        }
+        String sourceVectorId = sourceChunk.getVectorId();
+        return sourceVectorId == null || sourceVectorId.isBlank()
+                ? null
+                : sourceVectorId + ":clone:" + clonedDocument.getId();
     }
 
     private void linkDocumentToNotebook(Document document, Notebook targetNotebook) {

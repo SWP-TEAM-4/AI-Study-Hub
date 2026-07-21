@@ -90,7 +90,7 @@ app:
       max-retries: 3
 
     gemini: 
-      api-key: AQ.Ab8RN6LZkKz_wjPnPoAh2x2y3P7oj1Fl8yNhEMkAXgxmKgrePQ
+      api-key: AQ.Ab8RN6LZuahqtq6tvPHPfkOkHLQoocJzwOcdIab5j-P-8bKPvQ
       base-url: https://generativelanguage.googleapis.com/v1/models
       model: gemini-3.5-flash
       temperature: 0.1
@@ -116,17 +116,17 @@ app:
 
   oauth:
     google:
-      client-id: ${GOOGLE_CLIENT_ID:}
-      client-secret: ${GOOGLE_CLIENT_SECRET:}
-      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/oauth/google/callback}
+      client-id: 261664798373-7hkm6ichtaofruu3ku8jlc3qf014vloj.apps.googleusercontent.com
+      client-secret: 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
+      redirect-uri: ${GOOGLE_REDIRECT_URI:https://aistudyhub.zill.vn/oauth/google/callback}
       auth-uri: https://accounts.google.com/o/oauth2/v2/auth
       token-uri: https://oauth2.googleapis.com/token
       user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
       scope: openid email profile
     github:
-      client-id: ${GITHUB_CLIENT_ID:}
-      client-secret: ${GITHUB_CLIENT_SECRET:}
-      redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:5173/oauth/github/callback}
+      client-id: Ov23lisV86M0plW7h196
+      client-secret: b738988dfe634ba05f3a6e00ab6aca9c6d055b3d
+      redirect-uri: ${GITHUB_REDIRECT_URI:https://aistudyhub.zill.vn/oauth/github/callback}
       auth-uri: https://github.com/login/oauth/authorize
       token-uri: https://github.com/login/oauth/access_token
       user-info-uri: https://api.github.com/user

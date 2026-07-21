@@ -10,7 +10,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import com.aistudyhub.common.enums.DocumentModerationStatus;
 import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
@@ -64,6 +66,10 @@ public class CommunityDocumentServiceImpl implements CommunityDocumentService {
 
             predicates.add(
                     cb.equal(root.get("marketStatus"), MarketStatus.APPROVED));
+            predicates.add(
+                    cb.equal(root.get("processingStatus"), ProcessingStatus.SUCCESS));
+            predicates.add(
+                    cb.equal(root.get("moderationStatus"), DocumentModerationStatus.SAFE));
 
             // keyword
             if (keyword != null && !keyword.isBlank()) {
@@ -139,7 +145,7 @@ public class CommunityDocumentServiceImpl implements CommunityDocumentService {
     public CommunityDocumentResponse getDocument(Long id) {
         Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
-        if (document.getVisibility() != Visibility.MARKETPLACE || document.getMarketStatus() != MarketStatus.APPROVED) {
+        if (!isPublicSafeDocument(document)) {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
         return mapToResponse(document);
@@ -155,10 +161,16 @@ public class CommunityDocumentServiceImpl implements CommunityDocumentService {
         Page<Document> page = documentRepository.findAll(pageable);
 
         return page.stream()
-                .filter(d -> d.getVisibility() == Visibility.MARKETPLACE
-                        && d.getMarketStatus() == MarketStatus.APPROVED)
+                .filter(this::isPublicSafeDocument)
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    private boolean isPublicSafeDocument(Document document) {
+        return document.getVisibility() == Visibility.MARKETPLACE
+                && document.getMarketStatus() == MarketStatus.APPROVED
+                && document.getProcessingStatus() == ProcessingStatus.SUCCESS
+                && document.getModerationStatus() == DocumentModerationStatus.SAFE;
     }
 
     private CommunityDocumentResponse mapToResponse(Document document) {

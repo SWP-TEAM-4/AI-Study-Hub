@@ -1,6 +1,8 @@
 package com.aistudyhub.entity;
 
 import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.DocumentModerationStatus;
+import com.aistudyhub.common.enums.DocumentViolationSeverity;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Visibility;
 import jakarta.persistence.*;
@@ -102,6 +104,22 @@ public class Document {
     @Column(name = "processing_status", nullable = false, length = 50)
     @Builder.Default
     private ProcessingStatus processingStatus = ProcessingStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moderation_status", nullable = false, length = 50)
+    @Builder.Default
+    private DocumentModerationStatus moderationStatus = DocumentModerationStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "violation_severity", nullable = false, length = 50)
+    @Builder.Default
+    private DocumentViolationSeverity violationSeverity = DocumentViolationSeverity.NONE;
+
+    @Column(name = "moderation_note", columnDefinition = "TEXT")
+    private String moderationNote;
+
+    @Column(name = "moderated_at")
+    private LocalDateTime moderatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cloned_from_id")

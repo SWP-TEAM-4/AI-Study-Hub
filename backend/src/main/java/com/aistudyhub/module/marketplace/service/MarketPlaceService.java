@@ -20,6 +20,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.aistudyhub.common.enums.ProcessingStatus;
+import com.aistudyhub.common.enums.DocumentModerationStatus;
 import com.aistudyhub.entity.QuizQuestion;
 import com.aistudyhub.repository.QuizQuestionRepository;
 import com.aistudyhub.common.enums.MarketStatus;
@@ -34,6 +35,7 @@ import com.aistudyhub.entity.Quiz;
 import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.document.dto.DocumentResponse;
 import com.aistudyhub.module.document.dto.DocumentResponseMapper;
+import com.aistudyhub.module.document.service.DocumentSafetyGuard;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponse;
 import com.aistudyhub.module.flashcard.dto.FlashcardDeckResponseMapper;
 import com.aistudyhub.module.marketplace.dto.MarketplaceItemResponse;
@@ -67,6 +69,7 @@ public class MarketPlaceService {
     private final MarketplaceSubmissionService marketplaceSubmissionService;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final DocumentSafetyGuard documentSafetyGuard;
 
     /**
      * Gửi yêu cầu đăng tải một tài liệu học tập (Document) lên Marketplace.
@@ -111,6 +114,7 @@ public class MarketPlaceService {
         if (document.getProcessingStatus() != ProcessingStatus.SUCCESS) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Document processing is not successful yet.");
         }
+        documentSafetyGuard.assertDistributable(document);
         assertCanSubmit(document.getMarketStatus());
         marketplaceSubmissionService.create("DOCUMENT", document.getId(), document.getSubject(), document.getUser(), note);
         // Bước 7: Cập nhật Visibility, MarketStatus và SubmitNote
@@ -309,6 +313,8 @@ public class MarketPlaceService {
             // Chỉ lấy các tài nguyên hiển thị trên Chợ & đã được Duyệt
             predicates.add(cb.equal(root.get("visibility"), Visibility.MARKETPLACE));
             predicates.add(cb.equal(root.get("marketStatus"), MarketStatus.APPROVED));
+            predicates.add(cb.equal(root.get("processingStatus"), ProcessingStatus.SUCCESS));
+            predicates.add(cb.equal(root.get("moderationStatus"), DocumentModerationStatus.SAFE));
 
             // Lọc theo môn học (subjectId) nếu có truyền lên
             if (request.getSubjectId() != null) {
@@ -479,6 +485,8 @@ public class MarketPlaceService {
             ArrayList<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("visibility"), Visibility.MARKETPLACE));
             predicates.add(cb.equal(root.get("marketStatus"), MarketStatus.APPROVED));
+            predicates.add(cb.equal(root.get("processingStatus"), ProcessingStatus.SUCCESS));
+            predicates.add(cb.equal(root.get("moderationStatus"), DocumentModerationStatus.SAFE));
             if (request.getSubjectId() != null) {
                 predicates.add(cb.equal(root.get("subject").get("id"), request.getSubjectId()));
             }
