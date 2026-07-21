@@ -48,6 +48,9 @@ public class User {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Column(name = "registration_ip", length = 45)
+    private String registrationIp;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "current_semester_id")
     private Semester currentSemester;
@@ -68,6 +71,10 @@ public class User {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = true;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

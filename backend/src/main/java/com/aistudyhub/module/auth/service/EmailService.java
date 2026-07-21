@@ -9,19 +9,27 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.util.HtmlUtils;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 /**
- * Owner: BE1 – Email service cho Auth module (forgot password, welcome mail).
- * <p>
- * Sử dụng MailSMTP qua JavaMailSender (cấu hình tại
- * {@code config/MailConfig.java}).
- * Tất cả method đều {@code @Async} để không block request thread.
- * Email thất bại chỉ log lỗi, KHÔNG throw ra ngoài (tránh lộ email existence).
+ * Owner: BE1 – Email service cho Auth module.
+ *
+ * Load template HTML từ classpath để email đóng gói được trong jar.
+ * Email thất bại chỉ log lỗi, KHÔNG throw ra ngoài (tránh block auth flow).
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailService {
+
+  private static final String RESET_PASSWORD_TEMPLATE = "/templates/email/reset-password.html";
+  private static final String WELCOME_TEMPLATE = "/templates/email/welcome.html";
+  private static final String DEFAULT_PUBLIC_BASE_URL = "https://aistudyhub.com";
 
   private final JavaMailSender mailSender;
 
@@ -34,19 +42,15 @@ public class EmailService {
   @Value("${app.mail.reset-password-url:http://localhost:5173/reset-password}")
   private String resetPasswordBaseUrl;
 
+  @Value("${app.mail.dashboard-url:http://localhost:5173/dashboard}")
+  private String dashboardUrl;
+
+  @Value("${app.mail.onboarding-url:http://localhost:5173/onboarding}")
+  private String onboardingUrl;
+
   @Value("${app.mail.token-expire-minutes:30}")
   private int tokenExpireMinutes;
 
-  // ── Forgot Password Email ─────────────────────────────────────────────────
-
-  /**
-   * Gửi email reset password với HTML template đẹp.
-   * Được gọi bất đồng bộ từ {@link AuthService#forgotPassword}.
-   *
-   * @param toEmail  địa chỉ email người nhận
-   * @param fullName tên hiển thị (có thể null, fallback về email)
-   * @param token    reset token UUID
-   */
   @Async
   public void sendPasswordResetEmail(String toEmail, String fullName, String token) {
     sendPasswordResetEmail(toEmail, fullName, token, tokenExpireMinutes);
@@ -54,238 +58,148 @@ public class EmailService {
 
   @Async
   public void sendPasswordResetEmail(String toEmail, String fullName, String token, int expireMinutes) {
-    String displayName = (fullName != null && !fullName.isBlank()) ? fullName : toEmail;
+    String displayName = displayName(fullName, toEmail);
     String resetLink = resetPasswordBaseUrl + "?token=" + token;
 
-    try {
-      MimeMessage message = mailSender.createMimeMessage();
-      MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-      helper.setFrom(fromAddress, fromName);
-      helper.setTo(toEmail);
-      helper.setSubject("Đặt lại mật khẩu – AI Study Hub");
-      helper.setText(buildResetPasswordHtml(displayName, resetLink, expireMinutes), true);
-
-      mailSender.send(message);
-      log.info("[EmailService] Password reset email sent to: {}", toEmail);
-
-    } catch (MessagingException e) {
-      log.error("[EmailService] Failed to send password reset email to {}: {}", toEmail, e.getMessage());
-    } catch (Exception e) {
-      log.error("[EmailService] Unexpected error sending email to {}: {}", toEmail, e.getMessage());
-    }
+    sendHtmlEmail(
+            toEmail,
+            "Đặt lại mật khẩu – AI Study Hub",
+            buildResetPasswordHtml(displayName, resetLink, expireMinutes),
+            "password reset");
   }
 
-  // ── Welcome Email ─────────────────────────────────────────────────────────
+  @Async
+  public void sendRegistrationVerificationEmail(String toEmail, String fullName, String verificationCode,
+                                                int expireMinutes) {
+    String displayName = displayName(fullName, toEmail);
+    sendHtmlEmail(
+            toEmail,
+            "Mã xác thực tài khoản – AI Study Hub",
+            buildRegistrationVerificationHtml(displayName, verificationCode, expireMinutes),
+            "registration verification");
+  }
 
-  /**
-   * Gửi email chào mừng sau khi đăng ký thành công.
-   *
-   * @param toEmail  địa chỉ email người nhận
-   * @param fullName tên hiển thị
-   */
   @Async
   public void sendWelcomeEmail(String toEmail, String fullName) {
+    sendHtmlEmail(
+            toEmail,
+            "Chào mừng đến với AI Study Hub!",
+            buildWelcomeHtml(displayName(fullName, toEmail)),
+            "welcome");
+  }
+
+  private void sendHtmlEmail(String toEmail, String subject, String html, String purpose) {
     try {
       MimeMessage message = mailSender.createMimeMessage();
-      MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+      MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
 
       helper.setFrom(fromAddress, fromName);
       helper.setTo(toEmail);
-      helper.setSubject("Chào mừng đến với AI Study Hub!");
-      helper.setText(buildWelcomeHtml(fullName), true);
+      helper.setSubject(subject);
+      helper.setText(html, true);
 
       mailSender.send(message);
-      log.info("[EmailService] Welcome email sent to: {}", toEmail);
-
+      log.info("[EmailService] {} email sent to: {}", purpose, toEmail);
     } catch (MessagingException e) {
-      log.error("[EmailService] Failed to send welcome email to {}: {}", toEmail, e.getMessage());
+      log.error("[EmailService] Failed to send {} email to {}: {}", purpose, toEmail, e.getMessage());
     } catch (Exception e) {
-      log.error("[EmailService] Unexpected error sending welcome email to {}: {}", toEmail, e.getMessage());
+      log.error("[EmailService] Unexpected error sending {} email to {}: {}", purpose, toEmail, e.getMessage());
     }
   }
 
-  // ── HTML Templates ────────────────────────────────────────────────────────
-
   private String buildResetPasswordHtml(String displayName, String resetLink, int expireMinutes) {
-    return """
-        <!DOCTYPE html>
-        <html lang="vi">
-        <head>
-          <meta charset="UTF-8"/>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-          <title>Đặt lại mật khẩu – AI Study Hub</title>
-        </head>
-        <body style="margin:0;padding:0;background:#0f0f1a;font-family:'Segoe UI',Arial,sans-serif;">
-          <table width="100%%" cellpadding="0" cellspacing="0" style="background:#0f0f1a;padding:40px 0;">
-            <tr>
-              <td align="center">
-                <table width="560" cellpadding="0" cellspacing="0"
-                       style="background:#1a1a2e;border-radius:16px;overflow:hidden;
-                              box-shadow:0 8px 32px rgba(99,102,241,0.25);">
+    String safeName = escape(displayName);
+    String safeResetLink = escape(resetLink);
+    String expireLabel = expireMinutes + " minutes";
 
-                  <!-- Header -->
-                  <tr>
-                    <td style="background:linear-gradient(135deg,#6366f1 0%%,#8b5cf6 50%%,#06b6d4 100%%);
-                                padding:36px 40px;text-align:center;">
-                      <h1 style="margin:0;color:#fff;font-size:24px;font-weight:700;
-                                  letter-spacing:-0.5px;">AI Study Hub</h1>
-                      <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">
-                        Nền tảng học tập thông minh
-                      </p>
-                    </td>
-                  </tr>
-
-                  <!-- Body -->
-                  <tr>
-                    <td style="padding:40px 40px 32px;">
-                      <h2 style="margin:0 0 12px;color:#e2e8f0;font-size:20px;font-weight:600;">
-                        Xin chào, %s!
-                      </h2>
-                      <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.6;">
-                        Chúng tôi nhận được yêu cầu <strong style="color:#e2e8f0;">đặt lại mật khẩu</strong>
-                        cho tài khoản của bạn. Nhấn nút bên dưới để tiếp tục.
-                      </p>
-
-                      <!-- CTA Button -->
-                      <table width="100%%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td align="center" style="padding:8px 0 28px;">
-                            <a href="%s"
-                               style="display:inline-block;padding:14px 36px;
-                                      background:linear-gradient(135deg,#6366f1,#8b5cf6);
-                                      color:#fff;text-decoration:none;border-radius:10px;
-                                      font-size:15px;font-weight:600;
-                                      box-shadow:0 4px 16px rgba(99,102,241,0.4);
-                                      letter-spacing:0.3px;">
-                               Đặt lại mật khẩu
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <!-- Warning box -->
-                      <div style="background:#1e1e3f;border:1px solid #312e81;border-radius:10px;
-                                   padding:16px 20px;margin-bottom:24px;">
-                        <p style="margin:0;color:#a5b4fc;font-size:13px;line-height:1.6;">
-                           <strong>Link có hiệu lực trong %d phút.</strong><br/>
-                          Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.
-                          Tài khoản của bạn vẫn an toàn.
-                        </p>
-                      </div>
-
-                      <!-- Fallback link -->
-                      <p style="margin:0;color:#64748b;font-size:12px;line-height:1.5;">
-                        Nút không hoạt động? Copy link dưới đây vào trình duyệt:<br/>
-                        <span style="color:#818cf8;word-break:break-all;">%s</span>
-                      </p>
-                    </td>
-                  </tr>
-
-                  <!-- Footer -->
-                  <tr>
-                    <td style="background:#111827;padding:20px 40px;text-align:center;
-                                border-top:1px solid #1f2937;">
-                      <p style="margin:0;color:#4b5563;font-size:12px;">
-                        © 2026 AI Study Hub – FPT University SWP391 Team 4<br/>
-                        Email này được gửi tự động, vui lòng không reply.
-                      </p>
-                    </td>
-                  </tr>
-
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-        """.formatted(displayName, resetLink, expireMinutes, resetLink);
+    return loadTemplate(RESET_PASSWORD_TEMPLATE)
+            .replace("[Your Name]", safeName)
+            .replace("https://aistudyhub.com/reset-password?token=ABC123", safeResetLink)
+            .replace("Link expires in 30 minutes", "Link expires in " + expireLabel)
+            .replace("expires in 30 minutes", "expires in " + expireLabel)
+            .replace(">30</text>", ">" + expireMinutes + "</text>")
+            .replace(DEFAULT_PUBLIC_BASE_URL + "/security", publicUrl("/security"));
   }
 
-  private String buildWelcomeHtml(String fullName) {
+  private String buildWelcomeHtml(String displayName) {
+    return loadTemplate(WELCOME_TEMPLATE)
+            .replace("[Your Name]", escape(displayName))
+            .replace(DEFAULT_PUBLIC_BASE_URL + "/dashboard", escape(dashboardUrl))
+            .replace(DEFAULT_PUBLIC_BASE_URL + "/onboarding", escape(onboardingUrl))
+            .replace(DEFAULT_PUBLIC_BASE_URL + "/unsubscribe", publicUrl("/unsubscribe"))
+            .replace(DEFAULT_PUBLIC_BASE_URL + "/privacy", publicUrl("/privacy"));
+  }
+
+  private String buildRegistrationVerificationHtml(String displayName, String verificationCode, int expireMinutes) {
+    String html = buildWelcomeHtml(displayName)
+            .replace("your study companion just got a lot cuter — let's set up your path in 60 seconds. ✨",
+                    "your verification code is " + escape(verificationCode) + ". It expires in "
+                            + expireMinutes + " minutes.")
+            .replace("Your account is all set up.", "Your account is almost ready.")
+            .replace("Complete your profile and unlock a", "Enter the verification code below to activate your")
+            .replace("personalised study path", "AI Study Hub account")
+            .replace("tailored just for you.", "before it expires.")
+            .replace("Profile progress", "Activation code")
+            .replace("80% <span style=\"color:#5C6678;font-weight:600;font-family:'Quicksand',sans-serif;font-size:12px;\">done</span>",
+                    expireMinutes + " min <span style=\"color:#5C6678;font-weight:600;font-family:'Quicksand',sans-serif;font-size:12px;\">left</span>")
+            .replace("Let's go", "Open AI Study Hub")
+            .replace("Day 1 starts now — let's build that streak!",
+                    "Use this one-time code to activate your account safely.");
+
+    return html.replace(
+            "          <!-- ============ CTA BUTTON (aurora glow) ============ -->",
+            buildVerificationCodeBlock(verificationCode, expireMinutes)
+                    + "\n          <!-- ============ CTA BUTTON (aurora glow) ============ -->");
+  }
+
+  private String buildVerificationCodeBlock(String verificationCode, int expireMinutes) {
     return """
-        <!DOCTYPE html>
-        <html lang="vi">
-        <head>
-          <meta charset="UTF-8"/>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-          <title>Chào mừng – AI Study Hub</title>
-        </head>
-        <body style="margin:0;padding:0;background:#0f0f1a;font-family:'Segoe UI',Arial,sans-serif;">
-          <table width="100%%" cellpadding="0" cellspacing="0" style="background:#0f0f1a;padding:40px 0;">
-            <tr>
-              <td align="center">
-                <table width="560" cellpadding="0" cellspacing="0"
-                       style="background:#1a1a2e;border-radius:16px;overflow:hidden;
-                              box-shadow:0 8px 32px rgba(99,102,241,0.25);">
+          <!-- ============ VERIFICATION CODE ============ -->
+          <tr>
+            <td class="mobile-pad" align="center" style="padding:6px 48px 22px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                     style="background:linear-gradient(135deg,#F0FDF4 0%,#EEF4FE 100%);border:1px solid rgba(22,164,122,0.22);border-radius:16px;box-shadow:0 8px 24px rgba(22,164,122,0.12);">
+                <tr>
+                  <td align="center" style="padding:24px 24px 22px;">
+                    <p style="margin:0 0 10px;font-family:'Quicksand',sans-serif;font-size:11px;color:#16A47A;font-weight:700;text-transform:uppercase;letter-spacing:2.2px;">
+                      Verification code
+                    </p>
+                    <div style="display:inline-block;background:#FFFFFF;border:1px dashed rgba(22,164,122,0.35);border-radius:14px;padding:16px 24px;font-family:'JetBrains Mono','Courier New',monospace;font-size:30px;font-weight:800;letter-spacing:8px;color:#1A2333;box-shadow:0 8px 20px rgba(22,164,122,0.14);">
+                      {{CODE}}
+                    </div>
+                    <p style="margin:14px 0 0;font-family:'Quicksand',sans-serif;font-size:13px;color:#5C6678;line-height:1.6;">
+                      This code expires in <strong style="color:#16A47A;">{{EXPIRE_MINUTES}} minutes</strong>.
+                      Never share it with anyone.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        """.replace("{{CODE}}", escape(verificationCode))
+            .replace("{{EXPIRE_MINUTES}}", String.valueOf(expireMinutes));
+  }
 
-                  <!-- Header -->
-                  <tr>
-                    <td style="background:linear-gradient(135deg,#6366f1 0%%,#8b5cf6 50%%,#06b6d4 100%%);
-                                padding:36px 40px;text-align:center;">
-                      <h1 style="margin:0;color:#fff;font-size:24px;font-weight:700;">AI Study Hub</h1>
-                      <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">
-                        Nền tảng học tập thông minh
-                      </p>
-                    </td>
-                  </tr>
+  private String loadTemplate(String classpathLocation) {
+    try (InputStream inputStream = getClass().getResourceAsStream(classpathLocation)) {
+      if (inputStream == null) {
+        throw new IllegalStateException("Email template not found: " + classpathLocation);
+      }
+      return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new IllegalStateException("Cannot read email template: " + classpathLocation, e);
+    }
+  }
 
-                  <!-- Body -->
-                  <tr>
-                    <td style="padding:40px 40px 32px;">
-                      <h2 style="margin:0 0 16px;color:#e2e8f0;font-size:20px;font-weight:600;">
-                        Chào mừng, %s!
-                      </h2>
-                      <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-                        Tài khoản của bạn đã được tạo thành công trên <strong style="color:#a5b4fc;">AI Study Hub</strong>.<br/>
-                        Bắt đầu hành trình học tập thông minh ngay hôm nay!
-                      </p>
+  private String displayName(String fullName, String fallbackEmail) {
+    return StringUtils.hasText(fullName) ? fullName.trim() : fallbackEmail;
+  }
 
-                      <!-- Feature highlights -->
-                      <div style="background:#111827;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
-                        <p style="margin:0 0 12px;color:#6366f1;font-size:13px;font-weight:600;
-                                   text-transform:uppercase;letter-spacing:1px;">Tính năng nổi bật</p>
-                        <p style="margin:0 0 8px;color:#cbd5e1;font-size:14px;">Chat AI theo từng tài liệu học tập</p>
-                        <p style="margin:0 0 8px;color:#cbd5e1;font-size:14px;">Tạo Quiz, Test & Flashcard tự động</p>
-                        <p style="margin:0 0 8px;color:#cbd5e1;font-size:14px;">Quản lý Notebook & Document thông minh</p>
-                        <p style="margin:0;color:#cbd5e1;font-size:14px;">Chia sẻ nội dung trên Marketplace</p>
-                      </div>
+  private String publicUrl(String path) {
+    return escape(DEFAULT_PUBLIC_BASE_URL + path);
+  }
 
-                      <table width="100%%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td align="center">
-                            <a href="http://localhost:3000"
-                               style="display:inline-block;padding:14px 36px;
-                                      background:linear-gradient(135deg,#6366f1,#8b5cf6);
-                                      color:#fff;text-decoration:none;border-radius:10px;
-                                      font-size:15px;font-weight:600;
-                                      box-shadow:0 4px 16px rgba(99,102,241,0.4);">
-                               Bắt đầu học ngay
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-
-                  <!-- Footer -->
-                  <tr>
-                    <td style="background:#111827;padding:20px 40px;text-align:center;
-                                border-top:1px solid #1f2937;">
-                      <p style="margin:0;color:#4b5563;font-size:12px;">
-                        © 2026 AI Study Hub – FPT University SWP391 Team 4<br/>
-                        Email này được gửi tự động, vui lòng không reply.
-                      </p>
-                    </td>
-                  </tr>
-
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-        """
-        .formatted(fullName);
+  private String escape(String value) {
+    return HtmlUtils.htmlEscape(value == null ? "" : value, StandardCharsets.UTF_8.name());
   }
 }

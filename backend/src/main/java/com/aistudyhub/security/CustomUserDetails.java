@@ -33,7 +33,7 @@ public class CustomUserDetails implements UserDetails {
         this.email = user.getEmail();
         this.password = user.getPasswordHash();
         this.role = user.getRole();
-        this.active = Boolean.TRUE.equals(user.getIsActive());
+        this.active = Boolean.TRUE.equals(user.getIsActive()) && Boolean.TRUE.equals(user.getEmailVerified());
         this.authorities = List.copyOf(authorities);
     }
 

@@ -49,6 +49,12 @@ export interface LoginResponseData {
   createdAt: string;
 }
 
+export interface RegistrationResponseData {
+  email: string;
+  verificationRequired: boolean;
+  expireMinutes: number;
+}
+
 export interface ForgotPasswordResponseData {
   resetTokenPreview?: string;
   expiredAt?: string;
@@ -181,7 +187,7 @@ export const authService = {
   },
 
   /**
-   * 2. POST /api/auth/register - Đăng ký tài khoản sinh viên FPT mới tích hợp song ngành
+   * 2. POST /api/auth/register - Đăng ký tài khoản và gửi mã xác thực email
    */
   async register(registerData: {
     email: string;
@@ -190,9 +196,19 @@ export const authService = {
     currentSemesterId?: number | null;
     comboId?: number | null;
   }) {
-    const res = await authRequest<{ success: boolean; message: string; data: LoginResponseData }>(
+    return authRequest<{ success: boolean; message: string; data: RegistrationResponseData }>(
       "/auth/register",
       registerData
+    );
+  },
+
+  /**
+   * 3. POST /api/auth/verify-registration - Kích hoạt tài khoản bằng mã email và nhận JWT
+   */
+  async verifyRegistration(email: string, code: string) {
+    const res = await authRequest<{ success: boolean; message: string; data: LoginResponseData }>(
+      "/auth/verify-registration",
+      { email, code }
     );
 
     if (res.success) {
@@ -202,8 +218,15 @@ export const authService = {
     return res;
   },
 
+  async resendRegistrationVerification(email: string) {
+    return authRequest<{ success: boolean; message: string; data: RegistrationResponseData }>(
+      "/auth/resend-verification-code",
+      { email }
+    );
+  },
+
   /**
-   * 3. POST /api/auth/forgot-password - Tạo token đặt lại mật khẩu khi sinh viên quên thông tin truy cập
+   * 4. POST /api/auth/forgot-password - Tạo token đặt lại mật khẩu khi sinh viên quên thông tin truy cập
    */
   async forgotPassword(email: string) {
     return authRequest<{ success: boolean; message: string; data?: ForgotPasswordResponseData | EmptyApiResponseData }>(
@@ -213,7 +236,7 @@ export const authService = {
   },
 
   /**
-   * 4. POST /api/auth/reset-password - Đặt lại mật khẩu bảo mật mới bằng mã xác thực Reset Token
+   * 5. POST /api/auth/reset-password - Đặt lại mật khẩu bảo mật mới bằng mã xác thực Reset Token
    * Backend gửi token qua email, client gửi lại { token, newPassword }
    */
   async resetPassword(resetToken: string, newPassword: string) {
