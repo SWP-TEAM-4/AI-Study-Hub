@@ -25,6 +25,8 @@ public final class QuizResponseMapper {
                 .downloadCount(quiz.getDownloadCount())
                 .reviewCount(quiz.getReviewCount())
                 .acceptPercentage(quiz.getAcceptPercentage())
+                .communityReviewCount(quiz.getCommunityReviewCount())
+                .communityRatingAvg(quiz.getCommunityRatingAvg())
                 .aiVerdictNote(quiz.getAiVerdictNote())
                 .clonedFromId(quiz.getClonedFrom() != null ? quiz.getClonedFrom().getId() : null)
                 .createdAt(quiz.getCreatedAt())

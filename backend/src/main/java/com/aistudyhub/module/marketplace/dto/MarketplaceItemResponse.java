@@ -34,12 +34,15 @@ public class MarketplaceItemResponse {
     private String title;
     // ID môn học liên kết với tài nguyên này
     private Long subjectId;
+    private Long creatorId;
     // Họ tên đầy đủ của người tạo ra tài nguyên này (lấy từ User.fullName)
     private String creatorName;
     // Tổng số lượt tải/clone của tài nguyên này về kho lưu trữ cá nhân
     private Integer downloadCount;
     private Integer reviewCount;
     private BigDecimal acceptPercentage;
+    private Integer communityReviewCount;
+    private BigDecimal communityRatingAvg;
     // Trạng thái kiểm duyệt chợ của tài nguyên (Luôn là APPROVED khi hiển thị trên
     // Marketplace)
     private MarketStatus marketStatus;

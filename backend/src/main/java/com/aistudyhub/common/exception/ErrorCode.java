@@ -173,6 +173,16 @@ public enum ErrorCode {
         SYSTEM_CONFIG_NOT_FOUND("SYSTEM_CONFIG_NOT_FOUND", "System config not found", HttpStatus.NOT_FOUND),
         SYSTEM_CONFIG_KEY_DUPLICATE("SYSTEM_CONFIG_KEY_DUPLICATE", "Config key already exists", HttpStatus.CONFLICT),
 
+        // ── Reputation / Quota / Nomination ─────────────────────────────────────
+        REWARD_RULE_NOT_FOUND("REWARD_RULE_NOT_FOUND", "Reward rule not found", HttpStatus.NOT_FOUND),
+        AI_QUOTA_TIER_NOT_FOUND("AI_QUOTA_TIER_NOT_FOUND", "AI quota tier not found", HttpStatus.NOT_FOUND),
+        AI_QUOTA_TIER_DUPLICATE("AI_QUOTA_TIER_DUPLICATE", "AI quota tier already exists", HttpStatus.CONFLICT),
+        AI_QUOTA_EXCEEDED("AI_QUOTA_EXCEEDED", "AI quota exceeded", HttpStatus.TOO_MANY_REQUESTS),
+        COMMUNITY_ROLE_NOMINATION_NOT_FOUND("COMMUNITY_ROLE_NOMINATION_NOT_FOUND",
+                        "Community role nomination not found", HttpStatus.NOT_FOUND),
+        COMMUNITY_ROLE_NOMINATION_PROCESSED("COMMUNITY_ROLE_NOMINATION_PROCESSED",
+                        "Community role nomination has already been processed", HttpStatus.BAD_REQUEST),
+
         // ── Badge ─────────────────────────────────────────────────────────────────
         BADGE_NOT_FOUND("BADGE_NOT_FOUND", "Badge not found", HttpStatus.NOT_FOUND),
         BADGE_ALREADY_ASSIGNED("BADGE_ALREADY_ASSIGNED", "Badge already assigned to this user", HttpStatus.CONFLICT),

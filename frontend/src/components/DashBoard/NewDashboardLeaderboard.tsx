@@ -1,335 +1,326 @@
 "use client";
 
-import React, { memo, useState } from "react";
-import { ChevronRight, Sparkles, Trophy, X, Award } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { memo, useState } from "react";
+import { Award, Medal, RefreshCw, ShieldCheck, Star, Trophy, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { userService } from "../../services/userService";
+import { useSubjects } from "../../hooks/useSubjects";
+import { reputationService, type ReputationLeaderboardItemDTO, type ReputationLeaderboardKind } from "../../services/reputationService";
+import { userService, type BadgeDTO } from "../../services/userService";
 import { SkeletonCard } from "../ui/SkeletonCard";
 
-function Avatar({ user, size = "size-10" }: { user: any; size?: string }) {
-  const initial = user.fullName ? user.fullName.charAt(0).toUpperCase() : "?";
+const springConfig = { type: "spring" as const, stiffness: 360, damping: 30 };
+
+function currentPeriodKey() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function formatNumber(value?: number | null) {
+  return Number(value ?? 0).toLocaleString("vi-VN");
+}
+
+function initials(name?: string | null) {
+  return (name || "U")
+    .split(" ")
+    .filter(Boolean)
+    .slice(-2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+function Avatar({ user, size = "size-11" }: { user: ReputationLeaderboardItemDTO; size?: string }) {
   return user.avatarUrl ? (
-    <img
-      src={user.avatarUrl}
-      alt={user.fullName || ""}
-      className={`${size} rounded-full object-cover border-2 border-white shadow-md`}
-    />
+    <img src={user.avatarUrl} alt={user.fullName || ""} className={`${size} rounded-full border border-white/80 object-cover shadow-sm`} />
   ) : (
-    <div className={`${size} rounded-full bg-[#bee9ff] border-2 border-[#89cff0] text-[#0d6683] font-bold flex items-center justify-center`}>
-      {initial}
+    <div className={`${size} grid place-items-center rounded-full bg-primary/12 text-sm font-black text-primary ring-1 ring-primary/15`}>
+      {initials(user.fullName)}
     </div>
   );
 }
 
-const springConfig = { type: "spring" as const, stiffness: 380, damping: 30 };
+function BadgeChips({ badges, limit = 2 }: { badges?: BadgeDTO[]; limit?: number }) {
+  const visible = (badges ?? []).slice(0, limit);
+  if (visible.length === 0) {
+    return <span className="text-[11px] font-semibold text-muted-foreground">Chưa có huy hiệu</span>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      {visible.map((badge) => (
+        <span key={badge.id} className="inline-flex max-w-[145px] items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+          {badge.iconUrl ? <img src={badge.iconUrl} alt="" className="size-3 rounded-full object-cover" /> : <Award size={11} />}
+          <span className="truncate">{badge.name}</span>
+        </span>
+      ))}
+      {(badges?.length ?? 0) > limit && (
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+          +{(badges?.length ?? 0) - limit}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function LeaderRow({
+  user,
+  mode,
+  onOpen,
+}: {
+  user: ReputationLeaderboardItemDTO;
+  mode: ReputationLeaderboardKind;
+  onOpen: () => void;
+}) {
+  const isTop = user.rank === 1;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all ${
+        isTop ? "border-amber-500/30 bg-amber-500/10" : "border-border/60 bg-card hover:bg-muted/30"
+      }`}
+    >
+      <div className={`grid size-8 shrink-0 place-items-center rounded-lg text-sm font-black ${isTop ? "bg-amber-500 text-white" : "bg-muted text-foreground"}`}>
+        #{user.rank}
+      </div>
+      <Avatar user={user} size={isTop ? "size-12" : "size-10"} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-bold text-foreground">{user.fullName || `User #${user.userId}`}</div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+          <span>{formatNumber(user.score)} {mode === "reviewers" ? "điểm reviewer" : "điểm đóng góp"}</span>
+          <span className="size-1 rounded-full bg-border" />
+          <span>{formatNumber(user.eventCount)} sự kiện</span>
+        </div>
+        <div className="mt-1.5">
+          <BadgeChips badges={user.badges as BadgeDTO[] | undefined} />
+        </div>
+      </div>
+    </button>
+  );
+}
 
 export const NewDashboardLeaderboard = memo(function NewDashboardLeaderboard() {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"ranking" | "stickers">("ranking");
-  const [selectedSticker, setSelectedSticker] = useState<any | null>(null);
+  const [selectedUser, setSelectedUser] = useState<ReputationLeaderboardItemDTO | null>(null);
+  const [mode, setMode] = useState<ReputationLeaderboardKind>("contributors");
+  const [subjectId, setSubjectId] = useState("all");
+  const [periodKey, setPeriodKey] = useState(currentPeriodKey());
+  const { subjects, subjectMap, isLoading: subjectsLoading } = useSubjects();
 
-  const { data: contributors = [], isLoading: isLoadingContributors } = useQuery({
-    queryKey: ["leaderboard"],
+  const leaderboardQuery = useQuery({
+    queryKey: ["dashboardHonorBoard", mode, subjectId, periodKey],
     queryFn: async () => {
-      const response = await userService.getTopContributors();
-      return response.data?.items || [];
+      const response = await reputationService.getReputationLeaderboard(mode, {
+        page: 0,
+        size: 10,
+        subjectId: subjectId !== "all" ? Number(subjectId) : undefined,
+        periodKey,
+      });
+      return response.data?.items ?? [];
     },
+    staleTime: 60_000,
+  });
+
+  const myBadgesQuery = useQuery({
+    queryKey: ["dashboardMyBadges"],
+    queryFn: async () => (await userService.getMyBadges()).data ?? [],
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: profileData, isLoading: isLoadingProfile } = useQuery({
-    queryKey: ["profileForStickers"],
-    queryFn: async () => {
-      const response = await userService.getMyProfile();
-      return response.data || null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const leaders = leaderboardQuery.data ?? [];
+  const top3 = leaders.slice(0, 3);
+  const selectedSubject = subjectId !== "all" ? subjectMap[Number(subjectId)] : null;
+  const scopeLabel = selectedSubject ? `${selectedSubject.code} · ${periodKey}` : `Tất cả môn · ${periodKey}`;
 
-  const { data: testHistory, isLoading: isLoadingTests } = useQuery({
-    queryKey: ["testHistoryForStickers"],
-    queryFn: async () => {
-      const response = await userService.getMyTestHistory({ page: 0, size: 1 });
-      return response.data || null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  if (isLoadingContributors || isLoadingProfile || isLoadingTests) {
+  if (subjectsLoading && leaderboardQuery.isLoading) {
     return <SkeletonCard />;
   }
 
-  const points = (profileData as any)?.points || 0;
-  const testCount = testHistory?.totalElements || 0;
-
-  // LESA Stickers List
-  const stickers = [
-    {
-      id: "mouse",
-      image: "/images/lesa_mouse.png",
-      name: "Chuột Sáng Tạo",
-      req: "Có tài khoản học tập trên MindSpace",
-      isUnlocked: true
-    },
-    {
-      id: "sheep",
-      image: "/images/lesa_sheep.png",
-      name: "Cừu Học Nhạc",
-      req: "Có điểm tích lũy học tập > 50",
-      isUnlocked: points > 50
-    },
-    {
-      id: "logo",
-      image: "/images/lesa_logo.png",
-      name: "Logo LESA",
-      req: "Hoàn thành ít nhất 1 bài kiểm tra",
-      isUnlocked: testCount > 0
-    },
-    {
-      id: "star",
-      emoji: "🌟",
-      name: "Sao May Mắn",
-      req: "Có điểm tích lũy học tập > 150",
-      isUnlocked: points > 150
-    },
-    {
-      id: "book",
-      emoji: "📖",
-      name: "Sách Phép Thuật",
-      req: "Tham gia diễn đàn tài liệu",
-      isUnlocked: true
-    },
-    {
-      id: "lens",
-      emoji: "🔍",
-      name: "Kính Vạn Hoa",
-      req: "Hoàn thành 3 bài kiểm tra",
-      isUnlocked: testCount >= 3
-    }
-  ];
-
-  const top3 = contributors.slice(0, 3);
-
   return (
     <>
-      <div className="surface-card relative flex h-full min-h-[380px] flex-col overflow-hidden p-8 transition-all hover:scale-[1.01] group select-none">
-        
-        {/* Card Header with tabs */}
-        <div className="relative z-10 mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex gap-4">
+      <div className="surface-card flex h-full min-h-[380px] flex-col overflow-hidden p-6">
+        <div className="mb-4 flex flex-col gap-3 border-b border-border/50 pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="flex items-center gap-2 font-display text-lg font-bold text-foreground">
+                <Trophy size={19} className="text-amber-500" /> Bảng vinh danh
+              </h3>
+              <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{scopeLabel}</p>
+            </div>
             <button
-              onClick={() => setActiveTab("ranking")}
-              className={`text-lg font-extrabold pb-1 transition-all font-serif ${
-                activeTab === "ranking" 
-                  ? "text-foreground border-b-4 border-[#fcdf46]" 
-                  : "text-muted-foreground border-b-4 border-transparent hover:text-foreground"
-              }`}
+              type="button"
+              onClick={() => setIsOpen(true)}
+              disabled={leaders.length === 0}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-40"
             >
-              Vinh Danh
-            </button>
-            <button
-              onClick={() => setActiveTab("stickers")}
-              className={`text-lg font-extrabold pb-1 transition-all font-serif ${
-                activeTab === "stickers" 
-                  ? "text-foreground border-b-4 border-[#fcdf46]" 
-                  : "text-muted-foreground border-b-4 border-transparent hover:text-foreground"
-              }`}
-            >
-              Sổ Sticker 🧸
+              <Medal size={13} /> Tất cả
             </button>
           </div>
 
-          {activeTab === "ranking" && (
-            <button 
-              onClick={() => setIsOpen(true)} 
-              disabled={contributors.length === 0} 
-              className="text-[13px] font-bold text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
-            >
-              Tất cả &rarr;
-            </button>
-          )}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="flex rounded-xl border border-border bg-muted p-1">
+              <button
+                type="button"
+                onClick={() => setMode("contributors")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-all ${mode === "contributors" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
+              >
+                Contributor
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("reviewers")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-all ${mode === "reviewers" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
+              >
+                Reviewer
+              </button>
+            </div>
+            <div className="grid grid-cols-[1fr_120px] gap-2">
+              <select
+                value={subjectId}
+                onChange={(event) => setSubjectId(event.target.value)}
+                className="h-10 min-w-0 rounded-xl border border-border bg-card px-3 text-xs font-semibold outline-none focus:border-primary"
+              >
+                <option value="all">Tất cả môn</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>{subject.code}</option>
+                ))}
+              </select>
+              <input
+                type="month"
+                value={periodKey}
+                onChange={(event) => setPeriodKey(event.target.value || currentPeriodKey())}
+                className="h-10 rounded-xl border border-border bg-card px-3 text-xs font-semibold outline-none focus:border-primary"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* TAB Content 1: Leaderboard */}
-        {activeTab === "ranking" && (
-          contributors.length === 0 ? (
-            <div className="flex-1 grid place-items-center text-[15px] font-bold text-[#475569]">Chưa có dữ liệu học tập.</div>
-          ) : (
-            <div className="flex flex-col gap-4 relative z-10">
-              {top3.map((user: any, idx: number) => {
-                const isFirst = idx === 0;
-                return (
-                  <motion.div 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ ...springConfig, delay: idx * 0.1 }}
-                    key={user.userId}
-                    onClick={() => setIsOpen(true)}
-                    className={`group/item relative flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all ${
-                      isFirst 
-                        ? "bg-[#fef9c3]/50 border-2 border-[#fcdf46]/40 shadow-[0_4px_0_rgba(252,223,70,0.1)]" 
-                        : "bg-transparent hover:bg-[#eff4ff] border-2 border-transparent hover:border-[#89cff0]/20"
-                    }`}
-                  >
-                    <div className="relative flex items-center justify-center w-6 font-extrabold">
-                      <span className={isFirst ? "text-[#854d0e] text-lg" : "text-[#475569]"}>#{user.rank}</span>
-                    </div>
-                    
-                    <Avatar user={user} size={isFirst ? "size-12" : "size-10"} />
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className={`truncate tracking-tight font-serif ${isFirst ? "font-extrabold text-[16px] text-[#0d1c2e]" : "font-bold text-[15px] text-[#0d1c2e]"}`}>
-                        {user.fullName}
-                      </div>
-                      <div className="mt-0.5 text-[12px] font-bold text-slate-500">
-                        {user.reputationPoints.toLocaleString()} điểm
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )
-        )}
-
-        {/* TAB Content 2: Sticker Book Grid */}
-        {activeTab === "stickers" && (
-          <div className="grid grid-cols-3 gap-3 relative z-10 flex-1 justify-center py-2">
-            {stickers.map((st) => (
-              <motion.div
-                key={st.id}
-                whileHover={{ scale: 1.05 }}
-                onClick={() => setSelectedSticker(st)}
-                className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all ${
-                  st.isUnlocked 
-                    ? "bg-[#effbfa] border-[#8ad5b3] shadow-[0_4px_0_rgba(138,213,179,0.2)]" 
-                    : "bg-slate-50 border-slate-200/60 opacity-60"
-                }`}
-              >
-                {/* Vinyl Sticker with 3D outline effect */}
-                <div 
-                  className={`w-12 h-12 flex items-center justify-center filter transition-all select-none ${
-                    st.isUnlocked 
-                      ? "drop-shadow-[0_0_0_2px_#ffffff] drop-shadow-[0_2px_4px_rgba(0,0,0,0.12)] scale-110" 
-                      : "grayscale opacity-50"
-                  }`}
-                >
-                  {st.image ? (
-                    <img src={st.image} alt={st.name} className="w-full h-full object-contain" />
-                  ) : (
-                    <span className="text-3xl">{st.emoji}</span>
-                  )}
-                </div>
-                <span className="text-[11px] font-extrabold text-slate-600 mt-2 text-center leading-tight truncate w-full">{st.name}</span>
-              </motion.div>
+        {leaderboardQuery.isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-20 animate-pulse rounded-xl bg-muted" />
+            ))}
+          </div>
+        ) : leaderboardQuery.isError ? (
+          <div className="grid flex-1 place-items-center text-center text-sm text-destructive">
+            <button type="button" onClick={() => leaderboardQuery.refetch()} className="inline-flex items-center gap-2 font-bold">
+              <RefreshCw size={14} /> Không thể tải bảng vinh danh
+            </button>
+          </div>
+        ) : top3.length === 0 ? (
+          <div className="grid flex-1 place-items-center text-center text-sm font-semibold text-muted-foreground">
+            Chưa có dữ liệu vinh danh cho bộ lọc này.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {top3.map((user) => (
+              <LeaderRow key={`${mode}-${user.userId}`} user={user} mode={mode} onOpen={() => setSelectedUser(user)} />
             ))}
           </div>
         )}
+
+        <div className="mt-auto border-t border-border/50 pt-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <Award size={16} className="text-primary" /> Huy hiệu của tôi
+            </div>
+            <span className="text-[11px] font-bold text-muted-foreground">{formatNumber(myBadgesQuery.data?.length ?? 0)}</span>
+          </div>
+          <BadgeChips badges={myBadgesQuery.data} limit={3} />
+        </div>
       </div>
 
-      {/* Popup Dialog details for stickers */}
       <AnimatePresence>
-        {selectedSticker && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setSelectedSticker(null)}
-            className="fixed inset-0 z-50 grid place-items-center bg-[#0d1c2e]/40 p-4 backdrop-blur-sm"
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
           >
-            <motion.div 
-              initial={{ scale: 0.95, y: 15 }} 
-              animate={{ scale: 1, y: 0 }} 
-              exit={{ scale: 0.95, y: 15 }} 
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-3xl bg-white border-4 border-[#8ad5b3] p-6 text-center shadow-2xl relative"
+            <motion.div
+              initial={{ scale: 0.96, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 12 }}
+              transition={springConfig}
+              onClick={(event) => event.stopPropagation()}
+              className="relative max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
             >
-              <button 
-                onClick={() => setSelectedSticker(null)} 
-                className="absolute top-4 right-4 grid size-8 place-items-center rounded-full bg-[#eff4ff] text-[#0d6683] hover:bg-[#89cff0] hover:text-white"
-              >
-                <X size={16} />
-              </button>
-              
-              {selectedSticker.image ? (
-                <img src={selectedSticker.image} alt={selectedSticker.name} className="w-24 h-24 object-contain mx-auto my-4 drop-shadow-[0_0_0_3px_#ffffff] drop-shadow-[0_4px_8px_rgba(0,0,0,0.15)]" />
-              ) : (
-                <div className="text-6xl my-4 drop-shadow-[0_0_0_4px_#ffffff] drop-shadow-[0_4px_8px_rgba(0,0,0,0.15)]">{selectedSticker.emoji}</div>
-              )}
-              <h3 className="text-2xl font-extrabold text-[#0d1c2e] font-serif mb-2">{selectedSticker.name}</h3>
-              
-              <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold mb-4 uppercase ${
-                selectedSticker.isUnlocked 
-                  ? "bg-[#dcfce7] text-[#166534]" 
-                  : "bg-slate-100 text-slate-500"
-              }`}>
-                {selectedSticker.isUnlocked ? "✨ Đã Mở Khóa" : "🔒 Chưa Đạt"}
+              <div className="flex items-center justify-between border-b border-border px-6 py-5">
+                <div>
+                  <h2 className="flex items-center gap-2 font-display text-xl font-bold text-foreground">
+                    {mode === "reviewers" ? <ShieldCheck size={19} className="text-primary" /> : <Trophy size={19} className="text-amber-500" />}
+                    {mode === "reviewers" ? "Top reviewer" : "Top contributor"}
+                  </h2>
+                  <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{scopeLabel}</p>
+                </div>
+                <button onClick={() => setIsOpen(false)} className="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground">
+                  <X size={16} />
+                </button>
               </div>
-              
-              <p className="text-[14px] text-slate-600 font-bold leading-relaxed bg-[#eff4ff]/40 p-3 rounded-2xl border border-[#89cff0]/10">
-                {selectedSticker.isUnlocked 
-                  ? "Chúc mừng bé đã đạt được huy hiệu vô cùng đáng yêu này! 🎉" 
-                  : `Bé cần hoàn thành: ${selectedSticker.req} để rinh chú sticker này nhé!`
-                }
-              </p>
+              <div className="max-h-[65vh] space-y-2 overflow-y-auto p-5">
+                {leaders.map((user) => (
+                  <LeaderRow key={`modal-${mode}-${user.userId}`} user={user} mode={mode} onOpen={() => setSelectedUser(user)} />
+                ))}
+              </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Leaderboard Modal */}
       <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            onClick={() => setIsOpen(false)} 
-            className="fixed inset-0 z-50 grid place-items-center bg-[#0d1c2e]/40 p-4 backdrop-blur-md"
+        {selectedUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedUser(null)}
+            className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
           >
-            <motion.div 
-              initial={{ scale: 0.95, y: 20 }} 
-              animate={{ scale: 1, y: 0 }} 
-              exit={{ scale: 0.95, y: 20 }} 
-              transition={springConfig}
-              onClick={(e) => e.stopPropagation()} 
-              className="relative max-h-[85vh] w-full max-w-lg overflow-hidden rounded-3xl bg-white border-4 border-[#fcdf46] shadow-2xl"
+            <motion.div
+              initial={{ scale: 0.96, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 12 }}
+              onClick={(event) => event.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl"
             >
-              <div className="relative flex items-center justify-between border-b-2 border-[#fde047]/30 px-10 py-8">
-                <div>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-[#0d1c2e] font-serif">Bảng Vàng Thành Tích</h2>
-                  <p className="mt-2 text-[15px] font-bold text-[#475569]">Những học viên xuất sắc nhất của chúng mình</p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar user={selectedUser} size="size-14" />
+                  <div className="min-w-0">
+                    <h3 className="truncate font-display text-lg font-bold text-foreground">{selectedUser.fullName || `User #${selectedUser.userId}`}</h3>
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      #{selectedUser.rank} · {formatNumber(selectedUser.score)} điểm · {formatNumber(selectedUser.eventCount)} sự kiện
+                    </p>
+                  </div>
                 </div>
-                <button 
-                  onClick={() => setIsOpen(false)} 
-                  className="grid size-10 place-items-center rounded-full bg-[#eff4ff] text-[#0d6683] transition hover:bg-[#89cff0] hover:text-white"
-                >
-                  <X size={20} />
+                <button onClick={() => setSelectedUser(null)} className="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground">
+                  <X size={16} />
                 </button>
               </div>
-              
-              <div className="relative max-h-[60vh] space-y-3 overflow-y-auto p-8 scrollbar-hide">
-                {contributors.map((user: any, idx: number) => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    key={user.userId} 
-                    className="flex items-center gap-5 rounded-2xl bg-[#eff4ff]/30 hover:bg-[#eff4ff]/60 px-6 py-5 transition-all border border-[#89cff0]/15 hover:border-[#89cff0]/30"
-                  >
-                    <span className="w-8 text-center text-lg font-extrabold text-[#475569] font-serif">#{user.rank}</span>
-                    <Avatar user={user} size="size-12" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[17px] font-bold tracking-tight text-[#0d1c2e] font-serif">{user.fullName}</div>
-                      <div className="mt-1 flex items-center gap-2 text-[14px] font-bold text-[#475569]">
-                        <span className="text-[#0d6683] font-extrabold">{user.reputationPoints.toLocaleString()} điểm</span>
-                        <span>·</span>
-                        <span>{user.approvedContents} tài liệu</span>
+
+              <div className="mt-5">
+                <div className="mb-2 flex items-center gap-2 text-sm font-bold">
+                  <Star size={15} className="text-amber-500" /> Danh hiệu đã đạt
+                </div>
+                {(selectedUser.badges?.length ?? 0) === 0 ? (
+                  <p className="rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Thành viên này chưa có huy hiệu công khai.</p>
+                ) : (
+                  <div className="grid gap-2">
+                    {selectedUser.badges?.map((badge) => (
+                      <div key={badge.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
+                          {badge.iconUrl ? <img src={badge.iconUrl} alt="" className="size-6 rounded object-cover" /> : <Award size={17} />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-foreground">{badge.name}</div>
+                          <div className="line-clamp-2 text-xs text-muted-foreground">{badge.description || "Danh hiệu cộng đồng"}</div>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>

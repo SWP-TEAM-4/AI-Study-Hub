@@ -30,6 +30,8 @@ public final class FlashcardDeckResponseMapper {
                 .downloadCount(deck.getDownloadCount())
                 .reviewCount(deck.getReviewCount())
                 .acceptPercentage(deck.getAcceptPercentage())
+                .communityReviewCount(deck.getCommunityReviewCount())
+                .communityRatingAvg(deck.getCommunityRatingAvg())
                 .clonedFromId(deck.getClonedFrom() != null ? deck.getClonedFrom().getId() : null)
                 .createdAt(deck.getCreatedAt())
                 .cards(cardResponses)
@@ -44,4 +46,4 @@ public final class FlashcardDeckResponseMapper {
                 .backText(card.getBackText())
                 .build();
     }
-}
+}

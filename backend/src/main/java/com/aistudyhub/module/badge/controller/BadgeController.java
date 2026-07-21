@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,5 +38,13 @@ public class BadgeController {
             @AuthenticationPrincipal CustomUserDetails principal) {
 
         return ResponseEntity.ok(ApiResponse.success(badgeService.getUserBadges(principal.getId())));
+    }
+
+    @Operation(summary = "Xem danh sách badge công khai của một người dùng")
+    @GetMapping("/users/{userId}/badges")
+    public ResponseEntity<ApiResponse<List<BadgeResponse>>> getUserBadges(
+            @PathVariable Long userId) {
+
+        return ResponseEntity.ok(ApiResponse.success(badgeService.getUserBadges(userId)));
     }
 }

@@ -334,6 +334,7 @@ public class QuizService {
         }
 
         User currentUser = userService.getCurrentUser();
+        aiUsageService.assertQuotaAvailable(currentUser.getId(), AiActionType.QUIZ_GENERATION);
         Notebook notebook = null;
         Document document = null;
         Subject subject = null;

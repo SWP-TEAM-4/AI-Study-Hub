@@ -421,6 +421,7 @@ public class FlashcardService {
         }
 
         User currentUser = userService.getCurrentUser();
+        aiUsageService.assertQuotaAvailable(currentUser.getId(), AiActionType.FLASHCARD_GENERATION);
         Notebook notebook = null;
         Document document = null;
         Subject subject = null;

@@ -15,6 +15,7 @@ import AdminReportsTab from "./AdminReportsTab";
 import AdminMarketplaceTab from "./AdminMarketplaceTab";
 import AdminBadgesTab from "./AdminBadgesTab";
 import AdminSystemConfigTab from "./AdminSystemConfigTab";
+import AdminReputationTab from "./AdminReputationTab";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCapabilities } from "../hooks/useCapabilities";
 
@@ -45,6 +46,7 @@ export default function AdminPage() {
       case "reports": return <div className="p-6"><AdminReportsTab /></div>;
       case "marketplace": return <div className="p-6"><AdminMarketplaceTab /></div>;
       case "badges": return <div className="p-6"><AdminBadgesTab /></div>;
+      case "reputation": return <div className="p-6"><AdminReputationTab /></div>;
       case "system-configs": return <div className="p-6"><AdminSystemConfigTab /></div>;
       default: return <Navigate to="/admin/overview" replace />;
     }
