@@ -20,13 +20,13 @@ import {
   ExternalLink
 } from "lucide-react";
 import { marketplaceService, AdminContentDTO } from "../services/marketplaceService";
-import { documentService } from "../services/documentService";
 import { Notify } from "notiflix";
 import { useTranslation } from "react-i18next";
-import { safeLocalStorage } from "../utils/safeStorage";
+import { useNavigate } from "react-router-dom";
 
 export default function ReviewerPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [keyword, setKeyword] = useState("");
   const [filterType, setFilterType] = useState<"ALL" | "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK">("ALL");
   const [queue, setQueue] = useState<AdminContentDTO[]>([]);
@@ -93,23 +93,11 @@ export default function ReviewerPage() {
     setReviewNote("");
     setIsDetailLoading(true);
     try {
-      // 1. Fetch reviewer item basic details
+      // API reviewer trả sẵn fileUrl/fileType cho DOCUMENT; không gọi API document
+      // riêng vì endpoint đó có quyền khác và gây lỗi 403 cho reviewer/admin.
       const res = await marketplaceService.getReviewerContentDetails(item.targetType, item.targetId);
-      let mergedData: any = res.success ? res.data : item;
-
-      // 2. Proactively try to fetch the actual fileUrl from document details for preview if type is DOCUMENT
-      if (item.targetType === "DOCUMENT") {
-        try {
-          const docRes = await documentService.getCommunityDocumentDetails(item.targetId);
-          if (docRes.success) {
-            mergedData = { ...mergedData, fileUrl: docRes.data.fileUrl, fileType: docRes.data.fileType };
-          }
-        } catch (e) {
-          console.warn("Không lấy được URL file thực tế:", e);
-        }
-      }
-
-      setDetailedInfo(mergedData);
+      // Giữ dữ liệu từ hàng chờ làm dự phòng nếu response chi tiết thiếu trường nào.
+      setDetailedInfo(res.success ? { ...item, ...res.data } : item);
     } catch (err) {
       console.error("Lỗi lấy chi tiết tín hiệu:", err);
       setDetailedInfo(item);
@@ -322,7 +310,7 @@ export default function ReviewerPage() {
                             <span className="text-primary font-bold">[SIG-{typeLabel}-{item.targetId}]</span>
                             {item.submittedAt && (
                               <span>
-                                {new Date(item.submittedAt).toLocaleTimeString()}
+                                {new Date(item.submittedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
                               </span>
                             )}
                           </div>
@@ -446,7 +434,9 @@ export default function ReviewerPage() {
                         <Clock size={12} className="text-primary" /> NGÀY GỬI
                       </div>
                       <div className="text-xs font-semibold text-foreground mt-1 truncate">
-                        {detailedInfo?.submittedAt ? new Date(detailedInfo.submittedAt).toLocaleDateString() : "Mới đây"}
+                        {detailedInfo?.submittedAt
+                          ? new Date(detailedInfo.submittedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })
+                          : "Mới đây"}
                       </div>
                     </div>
                     {/* Metric 6 */}
@@ -460,24 +450,21 @@ export default function ReviewerPage() {
                     </div>
                   </div>
 
-                  {/* PDF direct view / preview button */}
+                  {/* Xem trực tiếp file trong trang kiểm duyệt, không tải xuống. */}
                   {selectedItem.targetType === "DOCUMENT" && (
-                    <div className="mb-5 bg-primary/5 border border-primary/20 rounded-xl p-3.5 flex items-center justify-between gap-4">
+                    <div className="mb-5 bg-primary/5 border border-primary/20 rounded-xl overflow-hidden">
+                      <div className="p-3.5 flex items-center gap-4">
                       <div className="min-w-0 flex items-center gap-3">
                         <div className="size-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center shrink-0">
                           <FileText size={20} />
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-bold text-foreground">File tài liệu đính kèm</div>
-                          <div className="text-[11px] text-muted-foreground truncate max-w-xs">{detailedInfo?.fileUrl || "Đang kết nối liên kết..."}</div>
+                          <div className="text-[11px] text-muted-foreground truncate max-w-xs">{detailedInfo?.fileUrl ? "Đang hiển thị tài liệu trực tiếp" : "Tài liệu chưa có liên kết xem"}</div>
                         </div>
                       </div>
-                      <button
-                        onClick={handleOpenFile}
-                        className="px-3.5 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                      >
-                        <ExternalLink size={14} /> Xem tài liệu
-                      </button>
+                      </div>
+                      <div className="px-3.5 pb-3.5"><button onClick={() => navigate(`/reviewer/documents/${selectedItem.targetId}`)} className="px-3.5 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold">Xem nội dung đã chunking</button></div>
                     </div>
                   )}
 

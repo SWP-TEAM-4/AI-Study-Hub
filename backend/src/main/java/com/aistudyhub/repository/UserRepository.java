@@ -25,6 +25,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     java.util.List<User> findAllByIsActiveTrueAndRoleNot(Role role);
 
+    java.util.List<User> findAllByRoleAndIsActiveTrue(Role role);
+
     @Query("""
             SELECT u FROM User u
             WHERE LOWER(CONCAT(COALESCE(u.fullName, ''), ' ', COALESCE(u.email, '')))

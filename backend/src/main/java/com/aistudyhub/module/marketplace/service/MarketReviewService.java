@@ -220,6 +220,8 @@ public class MarketReviewService {
                     .targetType("DOCUMENT")
                     .targetId(doc.getId())
                     .title(doc.getTitle())
+                    .fileUrl(doc.getFileUrl())
+                    .fileType(doc.getFileType())
                     .submittedAt(marketplaceSubmissionRepository
                             .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
                                     "DOCUMENT", doc.getId(), MarketStatus.PENDING)
@@ -1026,6 +1028,9 @@ public class MarketReviewService {
                 .communityRatingAvg(doc.getCommunityRatingAvg())
                 .marketStatus(doc.getMarketStatus())
                 .visibility(doc.getVisibility())
+                .fileUrl(doc.getFileUrl())
+                .fileType(doc.getFileType())
+                .createdAt(doc.getCreatedAt())
                 .build();
     }
 

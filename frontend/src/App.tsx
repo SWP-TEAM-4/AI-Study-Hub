@@ -28,6 +28,7 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
 const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
+const ReviewerDocumentPreviewPage = lazy(() => import("./pages/ReviewerDocumentPreviewPage"));
 const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
 
 // ── Landing page switcher: set VITE_ACTIVE_LANDING="corporate" to show new page ──
@@ -149,11 +150,18 @@ export default function App() {
             </>
           )}
           {(capabilities?.canReviewMarketplace || userRole === "ADMIN") && (
-            <Route path="/reviewer" element={
-              <Suspense fallback={<Loader />}>
-                <ReviewerPage />
-              </Suspense>
-            } />
+            <>
+              <Route path="/reviewer" element={
+                <Suspense fallback={<Loader />}>
+                  <ReviewerPage />
+                </Suspense>
+              } />
+              <Route path="/reviewer/documents/:id" element={
+                <Suspense fallback={<Loader />}>
+                  <ReviewerDocumentPreviewPage />
+                </Suspense>
+              } />
+            </>
           )}
           <Route path="/admin/reports" element={<MyReportsPage />} />
         </Route>
