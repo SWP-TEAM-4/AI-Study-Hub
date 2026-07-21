@@ -34,6 +34,7 @@ import { flashcardService } from "../services/flashcardService";
 import { academicService, ComboDTO, SemesterDTO } from "../services/academicService";
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { useAuthStore } from "../store/useAuthStore";
+import { safeLocalStorage } from "../utils/safeStorage";
 
 // ───  1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
 
@@ -63,7 +64,7 @@ function usePersistentDisclosure(key: string, defaultOpen: boolean) {
   const [isOpen, setIsOpen] = useState(() => {
     if (typeof window === "undefined") return defaultOpen;
     try {
-      const stored = localStorage.getItem(key);
+      const stored = safeLocalStorage.getItem(key);
       return stored === null ? defaultOpen : stored === "1";
     } catch {
       return defaultOpen;
@@ -73,7 +74,7 @@ function usePersistentDisclosure(key: string, defaultOpen: boolean) {
   const setOpen = (value: boolean) => {
     setIsOpen(value);
     try {
-      localStorage.setItem(key, value ? "1" : "0");
+      safeLocalStorage.setItem(key, value ? "1" : "0");
     } catch {
       /* ignore quota / privacy errors */
     }
@@ -308,7 +309,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
         setUserInfo(updateRes.data || null);
         if (updateRes.data && typeof window !== "undefined") {
           const { id, email, fullName, avatarUrl, role, reputationPoints, createdAt } = updateRes.data;
-          localStorage.setItem("auth_user", JSON.stringify({ userId: id, email, fullName, avatarUrl, role, reputationPoints, createdAt }));
+          safeLocalStorage.setJSON("auth_user", { userId: id, email, fullName, avatarUrl, role, reputationPoints, createdAt });
         }
         Notify.success("Cập nhật tài khoản thành công!");
         setOldPasswordInput(""); setNewPasswordInput(""); setConfirmPasswordInput("");
