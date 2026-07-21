@@ -282,16 +282,17 @@ export default function DocumentsPage() {
 
   // Hàm lưu nội dung Chunk đã chỉnh sửa xuống Cơ sở dữ liệu qua Service
   const handleSaveChunkText = async (chunkId: number) => {
+    if (!overviewDoc) return;
     if (!editingChunkText.trim()) {
       Notify.failure("Nội dung đoạn trích xuất không được để trống.");
       return;
     }
     setIsSavingChunkId(chunkId);
     try {
-      await documentService.updateChunk(chunkId, { textContent: editingChunkText });
+      const response = await documentService.updateDocumentChunk(overviewDoc.id, chunkId, { textContent: editingChunkText });
       Notify.success("Cập nhật nội dung chunk thành công!");
 
-      setOverviewChunks(prev => prev.map(c => c.id === chunkId ? { ...c, textContent: editingChunkText } : c));
+      setOverviewChunks(prev => prev.map(c => c.id === chunkId ? response.data : c));
       setEditingChunkId(null);
     } catch (err: any) {
       Notify.failure("Lỗi không thể cập nhật nội dung: " + (err.message || "Lỗi hệ thống"));
@@ -1135,28 +1136,8 @@ export default function DocumentsPage() {
                   }
 
                   const folderMap = new Map<string | null, typeof safeFolders>();
-                  const isMovingFolder = Boolean(moveFileDoc && safeFolders.some(f => f.id === moveFileDoc.id));
-
-                  const getDescendantFolderIds = (folderId: string): Set<string> => {
-                    const descendants = new Set<string>();
-                    const queue = [folderId];
-                    while (queue.length > 0) {
-                      const currentId = queue.shift()!;
-                      safeFolders.forEach(f => {
-                        if (f.parentId === currentId) {
-                          descendants.add(f.id);
-                          queue.push(f.id);
-                        }
-                      });
-                    }
-                    return descendants;
-                  };
 
                   const invalidTargetIds = new Set<string>();
-                  if (isMovingFolder && moveFileDoc) {
-                    invalidTargetIds.add(moveFileDoc.id);
-                    getDescendantFolderIds(moveFileDoc.id).forEach(id => invalidTargetIds.add(id));
-                  }
 
                   safeFolders.forEach(folder => {
                     const pid = folder.parentId ?? null;
