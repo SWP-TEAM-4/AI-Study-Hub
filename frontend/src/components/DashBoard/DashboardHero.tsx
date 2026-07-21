@@ -170,7 +170,13 @@ export function DashboardHero() {
                   <Icon size={16} className={stat.color} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-base font-bold text-foreground tabular-nums leading-none">{(stat.value).toLocaleString()}</div>
+                  <div className="text-base font-bold text-foreground tabular-nums leading-none">
+                    {isLoading || !dashboardData ? (
+                      <span className="inline-block h-4 w-10 animate-pulse rounded bg-muted" aria-hidden="true" />
+                    ) : (
+                      (stat.value).toLocaleString()
+                    )}
+                  </div>
                   <div className="text-[10px] text-muted-foreground leading-tight truncate mt-0.5">{stat.label}</div>
                 </div>
               </div>

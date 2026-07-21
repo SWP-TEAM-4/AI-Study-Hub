@@ -119,20 +119,6 @@ const NavItem = ({ active, icon: Icon, label, onClick, pathOrId }: { active: boo
       >
         {label}
       </span>
-      {active && (
-        <motion.div
-          layoutId="chameleon-nav"
-          className="absolute -right-3 top-1/2 -translate-y-[45%] z-20 pointer-events-none hidden lg:block lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-200 drop-shadow-md"
-          transition={{ type: "spring", stiffness: 400, damping: 35, mass: 0.8 }}
-        >
-          <img 
-            src="/images/chameleon.png" 
-            alt="Chameleon Mascot" 
-            className="w-[44px] h-auto origin-bottom" 
-            style={{ transform: 'scaleX(-1)' }} 
-          />
-        </motion.div>
-      )}
     </button>
   );
 };
@@ -145,7 +131,7 @@ export function AppShell() {
 
   const [isSplineReady, setIsSplineReady] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [displayInitials, setDisplayInitials] = useState("AK");
+  const [displayInitials, setDisplayInitials] = useState("");
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   // Lấy user info từ zustand store
@@ -213,19 +199,22 @@ export function AppShell() {
     setIsMobileMenuOpen(false); // Close mobile drawer when navigating
   };
 
-  const syncProfileData = () => {
-    if (typeof window !== "undefined") {
-      const savedAvatar = localStorage.getItem("userAvatarUrl");
-      const savedName = localStorage.getItem("userFullName");
-      if (savedAvatar) setAvatarUrl(savedAvatar);
-      if (savedName) {
-        const words = savedName.trim().split(" ");
-        const initials = words.length >= 2
-          ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
-          : words[0].slice(0, 2).toUpperCase();
-        setDisplayInitials(initials);
-      }
-    }
+  const computeInitials = (name: string): string => {
+    if (!name) return "";
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return "";
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  };
+
+  const syncProfileData = (fallbackName?: string | null, fallbackAvatar?: string | null) => {
+    if (typeof window === "undefined") return;
+    const savedAvatar = localStorage.getItem("userAvatarUrl");
+    const savedName = localStorage.getItem("userFullName");
+    const finalAvatar = savedAvatar || fallbackAvatar || null;
+    const finalName = savedName || fallbackName || "";
+    setAvatarUrl(finalAvatar);
+    setDisplayInitials(computeInitials(finalName));
   };
 
   useEffect(() => {
@@ -234,6 +223,11 @@ export function AppShell() {
     window.addEventListener("profile-updated", handleProfileUpdate);
     return () => window.removeEventListener("profile-updated", handleProfileUpdate);
   }, []);
+
+  // 🌟 Sync avatar & initials khi authUser đổi (login mới / refresh / profile update từ zustand)
+  useEffect(() => {
+    syncProfileData(authUser?.fullName, authUser?.avatarUrl);
+  }, [authUser?.fullName, authUser?.avatarUrl]);
 
   // 🌟 Dynamic Document Title
   useEffect(() => {
