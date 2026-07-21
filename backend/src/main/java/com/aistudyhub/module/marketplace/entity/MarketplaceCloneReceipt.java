@@ -30,7 +30,7 @@ import lombok.Setter;
 @Entity
 @Table(name = "marketplace_clone_receipts", uniqueConstraints = {
         @UniqueConstraint(name = "uk_marketplace_clone_user_source",
-                columnNames = {"user_id", "target_type", "source_id"})
+                columnNames = { "user_id", "target_type", "source_id" })
 }, indexes = {
         @Index(name = "idx_marketplace_clone_receipt_resource", columnList = "target_type, cloned_resource_id")
 })

@@ -32,6 +32,8 @@ public class DocumentResponse {
     private Integer downloadCount;
     private Integer reviewCount;
     private BigDecimal acceptPercentage;
+    private Integer communityReviewCount;
+    private BigDecimal communityRatingAvg;
     private String aiVerdictNote;
     private Long clonedFromId;
     private LocalDateTime createdAt;

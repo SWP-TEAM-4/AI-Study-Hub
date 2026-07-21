@@ -11,6 +11,8 @@ import { AppShell } from "./components/DashBoard/AppShell";
 import NotFoundPage from "./pages/NotFoundPage";
 import { Toaster } from "sonner";
 import { useCapabilities } from "./hooks/useCapabilities";
+import { safeLocalStorage } from "./utils/safeStorage";
+import { safeParseJson } from "./utils/safeParseJson";
 
 // Pages (Lazy Loaded)
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -51,13 +53,8 @@ export default function App() {
   }, [isLoggedIn, navigate]);
 
   const handleLoginSuccess = (token?: string, userData?: any) => {
-    const authToken = token || localStorage.getItem("auth_token") || "";
-    const storedUser = userData || (() => {
-      try {
-        const s = localStorage.getItem("auth_user");
-        return s && s !== "undefined" ? JSON.parse(s) : null;
-      } catch { return null; }
-    })();
+    const authToken = token || safeLocalStorage.getItem("auth_token") || "";
+    const storedUser = userData || safeLocalStorage.getJSON<any>("auth_user", null);
 
     if (storedUser) {
       justLoggedIn.current = true;

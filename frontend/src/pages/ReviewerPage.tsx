@@ -45,7 +45,7 @@ export default function ReviewerPage() {
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const token = localStorage.getItem("auth_token")?.replace(/['"]+/g, '');
+        const token = safeLocalStorage.getItem("auth_token")?.replace(/['"]+/g, '');
         const headers: any = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
         const res = await fetch("/api/subjects?keyword=", { headers });

@@ -73,6 +73,14 @@ public class Quiz {
     @Builder.Default
     private BigDecimal acceptPercentage = BigDecimal.ZERO;
 
+    @Column(name = "community_review_count", nullable = false)
+    @Builder.Default
+    private Integer communityReviewCount = 0;
+
+    @Column(name = "community_rating_avg", nullable = false, precision = 3, scale = 2)
+    @Builder.Default
+    private BigDecimal communityRatingAvg = BigDecimal.ZERO;
+
     @Column(name = "ai_verdict_note", columnDefinition = "TEXT")
     private String aiVerdictNote;
 

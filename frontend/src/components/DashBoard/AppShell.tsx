@@ -38,7 +38,8 @@ import {
   BellRing,
   CircleUserRound,
   ShieldCheck,
-  Flag
+  Flag,
+  Trophy
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
@@ -71,11 +72,13 @@ const adminNav = [
   { id: "reports", labelKey: "appShell.adminNav.reports", icon: AlertTriangle },
   { id: "marketplace", labelKey: "appShell.adminNav.marketplace", icon: BookMarked },
   { id: "badges", labelKey: "appShell.adminNav.badges", icon: Award },
+  { id: "reputation", labelKey: "appShell.adminNav.reputation", icon: Trophy },
   { id: "system-configs", labelKey: "appShell.adminNav.systemConfigs", icon: Shield },
 ];
 
 import { MobileBottomNav } from "./MobileBottomNav";
 import { MobileHeader } from "./MobileHeader";
+import { safeLocalStorage } from "../../utils/safeStorage";
 
 // ── Colors ──────────────────────────
 const colors = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#d946ef", "#f43f5e"];
@@ -153,7 +156,7 @@ export function AppShell() {
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("theme") === "dark" || (!localStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      return safeLocalStorage.getItem("theme") === "dark" || (!safeLocalStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
     }
     return false;
   });
@@ -170,7 +173,7 @@ export function AppShell() {
   const toggleDarkMode = () => {
     setIsDarkMode((prev: boolean) => {
       const nextTheme = !prev;
-      localStorage.setItem("theme", nextTheme ? "dark" : "light");
+      safeLocalStorage.setItem("theme", nextTheme ? "dark" : "light");
       return nextTheme;
     });
   };
@@ -209,8 +212,8 @@ export function AppShell() {
 
   const syncProfileData = (fallbackName?: string | null, fallbackAvatar?: string | null) => {
     if (typeof window === "undefined") return;
-    const savedAvatar = localStorage.getItem("userAvatarUrl");
-    const savedName = localStorage.getItem("userFullName");
+    const savedAvatar = safeLocalStorage.getItem("userAvatarUrl");
+    const savedName = safeLocalStorage.getItem("userFullName");
     const finalAvatar = savedAvatar || fallbackAvatar || null;
     const finalName = savedName || fallbackName || "";
     setAvatarUrl(finalAvatar);

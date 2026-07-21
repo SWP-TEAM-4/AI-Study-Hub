@@ -75,6 +75,7 @@ public class DocumentChunkService {
             throw new AppException(ErrorCode.DOCUMENT_ALREADY_PROCESSING);
         }
 
+        aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_CHUNKING);
         updateProcessingStatus(documentId, ProcessingStatus.PROCESSING);
 
         try {

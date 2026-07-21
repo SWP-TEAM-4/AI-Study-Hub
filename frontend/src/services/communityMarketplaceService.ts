@@ -1,4 +1,6 @@
 import { ApiResponse, PaginatedResponse } from "./types";
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
 
 const BASE_URL = "/api";
 
@@ -11,10 +13,13 @@ export interface MarketplaceItemDTO {
   targetId: number;
   title: string;
   subjectId?: number | null;
+  creatorId?: number | null;
   creatorName?: string | null;
   downloadCount?: number | null;
   reviewCount?: number | null;
   acceptPercentage?: number | string | null;
+  communityReviewCount?: number | null;
+  communityRatingAvg?: number | string | null;
   marketStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
   clonedFromId?: number | null;
@@ -48,7 +53,7 @@ export interface MarketplaceFilters {
 }
 
 async function communityMarketRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
   if (token) {
     headers.set("Authorization", `Bearer ${token.replace(/['"]+/g, "")}`);
@@ -61,13 +66,13 @@ async function communityMarketRequest<T>(endpoint: string, options: RequestInit 
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  const result = safeParseJson<any>(text, {});
 
   if (response.status === 401) {
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };

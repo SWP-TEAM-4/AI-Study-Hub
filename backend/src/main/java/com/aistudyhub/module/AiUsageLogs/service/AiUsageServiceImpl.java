@@ -26,6 +26,7 @@ import com.aistudyhub.module.AiUsageLogs.dto.AdminAiUsageResponse;
 import com.aistudyhub.module.AiUsageLogs.dto.AiUsageDailyResponse;
 import com.aistudyhub.module.AiUsageLogs.dto.AiUsageUserBreakdownResponse;
 import com.aistudyhub.module.AiUsageLogs.dto.UserAiUsageResponse;
+import com.aistudyhub.module.reputation.service.AiQuotaTierService;
 import com.aistudyhub.repository.AiUsageLogsRepository;
 import com.aistudyhub.repository.UserRepository;
 
@@ -37,6 +38,7 @@ public class AiUsageServiceImpl implements AiUsageService {
 
     private final AiUsageLogsRepository aiUsageLogsRepository;
     private final UserRepository userRepository;
+    private final AiQuotaTierService aiQuotaTierService;
 
     @Value("${app.ai.usage.estimated-cost-per-1k-tokens:0}")
     private BigDecimal estimatedCostPerThousandTokens;
@@ -118,6 +120,12 @@ public class AiUsageServiceImpl implements AiUsageService {
                 .userUsage(buildUserUsage(logs))
                 .actionUsage(buildActionUsage(logs))
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void assertQuotaAvailable(Long userId, AiActionType actionType) {
+        aiQuotaTierService.assertQuotaAvailable(userId, actionType);
     }
 
     private List<AiUsageLogs> findLogs(Long userId, LocalDate fromDate, LocalDate toDate, AiActionType actionType) {

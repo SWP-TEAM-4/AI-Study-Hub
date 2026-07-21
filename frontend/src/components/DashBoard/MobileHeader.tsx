@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 import { useAuthStore } from "../../store/useAuthStore";
+import { safeLocalStorage } from "../../utils/safeStorage";
 
 export function MobileHeader() {
   const { scrollY } = useScroll();
@@ -29,7 +30,7 @@ export function MobileHeader() {
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("theme") === "dark" || (!localStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      return safeLocalStorage.getItem("theme") === "dark" || (!safeLocalStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
     }
     return false;
   });
@@ -46,7 +47,7 @@ export function MobileHeader() {
   const toggleDarkMode = () => {
     setIsDarkMode((prev: boolean) => {
       const nextTheme = !prev;
-      localStorage.setItem("theme", nextTheme ? "dark" : "light");
+      safeLocalStorage.setItem("theme", nextTheme ? "dark" : "light");
       return nextTheme;
     });
   };
@@ -61,8 +62,8 @@ export function MobileHeader() {
 
   const syncProfileData = (fallbackName?: string | null, fallbackAvatar?: string | null) => {
     if (typeof window === "undefined") return;
-    const savedAvatar = localStorage.getItem("userAvatarUrl");
-    const savedName = localStorage.getItem("userFullName");
+    const savedAvatar = safeLocalStorage.getItem("userAvatarUrl");
+    const savedName = safeLocalStorage.getItem("userFullName");
     const finalAvatar = savedAvatar || fallbackAvatar || null;
     const finalName = savedName || fallbackName || "";
     setAvatarUrl(finalAvatar);

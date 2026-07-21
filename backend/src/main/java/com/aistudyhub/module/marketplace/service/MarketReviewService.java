@@ -6,6 +6,7 @@ import com.aistudyhub.common.enums.CommunityRoleStatus;
 import com.aistudyhub.common.enums.CommunityRoleType;
 import com.aistudyhub.common.enums.CommunityScopeType;
 import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.ReputationEventType;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
@@ -16,6 +17,7 @@ import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.module.community.service.RewardBadgeService;
 import com.aistudyhub.module.marketplace.dto.*;
 import com.aistudyhub.module.notification.service.NotificationService;
+import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +57,7 @@ public class MarketReviewService {
     private final MarketplaceSubmissionRepository marketplaceSubmissionRepository;
     private final ReviewPolicyService reviewPolicyService;
     private final RewardBadgeService rewardBadgeService;
+    private final ReputationService reputationService;
 
     // ══════════════════════════════════════════════════════════════════════════
     // GET /api/reviewer/marketplace/pending — Pending Queue
@@ -448,6 +451,11 @@ public class MarketReviewService {
                 document.getSubject() != null ? document.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
         rewardBadgeService.awardReviewerBadges(reviewer);
+        rewardReviewerVote(reviewer, document.getSubject() != null ? document.getSubject().getId() : null,
+                "DOCUMENT", documentId, review.getId());
+        if (decision.reached()) {
+            rewardMarketplaceDecision(submission, "DOCUMENT", documentId, submission.getStatus(), null);
+        }
 
         return toReviewResponse(review, "DOCUMENT", documentId, submission, decision);
     }
@@ -507,6 +515,11 @@ public class MarketReviewService {
                 quiz.getSubject() != null ? quiz.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
         rewardBadgeService.awardReviewerBadges(reviewer);
+        rewardReviewerVote(reviewer, quiz.getSubject() != null ? quiz.getSubject().getId() : null,
+                "QUIZ", quizId, review.getId());
+        if (decision.reached()) {
+            rewardMarketplaceDecision(submission, "QUIZ", quizId, submission.getStatus(), null);
+        }
 
         return toReviewResponse(review, "QUIZ", quizId, submission, decision);
     }
@@ -566,6 +579,11 @@ public class MarketReviewService {
                 deck.getSubject() != null ? deck.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
         rewardBadgeService.awardReviewerBadges(reviewer);
+        rewardReviewerVote(reviewer, deck.getSubject() != null ? deck.getSubject().getId() : null,
+                "FLASHCARD_DECK", deckId, review.getId());
+        if (decision.reached()) {
+            rewardMarketplaceDecision(submission, "FLASHCARD_DECK", deckId, submission.getStatus(), null);
+        }
 
         return toReviewResponse(review, "FLASHCARD_DECK", deckId, submission, decision);
     }
@@ -816,8 +834,106 @@ public class MarketReviewService {
         long total = marketReviewRepository.countBySubmissionIdAndVoteResultIsNotNull(submission.getId());
         long approved = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "APPROVED");
         long rejected = marketReviewRepository.countBySubmissionIdAndVoteResult(submission.getId(), "REJECTED");
+        rewardMarketplaceDecision(locked, type, targetId, status, admin.getId());
         return toReviewResponse(review, type, targetId, submission,
                 new ReviewDecision(total, approved, rejected, BigDecimal.ZERO, true));
+    }
+
+    private void rewardReviewerVote(User reviewer, Long subjectId, String targetType, Long targetId, Long reviewId) {
+        if (reviewer == null || reviewId == null) {
+            return;
+        }
+        reputationService.applyConfiguredEvent(
+                reviewer.getId(),
+                subjectId,
+                ReputationEventType.REVIEWER_MARKETPLACE_VOTE,
+                targetType,
+                targetId,
+                "MARKET_REVIEW",
+                reviewId,
+                "Marketplace review vote",
+                "REVIEWER_MARKETPLACE_VOTE:" + reviewId,
+                reviewer.getId());
+    }
+
+    private void rewardMarketplaceDecision(
+            MarketplaceSubmission submission,
+            String targetType,
+            Long targetId,
+            MarketStatus finalStatus,
+            Long excludeReviewerId) {
+
+        ContentOwner owner = resolveContentOwner(targetType, targetId);
+        if (owner == null) {
+            return;
+        }
+
+        if (finalStatus == MarketStatus.APPROVED) {
+            ReputationEventType approvedEvent = switch (targetType) {
+                case "DOCUMENT" -> ReputationEventType.CONTENT_APPROVED_DOCUMENT;
+                case "QUIZ" -> ReputationEventType.CONTENT_APPROVED_QUIZ;
+                case "FLASHCARD_DECK" -> ReputationEventType.CONTENT_APPROVED_FLASHCARD_DECK;
+                default -> null;
+            };
+            if (approvedEvent != null) {
+                reputationService.applyConfiguredEvent(
+                        owner.userId(),
+                        owner.subjectId(),
+                        approvedEvent,
+                        targetType,
+                        targetId,
+                        "MARKETPLACE_SUBMISSION",
+                        submission.getId(),
+                        "Marketplace content approved",
+                        "CONTENT_APPROVED:" + targetType + ":" + targetId + ":SUBMISSION:" + submission.getId(),
+                        submission.getDecidedBy() != null ? submission.getDecidedBy().getId() : null);
+            }
+        }
+
+        List<MarketReview> reviews = marketReviewRepository.findBySubmissionIdAndVoteResultIsNotNull(submission.getId());
+        for (MarketReview review : reviews) {
+            if (review.getReviewer() == null || review.getVoteResult() == null) {
+                continue;
+            }
+            if (excludeReviewerId != null && excludeReviewerId.equals(review.getReviewer().getId())) {
+                continue;
+            }
+            if (!review.getVoteResult().equalsIgnoreCase(finalStatus.name())) {
+                continue;
+            }
+            reputationService.applyConfiguredEvent(
+                    review.getReviewer().getId(),
+                    owner.subjectId(),
+                    ReputationEventType.REVIEWER_DECISION_ALIGNED,
+                    targetType,
+                    targetId,
+                    "MARKET_REVIEW",
+                    review.getId(),
+                    "Reviewer vote aligned with final marketplace decision",
+                    "REVIEWER_DECISION_ALIGNED:" + review.getId() + ":" + finalStatus.name(),
+                    submission.getDecidedBy() != null ? submission.getDecidedBy().getId() : null);
+        }
+    }
+
+    private ContentOwner resolveContentOwner(String targetType, Long targetId) {
+        return switch (targetType) {
+            case "DOCUMENT" -> documentRepository.findById(targetId)
+                    .map(document -> new ContentOwner(
+                            document.getUser() != null ? document.getUser().getId() : null,
+                            document.getSubject() != null ? document.getSubject().getId() : null))
+                    .orElse(null);
+            case "QUIZ" -> quizRepository.findById(targetId)
+                    .map(quiz -> new ContentOwner(
+                            quiz.getCreator() != null ? quiz.getCreator().getId() : null,
+                            quiz.getSubject() != null ? quiz.getSubject().getId() : null))
+                    .orElse(null);
+            case "FLASHCARD_DECK" -> flashcardDeckRepository.findById(targetId)
+                    .map(deck -> new ContentOwner(
+                            deck.getUser() != null ? deck.getUser().getId() : null,
+                            deck.getSubject() != null ? deck.getSubject().getId() : null))
+                    .orElse(null);
+            default -> null;
+        };
     }
 
     private QueuePolicy resolveQueuePolicy(String type, Long targetId, Long subjectId, Long ownerId) {
@@ -842,6 +958,7 @@ public class MarketReviewService {
 
     private record ReviewDecision(long total, long approved, long rejected, BigDecimal percentage, boolean reached) {}
     private record QueuePolicy(String mode, int requiredVotes, boolean adminRequired) {}
+    private record ContentOwner(Long userId, Long subjectId) {}
 
     /**
      * Parse and validate targetType from path variable.
@@ -902,10 +1019,13 @@ public class MarketReviewService {
                 .targetId(doc.getId())
                 .title(doc.getTitle())
                 .subjectId(doc.getSubject() != null ? doc.getSubject().getId() : null)
+                .creatorId(doc.getUser() != null ? doc.getUser().getId() : null)
                 .creatorName(doc.getUser() != null ? doc.getUser().getFullName() : null)
                 .downloadCount(doc.getDownloadCount())
                 .reviewCount(doc.getReviewCount())
                 .acceptPercentage(doc.getAcceptPercentage())
+                .communityReviewCount(doc.getCommunityReviewCount())
+                .communityRatingAvg(doc.getCommunityRatingAvg())
                 .marketStatus(doc.getMarketStatus())
                 .visibility(doc.getVisibility())
                 .fileUrl(doc.getFileUrl())
@@ -920,10 +1040,13 @@ public class MarketReviewService {
                 .targetId(quiz.getId())
                 .title(quiz.getTitle())
                 .subjectId(quiz.getSubject() != null ? quiz.getSubject().getId() : null)
+                .creatorId(quiz.getCreator() != null ? quiz.getCreator().getId() : null)
                 .creatorName(quiz.getCreator() != null ? quiz.getCreator().getFullName() : null)
                 .downloadCount(quiz.getDownloadCount())
                 .reviewCount(quiz.getReviewCount())
                 .acceptPercentage(quiz.getAcceptPercentage())
+                .communityReviewCount(quiz.getCommunityReviewCount())
+                .communityRatingAvg(quiz.getCommunityRatingAvg())
                 .marketStatus(quiz.getMarketStatus())
                 .visibility(quiz.getVisibility())
                 .build();
@@ -935,10 +1058,13 @@ public class MarketReviewService {
                 .targetId(deck.getId())
                 .title(deck.getTitle())
                 .subjectId(deck.getSubject() != null ? deck.getSubject().getId() : null)
+                .creatorId(deck.getUser() != null ? deck.getUser().getId() : null)
                 .creatorName(deck.getUser() != null ? deck.getUser().getFullName() : null)
                 .downloadCount(deck.getDownloadCount())
                 .reviewCount(deck.getReviewCount())
                 .acceptPercentage(deck.getAcceptPercentage())
+                .communityReviewCount(deck.getCommunityReviewCount())
+                .communityRatingAvg(deck.getCommunityRatingAvg())
                 .marketStatus(deck.getMarketStatus())
                 .visibility(deck.getVisibility())
                 .build();

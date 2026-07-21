@@ -1,5 +1,6 @@
 package com.aistudyhub.module.community.service;
 
+import com.aistudyhub.common.enums.ReputationEventType;
 import com.aistudyhub.common.enums.ReportStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.enums.MarketStatus;
@@ -10,6 +11,7 @@ import com.aistudyhub.entity.*;
 import com.aistudyhub.module.community.dto.ContentReportRequest;
 import com.aistudyhub.module.community.dto.ContentReportResponse;
 import com.aistudyhub.module.community.service.CommunityPermissionService.ContentTarget;
+import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
 import jakarta.persistence.criteria.Predicate;
@@ -57,6 +59,7 @@ public class ContentReportService {
     private final UserService userService;
     private final CommunityPermissionService communityPermissionService;
     private final com.aistudyhub.module.notification.service.NotificationService notificationService;
+    private final ReputationService reputationService;
 
     // ── 1. Tạo báo cáo vi phạm ────────────────────────────────────────────────
 
@@ -322,6 +325,7 @@ public class ContentReportService {
         report.setAdminNote(adminNote);
         report.setResolvedBy(currentUser);
         contentReportRepository.save(report);
+        rewardReportResolved(report, currentUser.getId());
 
         log.info("Report id={} resolved by userId={}", reportId, currentUser.getId());
 
@@ -369,6 +373,7 @@ public class ContentReportService {
         report.setAdminNote(adminNote);
         report.setResolvedBy(currentUser);
         contentReportRepository.save(report);
+        rewardReportRejected(report, currentUser.getId());
 
         log.info("Report id={} rejected by userId={}", reportId, currentUser.getId());
 
@@ -399,6 +404,7 @@ public class ContentReportService {
         // Bước 2: Tìm tài nguyên, cập nhật visibility và xác định chủ sở hữu
         User contentOwner;
         String contentTitle;
+        Long subjectId;
 
         switch (type) {
             case "DOCUMENT" -> {
@@ -414,6 +420,7 @@ public class ContentReportService {
                 documentRepository.save(document);
                 contentOwner = document.getUser();
                 contentTitle = document.getTitle();
+                subjectId = document.getSubject() != null ? document.getSubject().getId() : null;
             }
             case "QUIZ" -> {
                 Quiz quiz = quizRepository.findById(targetId)
@@ -428,6 +435,7 @@ public class ContentReportService {
                 quizRepository.save(quiz);
                 contentOwner = quiz.getCreator();
                 contentTitle = quiz.getTitle();
+                subjectId = quiz.getSubject() != null ? quiz.getSubject().getId() : null;
             }
             case "FLASHCARD_DECK" -> {
                 FlashcardDeck deck = flashcardDeckRepository.findById(targetId)
@@ -442,9 +450,22 @@ public class ContentReportService {
                 flashcardDeckRepository.save(deck);
                 contentOwner = deck.getUser();
                 contentTitle = deck.getTitle();
+                subjectId = deck.getSubject() != null ? deck.getSubject().getId() : null;
             }
             default -> throw new AppException(ErrorCode.INVALID_REPORT_TARGET);
         }
+
+        reputationService.applyConfiguredEvent(
+                contentOwner != null ? contentOwner.getId() : null,
+                subjectId,
+                ReputationEventType.CONTENT_HIDDEN_PENALTY,
+                type,
+                targetId,
+                "CONTENT_MODERATION",
+                targetId,
+                reason,
+                "CONTENT_HIDDEN_PENALTY:" + type + ":" + targetId,
+                userService.getCurrentUserId());
 
         log.info("Content hidden: type={}, id={}, owner={}", type, targetId, contentOwner.getId());
 
@@ -536,6 +557,48 @@ public class ContentReportService {
         }
     }
 
+    private void rewardReportResolved(ContentReport report, Long actorUserId) {
+        ContentRewardTarget target = resolveRewardTarget(report);
+        reputationService.applyConfiguredEvent(
+                report.getReporter() != null ? report.getReporter().getId() : null,
+                target.subjectId(),
+                ReputationEventType.CONTENT_REPORT_ACCEPTED,
+                target.targetType(),
+                target.targetId(),
+                "CONTENT_REPORT",
+                report.getId(),
+                "Report accepted",
+                "CONTENT_REPORT_ACCEPTED:" + report.getId(),
+                actorUserId);
+
+        reputationService.applyConfiguredEvent(
+                target.ownerUserId(),
+                target.subjectId(),
+                ReputationEventType.CONTENT_REPORT_OWNER_PENALTY,
+                target.targetType(),
+                target.targetId(),
+                "CONTENT_REPORT",
+                report.getId(),
+                "Report resolved against content",
+                "CONTENT_REPORT_OWNER_PENALTY:" + report.getId(),
+                actorUserId);
+    }
+
+    private void rewardReportRejected(ContentReport report, Long actorUserId) {
+        ContentRewardTarget target = resolveRewardTarget(report);
+        reputationService.applyConfiguredEvent(
+                report.getReporter() != null ? report.getReporter().getId() : null,
+                target.subjectId(),
+                ReputationEventType.CONTENT_REPORT_REJECTED,
+                target.targetType(),
+                target.targetId(),
+                "CONTENT_REPORT",
+                report.getId(),
+                "Report rejected",
+                "CONTENT_REPORT_REJECTED:" + report.getId(),
+                actorUserId);
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // Private helper methods
     // ══════════════════════════════════════════════════════════════════════════
@@ -589,6 +652,34 @@ public class ContentReportService {
             return ContentTarget.flashcardDeck(report.getFlashcardDeck().getId());
         }
         return ContentTarget.global();
+    }
+
+    private ContentRewardTarget resolveRewardTarget(ContentReport report) {
+        if (report.getDocument() != null) {
+            Document document = report.getDocument();
+            return new ContentRewardTarget(
+                    "DOCUMENT",
+                    document.getId(),
+                    document.getUser() != null ? document.getUser().getId() : null,
+                    document.getSubject() != null ? document.getSubject().getId() : null);
+        }
+        if (report.getQuiz() != null) {
+            Quiz quiz = report.getQuiz();
+            return new ContentRewardTarget(
+                    "QUIZ",
+                    quiz.getId(),
+                    quiz.getCreator() != null ? quiz.getCreator().getId() : null,
+                    quiz.getSubject() != null ? quiz.getSubject().getId() : null);
+        }
+        if (report.getFlashcardDeck() != null) {
+            FlashcardDeck deck = report.getFlashcardDeck();
+            return new ContentRewardTarget(
+                    "FLASHCARD_DECK",
+                    deck.getId(),
+                    deck.getUser() != null ? deck.getUser().getId() : null,
+                    deck.getSubject() != null ? deck.getSubject().getId() : null);
+        }
+        return new ContentRewardTarget("UNKNOWN", null, null, null);
     }
 
     /**
@@ -663,5 +754,8 @@ public class ContentReportService {
                 .resolvedByName(report.getResolvedBy() != null ? report.getResolvedBy().getFullName() : null)
                 .createdAt(report.getCreatedAt())
                 .build();
+    }
+
+    private record ContentRewardTarget(String targetType, Long targetId, Long ownerUserId, Long subjectId) {
     }
 }

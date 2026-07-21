@@ -30,6 +30,8 @@ public class QuizResponse {
     private Integer downloadCount;
     private Integer reviewCount;
     private BigDecimal acceptPercentage;
+    private Integer communityReviewCount;
+    private BigDecimal communityRatingAvg;
     private Long questionCount;
     private Long attemptCount;
     private BigDecimal bestScore;

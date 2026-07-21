@@ -26,6 +26,8 @@ public final class DocumentResponseMapper {
                 .downloadCount(doc.getDownloadCount())
                 .reviewCount(doc.getReviewCount())
                 .acceptPercentage(doc.getAcceptPercentage())
+                .communityReviewCount(doc.getCommunityReviewCount())
+                .communityRatingAvg(doc.getCommunityRatingAvg())
                 .aiVerdictNote(doc.getAiVerdictNote())
                 .processingStatus(doc.getProcessingStatus())
                 .clonedFromId(doc.getClonedFrom() != null ? doc.getClonedFrom().getId() : null)
