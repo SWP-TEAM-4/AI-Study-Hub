@@ -73,6 +73,33 @@ public class BadgeService {
         return toResponse(badge);
     }
 
+    @Transactional
+    public void autoGrantBadge(Long userId, String badgeName, String description, String iconUrl) {
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+            Badge badge = badgeRepository.findByName(badgeName).orElseGet(() -> {
+                Badge newBadge = Badge.builder()
+                        .name(badgeName)
+                        .description(description)
+                        .iconUrl(iconUrl)
+                        .build();
+                return badgeRepository.save(newBadge);
+            });
+
+            if (!userBadgeRepository.existsByUser_IdAndBadge_Id(userId, badge.getId())) {
+                userBadgeRepository.save(UserBadge.builder()
+                        .user(user)
+                        .badge(badge)
+                        .build());
+                log.info("Auto-granted badge '{}' to userId={}", badgeName, userId);
+            }
+        } catch (Exception e) {
+            log.error("Failed to auto-grant badge {} to user {}: {}", badgeName, userId, e.getMessage());
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<BadgeResponse> getUserBadges(Long userId) {
         return userBadgeRepository.findAllByUser_IdOrderByEarnedAtDescIdDesc(userId)

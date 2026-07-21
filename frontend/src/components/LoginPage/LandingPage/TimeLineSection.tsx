@@ -40,8 +40,6 @@ export default function TimelineSection({
     <section className="relative overflow-hidden bg-[#020817] py-32">
       {/* ================= STYLE & FONT INJECTION ================= */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=Montserrat:wght@700;900&family=Playfair+Display:ital,wght@1,500&display=swap');
-
         .font-tech-title { font-family: 'Montserrat', sans-serif; font-weight: 700; }
         .font-tech-giant { font-family: 'Montserrat', sans-serif; font-weight: 900; }
         .font-luxury-italic { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 500; }

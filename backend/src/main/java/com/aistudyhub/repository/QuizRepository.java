@@ -17,10 +17,6 @@ import java.util.List;
 
 public interface QuizRepository extends JpaRepository<Quiz, Long>, JpaSpecificationExecutor<Quiz> {
 
-    @Override
-    @EntityGraph(attributePaths = {"notebook", "subject", "creator", "academicTerm"})
-    Page<Quiz> findAll(Specification<Quiz> spec, Pageable pageable);
-
     @Query("""
             SELECT q.creator.id AS userId,
                    COUNT(q.id) AS approvedContents,

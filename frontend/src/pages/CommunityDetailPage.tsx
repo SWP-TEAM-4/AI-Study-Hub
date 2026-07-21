@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Star, Download, Share2, Flag,
-  FileText, GraduationCap, BookOpen, CheckCircle2,
+  Star, Download, Flag,
+  FileText, GraduationCap, BookOpen,
   MessageSquare, Eye, ShieldAlert, Send, Trash2,
-  Edit2, CornerDownRight, ThumbsUp, User, Loader2,
-  X, Calendar, Copy, Bookmark
+  Edit2, CornerDownRight, User, Loader2,
+  X,
 } from "lucide-react";
 import { Notify } from "notiflix";
 import { governanceService, CommentDTO } from "../services/governanceService";
@@ -26,6 +26,8 @@ export interface CommunityDetailItem {
   semester?: string;
   rating: string | number;
   downloads: number;
+  reviewCount?: number;
+  acceptPercentage?: number | string | null;
   isVerified?: boolean;
   kind: "doc" | "quiz" | "deck";
 }
@@ -449,262 +451,251 @@ function ReportPanel({
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "comments" | "reviews";
+type Tab = "overview" | "reviews" | "report";
 
 interface CommunityDetailPageProps {
   item: CommunityDetailItem;
   onBack: () => void;
+  onClone: () => void;
 }
 
-export default function CommunityDetailPage({ item, onBack }: CommunityDetailPageProps) {
+export default function CommunityDetailPage({ item, onBack, onClone }: CommunityDetailPageProps) {
   const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.DOCUMENT;
   const Icon = cfg.icon;
   const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [showReport, setShowReport] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
 
-  const tabs: { key: Tab; label: string; icon: typeof MessageSquare }[] = [
-    { key: "overview", label: "Tổng quan", icon: Eye },
-    { key: "comments", label: "Bình luận", icon: MessageSquare },
-    { key: "reviews", label: "Đánh giá", icon: Star },
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "reviews", label: "Đánh giá" },
+    { key: "report", label: "Báo cáo" },
   ];
 
-  const handleShare = () => {
-    const url = `${window.location.origin}/community/preview/${item.type.toLowerCase()}/${item.id}`;
-    navigator.clipboard.writeText(url);
-    Notify.success("Đã sao chép liên kết chia sẻ!");
-  };
+  const displayRating = (!item.rating || item.rating === "N/A" || item.rating === 0) ? "5.0" : Number(item.rating).toFixed(1);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="space-y-6"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+      className="relative w-full max-w-4xl mx-auto bg-card border border-border/80 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6"
     >
-      {/* Back */}
+      {/* Close button X */}
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+        className="absolute top-6 right-6 p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+        title="Đóng"
       >
-        <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
-        Quay lại cộng đồng
+        <X size={20} />
       </button>
 
-      {/* ── HERO ─────────────────────────────────────────────────────── */}
-      <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${cfg.gradient} border border-border/60 p-6 md:p-8 shadow-xl`}>
-        {/* Decorative background blobs */}
-        <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-white/5 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-56 h-56 rounded-full bg-white/3 blur-2xl pointer-events-none" />
-
-        <div className="relative">
-          {/* Badge row */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/50 text-sm font-semibold ${cfg.color} backdrop-blur-sm`}>
-              <Icon size={14} />
-              {cfg.label}
-            </div>
-            {item.isVerified && (
-              <span className="inline-flex items-center gap-1 text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full text-xs font-semibold">
-                <CheckCircle2 size={12} /> Đã xác minh
-              </span>
-            )}
-            {item.subject && (
-              <span className="px-2.5 py-1 rounded-full bg-muted/80 text-muted-foreground text-xs font-medium border border-border/40">
-                {item.subject}
-              </span>
-            )}
-            {item.semester && (
-              <span className="px-2.5 py-1 rounded-full bg-muted/80 text-muted-foreground text-xs font-medium border border-border/40">
-                {item.semester}
-              </span>
-            )}
-          </div>
-
-          {/* Title */}
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-snug max-w-3xl">
-            {item.title}
-          </h1>
-
-          {/* Author & meta */}
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <div className="size-7 rounded-full bg-gradient-to-br from-primary/60 to-primary text-white flex items-center justify-center text-[10px] font-bold">
-                {item.author?.split(" ").map(p => p[0]).slice(0, 2).join("") || "??"}
-              </div>
-              <span className="font-medium text-foreground/80">{item.author || "Ẩn danh"}</span>
-            </div>
-            <span className="flex items-center gap-1 text-amber-500 font-semibold">
-              <Star size={13} className="fill-current" />
-              {item.rating}
-            </span>
-            <span className="flex items-center gap-1">
-              <Download size={13} />
-              {(item.downloads as any)?.toLocaleString?.() || item.downloads} lượt tải
-            </span>
-          </div>
-
-          {/* Actions */}
-          <div className="mt-6 flex flex-wrap gap-3 items-center">
-            <button
-              onClick={() => Notify.success(`Đang tải "${item.title}"...`)}
-              className="inline-flex items-center gap-2 px-5 h-10 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 active:scale-95 transition-all shadow-md shadow-primary/20"
-            >
-              <Download size={15} /> Tải về
-            </button>
-            <button
-              onClick={() => Notify.success("Đã thêm vào bộ sưu tập của bạn!")}
-              className="inline-flex items-center gap-2 px-5 h-10 rounded-2xl bg-muted text-foreground font-semibold text-sm hover:bg-muted/80 transition-colors border border-border/50"
-            >
-              <Copy size={14} /> Clone
-            </button>
-
-            {/* Right side actions */}
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                onClick={() => { setIsSaved(p => !p); Notify.success(isSaved ? "Đã xóa khỏi yêu thích" : "Đã lưu vào yêu thích!"); }}
-                className={`size-9 rounded-xl flex items-center justify-center border transition-all ${isSaved ? "bg-amber-500/15 text-amber-500 border-amber-500/30" : "bg-muted/60 text-muted-foreground border-border/40 hover:bg-muted"}`}
-                title="Lưu yêu thích"
-              >
-                <Bookmark size={15} className={isSaved ? "fill-current" : ""} />
-              </button>
-              <button
-                onClick={handleShare}
-                className="size-9 rounded-xl bg-muted/60 text-muted-foreground border border-border/40 hover:bg-muted flex items-center justify-center transition-all"
-                title="Chia sẻ"
-              >
-                <Share2 size={15} />
-              </button>
-              <button
-                onClick={() => setShowReport(true)}
-                className="size-9 rounded-xl bg-muted/60 text-destructive/70 border border-border/40 hover:bg-destructive/10 hover:text-destructive flex items-center justify-center transition-all"
-                title="Báo cáo vi phạm"
-              >
-                <Flag size={15} />
-              </button>
-            </div>
-          </div>
+      {/* Header */}
+      <div className="space-y-2 pr-12">
+        <div className="flex items-center gap-2 text-xs font-bold text-emerald-500 uppercase tracking-wider">
+          <span>{cfg.label}</span>
+          <span>•</span>
+          <span>Nguồn #{item.id}</span>
         </div>
+        <h1 className="text-2xl md:text-3xl font-extrabold text-foreground leading-snug">
+          {item.title}
+        </h1>
+        <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-1.5">
+          <span>{item.subject}</span>
+          {item.semester && (
+            <>
+              <span>•</span>
+              <span>{item.semester}</span>
+            </>
+          )}
+          <span>•</span>
+          <span className="font-semibold text-foreground/80">{item.author || "Ẩn danh"}</span>
+        </p>
       </div>
 
-      {/* ── TABS ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 p-1 bg-muted/40 border border-border/40 rounded-2xl w-fit">
-        {tabs.map(({ key, label, icon: TabIcon }) => (
+      {/* Tab bar */}
+      <div className="border-b border-border flex items-center gap-6">
+        {tabs.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`relative inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-medium transition-all ${
-              activeTab === key ? "text-foreground" : "text-muted-foreground hover:text-foreground/70"
+            className={`pb-3 text-sm font-semibold relative transition-colors ${
+              activeTab === key ? "text-emerald-500" : "text-muted-foreground hover:text-foreground"
             }`}
           >
+            {label}
             {activeTab === key && (
               <motion.div
-                layoutId="community-detail-tab"
-                className="absolute inset-0 bg-card border border-border/60 rounded-xl shadow-sm"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                layoutId="active-detail-tab-line"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500"
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
               />
             )}
-            <TabIcon size={14} className="relative z-10" />
-            <span className="relative z-10">{label}</span>
           </button>
         ))}
       </div>
 
-      {/* ── TAB CONTENT ──────────────────────────────────────────────── */}
+      {/* Tab content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.15 }}
+          className="min-h-[250px]"
         >
           {activeTab === "overview" && (
             <div className="space-y-6">
-              {/* Stats grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: "Lượt tải", value: (item.downloads as any)?.toLocaleString?.() || item.downloads, icon: Download, color: "text-blue-400" },
-                  { label: "Đánh giá TB", value: item.rating, icon: Star, color: "text-amber-400" },
-                  { label: "Loại", value: cfg.label, icon: Icon, color: cfg.color },
-                  { label: "Môn học", value: item.subject || "Chung", icon: GraduationCap, color: "text-emerald-400" },
-                ].map(({ label, value, icon: StatIcon, color }) => (
-                  <div key={label} className="p-4 rounded-2xl bg-card border border-border/40 text-center">
-                    <StatIcon size={18} className={`${color} mx-auto mb-2`} />
-                    <div className="font-bold text-foreground">{value}</div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">{label}</div>
+              {/* Three stats cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-muted/30 border border-border/40 p-4 rounded-2xl text-center space-y-1">
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">RATING</div>
+                  <div className="text-xl md:text-2xl font-black text-foreground flex items-center justify-center gap-1">
+                    {displayRating} <Star size={16} className="text-amber-400 fill-amber-400 shrink-0" />
                   </div>
-                ))}
+                </div>
+                <div className="bg-muted/30 border border-border/40 p-4 rounded-2xl text-center space-y-1">
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">LƯỢT CLONE</div>
+                  <div className="text-xl md:text-2xl font-black text-foreground">
+                    {item.downloads}
+                  </div>
+                </div>
+                <div className="bg-muted/30 border border-border/40 p-4 rounded-2xl text-center space-y-1">
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">ĐÁNH GIÁ</div>
+                  <div className="text-xl md:text-2xl font-black text-foreground">
+                    {item.reviewCount || 0}
+                  </div>
+                </div>
               </div>
 
-              {/* Description */}
-              <div className="p-5 rounded-2xl bg-muted/20 border border-border/40 space-y-3">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <Eye size={15} className="text-primary" /> Mô tả
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Tài nguyên <strong className="text-foreground">{item.title}</strong> thuộc loại{" "}
-                  <strong className="text-foreground">{cfg.label}</strong> được đăng tải bởi cộng đồng học tập.
-                  Tài nguyên này đã được tải xuống{" "}
-                  <strong className="text-foreground">{(item.downloads as any)?.toLocaleString?.() || item.downloads}</strong> lần
-                  và nhận được đánh giá trung bình{" "}
-                  <strong className="text-amber-500">⭐ {item.rating}</strong>.
-                </p>
-                {item.isVerified && (
-                  <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-500/8 border border-blue-500/15 text-sm text-blue-400">
-                    <CheckCircle2 size={15} className="shrink-0" />
-                    Nội dung đã được kiểm duyệt và xác nhận chất lượng bởi đội ngũ AI Study Hub.
+              {/* OVERVIEW MARKETPLACE */}
+              <div className="border border-border/60 rounded-2xl bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border/50 bg-muted/20 flex items-center gap-2">
+                  <Eye size={15} className="text-muted-foreground" />
+                  <span className="text-[10px] font-extrabold tracking-wider text-muted-foreground uppercase">
+                    Overview Marketplace
+                  </span>
+                </div>
+                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8 text-sm">
+                  <div className="flex justify-between py-1.5 border-b border-border/30">
+                    <span className="text-muted-foreground text-xs">Loại nội dung</span>
+                    <span className="font-semibold">{cfg.label}</span>
                   </div>
-                )}
-              </div>
-
-              {/* Quick prompt to navigate to other tabs */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setActiveTab("comments")}
-                  className="flex-1 p-4 rounded-2xl border border-border/40 bg-card hover:bg-muted/30 transition-colors text-left group"
-                >
-                  <MessageSquare size={18} className="text-primary mb-2" />
-                  <p className="font-semibold text-sm">Bình luận</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 group-hover:text-foreground/70 transition-colors">
-                    Thảo luận và chia sẻ cảm nhận
-                  </p>
-                </button>
-                <button
-                  onClick={() => setActiveTab("reviews")}
-                  className="flex-1 p-4 rounded-2xl border border-border/40 bg-card hover:bg-muted/30 transition-colors text-left group"
-                >
-                  <Star size={18} className="text-amber-400 mb-2" />
-                  <p className="font-semibold text-sm">Đánh giá sao</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 group-hover:text-foreground/70 transition-colors">
-                    Xem và gửi đánh giá rating
-                  </p>
-                </button>
+                  <div className="flex justify-between py-1.5 border-b border-border/30">
+                    <span className="text-muted-foreground text-xs">Trạng thái</span>
+                    <span className="font-bold text-emerald-500">APPROVED</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-border/30">
+                    <span className="text-muted-foreground text-xs">Subject ID</span>
+                    <span className="font-semibold">{item.subject}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-border/30">
+                    <span className="text-muted-foreground text-xs">Clone source ID</span>
+                    <span className="font-semibold">#{item.id}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-
-          {activeTab === "comments" && (
-            <CommentsSection targetType={item.type} targetId={item.id} />
           )}
 
           {activeTab === "reviews" && (
             <ReviewsSection targetType={item.type} targetId={item.id} />
           )}
+
+          {activeTab === "report" && (
+            <div className="max-w-lg mx-auto bg-muted/20 border border-border/50 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center gap-2 text-destructive font-bold text-base border-b border-border/60 pb-2">
+                <ShieldAlert size={18} />
+                Báo cáo nội dung
+              </div>
+              <ReportForm targetType={item.type} targetId={item.id} onSubmitted={() => setActiveTab("overview")} />
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Report panel */}
-      <AnimatePresence>
-        {showReport && (
-          <ReportPanel
-            targetType={item.type}
-            targetId={item.id}
-            onClose={() => setShowReport(false)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Bottom buttons */}
+      <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
+        <button
+          onClick={onClone}
+          className="inline-flex items-center gap-2 px-6 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-colors shadow-lg shadow-emerald-500/10 active:scale-95"
+        >
+          <Download size={16} /> Clone về workspace
+        </button>
+        <button
+          onClick={() => setActiveTab("report")}
+          className="inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-background border border-border/80 hover:bg-muted text-muted-foreground font-semibold text-sm transition-colors active:scale-95"
+        >
+          <Flag size={14} /> Báo cáo
+        </button>
+      </div>
     </motion.div>
+  );
+}
+
+function ReportForm({
+  targetType,
+  targetId,
+  onSubmitted
+}: {
+  targetType: CommunityTargetType;
+  targetId: number;
+  onSubmitted: () => void;
+}) {
+  const [reason, setReason] = useState("INAPPROPRIATE");
+  const [details, setDetails] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!details.trim()) return Notify.warning("Vui lòng nhập chi tiết báo cáo.");
+    setIsSubmitting(true);
+    try {
+      await governanceService.createReport({
+        targetType, targetId,
+        reasonType: reason,
+        reportDetails: details,
+        severityLevel: reason === "COPYRIGHT" ? "HIGH" : "MEDIUM",
+      });
+      Notify.success("Đã gửi báo cáo. Cảm ơn bạn!");
+      onSubmitted();
+    } catch (e: any) {
+      Notify.failure(e.message || "Lỗi khi gửi báo cáo");
+    } finally { setIsSubmitting(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs font-bold mb-1.5 text-muted-foreground uppercase">Lý do báo cáo</label>
+        <select
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          className="w-full h-10 px-3 rounded-xl border border-border bg-background focus:border-primary outline-none text-sm"
+        >
+          <option value="INAPPROPRIATE">Nội dung không phù hợp</option>
+          <option value="COPYRIGHT">Vi phạm bản quyền</option>
+          <option value="SPAM">Spam hoặc gây hiểu lầm</option>
+          <option value="OTHER">Khác</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-bold mb-1.5 text-muted-foreground uppercase">Chi tiết</label>
+        <textarea
+          value={details}
+          onChange={e => setDetails(e.target.value)}
+          placeholder="Mô tả chi tiết vấn đề..."
+          rows={3}
+          className="w-full p-3 rounded-xl border border-border bg-background focus:border-primary outline-none text-sm resize-none"
+        />
+      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={isSubmitting || !details.trim()}
+        className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-destructive text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+      >
+        {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+        Gửi báo cáo
+      </button>
+    </div>
   );
 }

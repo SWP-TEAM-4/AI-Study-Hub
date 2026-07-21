@@ -10,8 +10,8 @@
 -- ==========================
 INSERT INTO users (email, password_hash, full_name, role, reputation_points, is_active)
 VALUES (
-    'admin@aistudyhub.com',
-    '$2a$10$N.zmdr9zkZkS8KJRqt1FEeUmxg6c8JDXYp2tVf6O5YnRt2D4Ry5Wq',
+    'admin.aistudyhub@gmail.com',
+    'Admin@123',
     'System Admin',
     'ADMIN',
     0,

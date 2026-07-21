@@ -1,6 +1,10 @@
 "use client";
 
+<<<<<<< HEAD
 import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw, Eye, Layers3, Loader2, AlertCircle, Grid, List, Pencil, Save } from "lucide-react";
+=======
+import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw, Eye, Layers3, Loader2, AlertCircle } from "lucide-react";
+>>>>>>> f0ae75f (fix các yêu cầu community trong gg docs)
 import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -57,6 +61,7 @@ const processingStatusLabels: Record<DocumentDTO["processingStatus"], string> = 
   FAILED: "Chunking thất bại",
 };
 
+<<<<<<< HEAD
 const DocumentCard = ({ doc, subjectMap, getSubjectLabel, documentTags, reprocessingId, deletingChunksId, processingStatusLabels, getStatusClass, chunkCounts, openOverview, openShareModal, handleDownload, downloadingId, handleEdit, openTagModal, handleReprocess, handleDeleteChunks, handlePublish, handleDeleteDoc, formatSize, formatDate, t }: any) => {
   const isReprocessing = reprocessingId === doc.id;
   const isDownloading = downloadingId === doc.id;
@@ -206,6 +211,8 @@ const DocumentCard = ({ doc, subjectMap, getSubjectLabel, documentTags, reproces
   );
 };
 
+=======
+>>>>>>> f0ae75f (fix các yêu cầu community trong gg docs)
 export default function DocumentsPage() {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
@@ -281,7 +288,6 @@ export default function DocumentsPage() {
   const [documentTags, setDocumentTags] = useState<Record<number, TagDTO[]>>({});
   const [newTagName, setNewTagName] = useState("");
   const [isTagLoading, setIsTagLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const stats = useMemo(() => {
     const totalDocs = list.length;
@@ -733,37 +739,13 @@ export default function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Load Elegant Cursive & Calligraphy Font dynamically */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
-        .font-cursive {
-          font-family: 'Dancing Script', cursive !important;
-        }
-      `}} />
-
-      {/* Compact Title Header with View Switcher */}
+      {/* Compact Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-pink-500 to-indigo-600 dark:from-cyan-400 dark:via-pink-400 dark:to-indigo-400 font-cursive tracking-wide pb-1 drop-shadow-sm">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-primary font-sans tracking-wide pb-1 drop-shadow-sm">
             Tài Liệu Của Bé
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Quản lý và ôn tập tài liệu học tập của bé</p>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <button 
-            onClick={() => setViewMode("grid")}
-            className={`p-2.5 rounded-xl border transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:bg-muted"}`}
-            title="Dạng thẻ"
-          >
-            <Grid size={18} />
-          </button>
-          <button 
-            onClick={() => setViewMode("list")}
-            className={`p-2.5 rounded-xl border transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:bg-muted"}`}
-            title="Dạng bảng"
-          >
-            <List size={18} />
-          </button>
         </div>
       </div>
 
@@ -911,171 +893,130 @@ export default function DocumentsPage() {
 
       {/* Documents Render Container */}
       <div className="w-full !overflow-visible">
-        {viewMode === "grid" ? (
-          isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={`skel-card-${i}`} className="surface-card p-5 rounded-2xl border border-border/40 relative h-[210px] animate-pulse">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="h-6 w-12 bg-muted rounded" />
-                    <div className="h-6 w-6 bg-muted rounded-full" />
-                  </div>
-                  <div className="h-5 w-4/5 bg-muted rounded mb-2" />
-                  <div className="h-4 w-1/4 bg-muted rounded mb-4" />
-                  <div className="flex gap-2">
-                    <div className="h-5 w-16 bg-muted rounded" />
-                    <div className="h-5 w-20 bg-muted rounded" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <motion.div 
-              variants={{
-                hidden: { opacity: 0 },
-                show: {
-                  opacity: 1,
-                  transition: { staggerChildren: 0.05 }
-                }
-              }}
-              initial="hidden"
-              animate="show"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full"
-            >
-              {filtered.map((d) => (
-                <DocumentCard
-                  key={d.id}
-                  doc={d}
-                  subjectMap={subjectMap}
-                  getSubjectLabel={getSubjectLabel}
-                  documentTags={documentTags}
-                  reprocessingId={reprocessingId}
-                  processingStatusLabels={processingStatusLabels}
-                  getStatusClass={getStatusClass}
-                  chunkCounts={chunkCounts}
-                  openOverview={openOverview}
-                  openShareModal={openShareModal}
-                  handleDownload={handleDownload}
-                  downloadingId={downloadingId}
-                  handleEdit={handleEdit}
-                  openTagModal={openTagModal}
-                  handleReprocess={handleReprocess}
-                  handleDeleteChunks={handleDeleteChunks}
-                  handlePublish={handlePublish}
-                  handleDeleteDoc={handleDeleteDoc}
-                  formatSize={formatSize}
-                  formatDate={formatDate}
-                  t={t}
-                />
-              ))}
-            </motion.div>
-          )
-        ) : (
-          <div className="surface-card !overflow-visible border border-border/40 shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground tracking-wider border-b border-border/50">
-                <tr>
-                  <th className="text-left px-5 py-3.5">{t('pages.documents.table.document')}</th>
-                  <th className="text-left px-5 py-3.5 hidden md:table-cell">{t('pages.documents.table.subject')}</th>
-                  <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.tags')}</th>
-                  <th className="text-left px-5 py-3.5 hidden sm:table-cell">{t('pages.documents.table.size')}</th>
-                  <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.downloads')}</th>
-                  <th className="px-5 py-3.5" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`skel-${i}`}>
-                      <td className="px-5 py-3 relative overflow-hidden">
-                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
-                        <div className="flex items-center gap-3">
-                          <div className="size-9 rounded-xl bg-muted" />
-                          <div>
-                            <div className="h-4 w-32 bg-muted rounded mb-1" />
-                            <div className="h-3 w-20 bg-muted/50 rounded" />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 hidden md:table-cell"><div className="h-4 w-16 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-12 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-6 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 text-right"><div className="h-8 w-8 bg-muted rounded-lg inline-block" /></td>
-                    </tr>
-                  ))
-                ) : filtered.map((d, i) => (
-                  <motion.tr
-                    key={d.id}
-                    {...motionFadeUp(i)}
-                    className="hover:bg-muted/30 transition-colors group"
-                  >
-                    <td className="px-5 py-3">
+        <div className="surface-card !overflow-visible border border-border/40 shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground tracking-wider border-b border-border/50">
+              <tr>
+                <th className="text-left px-5 py-3.5">{t('pages.documents.table.document')}</th>
+                <th className="text-left px-5 py-3.5 hidden md:table-cell">{t('pages.documents.table.subject')}</th>
+                <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.tags')}</th>
+                <th className="text-left px-5 py-3.5 hidden sm:table-cell">{t('pages.documents.table.size')}</th>
+                <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.downloads')}</th>
+                <th className="px-5 py-3.5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skel-${i}`}>
+                    <td className="px-5 py-3 relative overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
                       <div className="flex items-center gap-3">
-                        <div className={`size-9 rounded-xl grid place-items-center text-[10px] font-extrabold uppercase border transition-colors duration-300 ${
-                          typeStyles[d.fileType.toLowerCase()]?.badge || "bg-muted text-muted-foreground border-transparent"
-                        }`}>
-                          {d.fileType}
-                        </div>
-                        <div className="min-w-0">
-                          <button onClick={() => openOverview(d)} className="font-medium truncate group-hover:text-primary cursor-pointer transition-colors block max-w-full text-left" title="Xem overview tài liệu">{d.title}</button>
-                          <div className="text-xs text-muted-foreground mt-0.5">{formatDate(d.createdAt)}</div>
+                        <div className="size-9 rounded-xl bg-muted" />
+                        <div>
+                          <div className="h-4 w-32 bg-muted rounded mb-1" />
+                          <div className="h-3 w-20 bg-muted/50 rounded" />
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3 hidden md:table-cell">
-                      {d.subjectId ? (
-                        <span className="text-xs px-2.5 py-1 rounded-lg bg-muted/80 border border-border/30 font-medium text-muted-foreground">{getSubjectLabel(d.subjectId)}</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground font-mono">N/A</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 hidden lg:table-cell">
-                      <div className="flex gap-1 flex-wrap">
-                        {(documentTags[d.id] ?? []).map((tag) => (
-                          <span key={tag.id} className="inline-flex text-[10px] px-2 py-0.5 rounded-md font-medium border" style={{ color: tag.color, borderColor: `${tag.color}55`, backgroundColor: `${tag.color}14` }}>
-                            {tag.name}
-                          </span>
-                        ))}
-                        <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(reprocessingId === d.id ? "PROCESSING" : d.processingStatus)}`}>
-                          {(d.processingStatus === "PROCESSING" || d.processingStatus === "PENDING" || reprocessingId === d.id) && <Loader2 size={10} className="animate-spin" />}
-                          {processingStatusLabels[reprocessingId === d.id ? "PROCESSING" : d.processingStatus]}
+                    <td className="px-5 py-3 hidden md:table-cell"><div className="h-4 w-16 bg-muted rounded" /></td>
+                    <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-12 bg-muted rounded" /></td>
+                    <td className="px-5 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-muted rounded" /></td>
+                    <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-6 bg-muted rounded" /></td>
+                    <td className="px-5 py-3 text-right"><div className="h-8 w-8 bg-muted rounded-lg inline-block" /></td>
+                  </tr>
+                ))
+              ) : filtered.map((d) => (
+                <tr
+                  key={d.id}
+                  className="hover:bg-muted/30 transition-colors group animate-fade-in"
+                >
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`size-9 rounded-xl grid place-items-center text-[10px] font-extrabold uppercase border transition-colors duration-300 ${
+                        typeStyles[d.fileType.toLowerCase()]?.badge || "bg-muted text-muted-foreground border-transparent"
+                      }`}>
+                        {d.fileType}
+                      </div>
+                      <div className="min-w-0">
+                        <button onClick={() => openOverview(d)} className="font-medium truncate group-hover:text-primary cursor-pointer transition-colors block max-w-full text-left" title="Xem overview tài liệu">{d.title}</button>
+                        <div className="text-xs text-muted-foreground mt-0.5">{formatDate(d.createdAt)}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 hidden md:table-cell">
+                    {d.subjectId ? (
+                      <span className="text-xs px-2.5 py-1 rounded-lg bg-muted/80 border border-border/30 font-medium text-muted-foreground">{getSubjectLabel(d.subjectId)}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground font-mono">N/A</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 hidden lg:table-cell">
+                    <div className="flex gap-1 flex-wrap">
+                      {(documentTags[d.id] ?? []).map((tag) => (
+                        <span key={tag.id} className="inline-flex text-[10px] px-2 py-0.5 rounded-md font-medium border" style={{ color: tag.color, borderColor: `${tag.color}55`, backgroundColor: `${tag.color}14` }}>
+                          {tag.name}
                         </span>
-                        {d.marketStatus !== "NONE" && (
-                          <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.marketStatus)}`}>
-                            {d.marketStatus}
-                          </span>
-                        )}
+                      ))}
+                      <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(reprocessingId === d.id ? "PROCESSING" : d.processingStatus)}`}>
+                        {(d.processingStatus === "PROCESSING" || d.processingStatus === "PENDING" || reprocessingId === d.id) && <Loader2 size={10} className="animate-spin" />}
+                        {processingStatusLabels[reprocessingId === d.id ? "PROCESSING" : d.processingStatus]}
+                      </span>
+                      {d.marketStatus !== "NONE" && (
+                        <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.marketStatus)}`}>
+                          {d.marketStatus}
+                        </span>
+                      )}
+                    </div>
+                    {(d.processingStatus === "PENDING" || d.processingStatus === "PROCESSING" || reprocessingId === d.id) && (
+                      <div className="mt-2 h-1 w-24 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
                       </div>
-                      {(d.processingStatus === "PENDING" || d.processingStatus === "PROCESSING" || reprocessingId === d.id) && (
-                        <div className="mt-2 h-1 w-24 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
-                        </div>
-                      )}
-                      {d.processingStatus === "SUCCESS" && (
-                        <button onClick={() => openOverview(d)} className="mt-1.5 text-[10px] text-primary font-semibold hover:underline">
-                          {chunkCounts[d.id] !== undefined ? `${chunkCounts[d.id]} chunks · ` : ""}Xem overview
+                    )}
+                    {d.processingStatus === "SUCCESS" && (
+                      <button onClick={() => openOverview(d)} className="mt-1.5 text-[10px] text-primary font-semibold hover:underline">
+                        {chunkCounts[d.id] !== undefined ? `${chunkCounts[d.id]} chunks · ` : ""}Xem overview
+                      </button>
+                    )}
+                    {d.processingStatus === "FAILED" && <div className="mt-1 text-[10px] text-destructive">Xử lý thất bại · Có thể chạy lại</div>}
+                  </td>
+                  <td className="px-5 py-3 hidden sm:table-cell text-muted-foreground font-medium">{formatSize(d.fileSize)}</td>
+                  <td className="px-5 py-3 hidden lg:table-cell text-muted-foreground font-medium">{d.downloadCount}</td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <button onClick={() => openShareModal(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-primary hover:text-primary transition-colors outline-none" title="Chia sẻ">
+                        <Share2 size={14} />
+                      </button>
+                      <button onClick={() => openOverview(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-primary transition-colors outline-none" title="Xem overview chunks">
+                        <Eye size={14} />
+                      </button>
+                      <button onClick={() => handleDownload(d)} disabled={downloadingId === d.id} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none disabled:opacity-50" title="Tải xuống">
+                        {downloadingId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      </button>
+                      <div className="relative group/menu">
+                        <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
+                          <MoreVertical size={14} />
                         </button>
-                      )}
-                      {d.processingStatus === "FAILED" && <div className="mt-1 text-[10px] text-destructive">Xử lý thất bại · Có thể chạy lại</div>}
-                    </td>
-                    <td className="px-5 py-3 hidden sm:table-cell text-muted-foreground font-medium">{formatSize(d.fileSize)}</td>
-                    <td className="px-5 py-3 hidden lg:table-cell text-muted-foreground font-medium">{d.downloadCount}</td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button onClick={() => openShareModal(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-primary hover:text-primary transition-colors outline-none" title="Chia sẻ">
-                          <Share2 size={14} />
-                        </button>
-                        <button onClick={() => openOverview(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-primary transition-colors outline-none" title="Xem overview chunks">
-                          <Eye size={14} />
-                        </button>
-                        <button onClick={() => handleDownload(d)} disabled={downloadingId === d.id} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none disabled:opacity-50" title="Tải xuống">
-                          {downloadingId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                        </button>
-                        <div className="relative group/menu">
-                          <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
-                            <MoreVertical size={14} />
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => handleEdit(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                            <FileText size={14} /> {t('pages.documents.table.editDesc')}
                           </button>
+                          <button onClick={() => openTagModal(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                            <Tag size={14} /> {t('pages.documents.table.addTag')}
+                          </button>
+                          <button onClick={() => handleReprocess(d)} disabled={reprocessingId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
+                            <RefreshCw size={14} className={reprocessingId === d.id ? "animate-spin" : ""} /> Xử lý AI chunks
+                          </button>
+                          <button onClick={() => handleDeleteChunks(d)} disabled={deletingChunksId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
+                            <Trash2 size={14} /> Xóa AI chunks
+                          </button>
+                          <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
+                            <Globe size={14} /> {t('pages.documents.table.publish')}
+                          </button>
+                          <button onClick={() => handleDeleteDoc(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
+                            <Trash2 size={14} /> Xóa tài liệu
+                          </button>
+<<<<<<< HEAD
                           <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
                             <button onClick={() => handleEdit(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
                               <FileText size={14} /> {t('pages.documents.table.editDesc')}
@@ -1101,15 +1042,17 @@ export default function DocumentsPage() {
                               <Trash2 size={14} /> Xóa tài liệu
                             </button>
                           </div>
+=======
+>>>>>>> f0ae75f (fix các yêu cầu community trong gg docs)
                         </div>
                       </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         
         {/* Empty State */}
         {filtered.length === 0 && (
@@ -1480,7 +1423,3 @@ export default function DocumentsPage() {
     </div>
   );
 }
-
-
-
-

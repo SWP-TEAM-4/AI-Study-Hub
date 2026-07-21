@@ -57,18 +57,25 @@ const typeStyle = {
     icon: FileText,
     label: "Tài liệu",
     tone: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+    gradient: "from-amber-400/40 via-yellow-300/30 to-orange-200/20",
+    color: "text-amber-600",
   },
   QUIZ: {
     icon: GraduationCap,
     label: "Quiz",
     tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+    gradient: "from-emerald-400/40 via-teal-300/30 to-green-200/20",
+    color: "text-emerald-600",
   },
   FLASHCARD_DECK: {
     icon: BookOpen,
     label: "Flashcards",
     tone: "bg-sky-500/10 text-sky-600 border-sky-500/20",
+    gradient: "from-sky-400/40 via-blue-300/30 to-indigo-200/20",
+    color: "text-sky-600",
   },
 };
+
 
 function itemKey(item: MarketplaceItemDTO) {
   return `${item.targetType}:${item.targetId}`;
@@ -144,39 +151,43 @@ function ItemCard({
   const style = typeStyle[item.targetType] ?? typeStyle.DOCUMENT;
   const Icon = style.icon;
   const rating = ratingFromAcceptPercentage(item.acceptPercentage);
+  const displayRating = (item.reviewCount != null && item.reviewCount > 0) ? rating.toFixed(1) : "N/A";
 
   return (
     <motion.article
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="surface-card group flex min-h-[245px] cursor-pointer flex-col rounded-2xl p-5 transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className="surface-card group flex min-h-[260px] cursor-pointer flex-col rounded-2xl transition-all hover:-translate-y-0.5 hover:shadow-md overflow-hidden ring-1 ring-border/50"
       onClick={onOpen}
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${style.tone}`}>
-          <Icon size={20} strokeWidth={1.7} />
+      <div className={`h-24 w-full bg-gradient-to-br ${style.gradient} flex items-center p-4 relative`}>
+        <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[1px]" />
+        
+        <div className={`relative z-10 flex size-12 shrink-0 items-center justify-center rounded-xl bg-background shadow-sm border ${style.tone}`}>
+          <Icon size={22} strokeWidth={1.8} className={style.color} />
         </div>
-        <div className="flex min-w-0 flex-col items-end gap-2">
-          <span className="max-w-[145px] truncate rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold">
-            {subjectLabel}
+        
+        <div className="relative z-10 ml-auto flex flex-col items-end gap-2">
+          <span className={`rounded-full bg-background/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-sm border ${style.tone}`}>
+            {style.label}
           </span>
           {cloneResult && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
-              <CheckCircle2 size={11} /> Clone #{cloneResult.id}
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <CheckCircle2 size={11} /> Đã Clone
             </span>
           )}
         </div>
       </div>
 
-      <div className="mb-3 flex items-center gap-2">
-        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${style.tone}`}>
-          {style.label}
-        </span>
-        <span className="text-[10px] font-semibold text-muted-foreground">Source #{item.targetId}</span>
-      </div>
-
-      <h3 className="line-clamp-2 flex-1 font-display text-base font-semibold leading-snug">{item.title}</h3>
+      <div className="flex flex-col flex-1 p-5 pt-4">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="max-w-[145px] truncate rounded-lg bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+            {subjectLabel}
+          </span>
+          <span className="text-[10px] font-semibold text-muted-foreground/60">Source #{item.targetId}</span>
+        </div>
+        <h3 className="line-clamp-2 flex-1 font-display text-base font-semibold leading-snug">{item.title}</h3>
 
       <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
         <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
@@ -188,7 +199,7 @@ function ItemCard({
       <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-4">
         <div className="flex items-center gap-3 text-xs">
           <span className="inline-flex items-center gap-1 font-semibold text-amber-600">
-            <Star size={13} className={rating ? "fill-current" : ""} /> {rating ? rating.toFixed(1) : "N/A"}
+            <Star size={13} className={(item.reviewCount != null && item.reviewCount > 0) ? "fill-current" : ""} /> {displayRating}
           </span>
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <Download size={13} /> {formatNumber(item.downloadCount)}
@@ -203,6 +214,7 @@ function ItemCard({
         >
           Clone
         </button>
+      </div>
       </div>
     </motion.article>
   );
@@ -392,7 +404,12 @@ export default function CommunityPage() {
         `Đã clone ${typeStyle[item.targetType].label}: bản sao #${cloneResult.id}, nguồn #${cloneResult.clonedFromId ?? item.targetId}.`,
       );
     } catch (err: any) {
-      Notify.failure(err?.message || "Clone thất bại.");
+      const errCode = err?.response?.data?.code || err?.code || "";
+      if (errCode === "DUPLICATE_CLONE" || err?.response?.status === 409) {
+        Notify.warning("⚠️ Bạn đã clone tài nguyên này rồi! Không thể clone lại.");
+      } else {
+        Notify.failure(err?.message || "Clone thất bại.");
+      }
     } finally {
       Loading.remove();
     }
@@ -417,11 +434,13 @@ export default function CommunityPage() {
       author: selectedItem.creatorName || "Ẩn danh",
       subject: selectedItem.subjectId ? (subjectMap.get(selectedItem.subjectId) || `Môn #${selectedItem.subjectId}`) : "Chưa gắn môn",
       downloads: selectedItem.downloadCount || 0,
-      rating: ratingFromAcceptPercentage(selectedItem.acceptPercentage) || 0,
+      rating: (selectedItem.reviewCount != null && selectedItem.reviewCount > 0) ? ratingFromAcceptPercentage(selectedItem.acceptPercentage) : "N/A",
+      reviewCount: selectedItem.reviewCount || 0,
+      acceptPercentage: selectedItem.acceptPercentage || 0,
       kind: (selectedItem.targetType === "DOCUMENT" ? "doc" : selectedItem.targetType === "QUIZ" ? "quiz" : "deck") as "doc" | "quiz" | "deck",
       isVerified: true,
     };
-    return <CommunityDetailPage item={detailItem} onBack={() => setSelectedItem(null)} />;
+    return <CommunityDetailPage item={detailItem} onBack={() => setSelectedItem(null)} onClone={() => cloneItem(selectedItem)} />;
   }
 
   return (

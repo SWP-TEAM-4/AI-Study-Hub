@@ -81,6 +81,11 @@ public class MarketplaceCloneService {
             throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
         }
 
+        // 3a. Kiểm tra trùng lặp: Người dùng đã clone tài liệu này chưa?
+        if (documentRepository.existsByUserIdAndClonedFromId(currentUser.getId(), documentId)) {
+            throw new AppException(ErrorCode.DUPLICATE_CLONE);
+        }
+
         // 4. Tạo đối tượng Document bản sao, copy toàn bộ nội dung từ bản gốc
         Document clonedDoc = Document.builder()
                 .user(currentUser) // Người sở hữu mới là người dùng hiện tại
@@ -154,6 +159,11 @@ public class MarketplaceCloneService {
         if (originalQuiz.getVisibility() != Visibility.MARKETPLACE
                 || originalQuiz.getMarketStatus() != MarketStatus.APPROVED) {
             throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
+        }
+
+        // 3a. Kiểm tra trùng lặp: Người dùng đã clone quiz này chưa?
+        if (quizRepository.existsByCreatorIdAndClonedFromId(currentUser.getId(), quizId)) {
+            throw new AppException(ErrorCode.DUPLICATE_CLONE);
         }
 
         // 4. Kiểm tra Notebook đích nếu người dùng yêu cầu liên kết trực tiếp vào Notebook
@@ -250,6 +260,11 @@ public class MarketplaceCloneService {
         if (originalDeck.getVisibility() != Visibility.MARKETPLACE
                 || originalDeck.getMarketStatus() != MarketStatus.APPROVED) {
             throw new AppException(ErrorCode.CONTENT_NOT_MARKETPLACE);
+        }
+
+        // 3a. Kiểm tra trùng lặp: Người dùng đã clone bộ thẻ này chưa?
+        if (flashcardDeckRepository.existsByUserIdAndClonedFromId(currentUser.getId(), deckId)) {
+            throw new AppException(ErrorCode.DUPLICATE_CLONE);
         }
 
         // 4. Kiểm tra Notebook đích nếu người dùng yêu cầu liên kết

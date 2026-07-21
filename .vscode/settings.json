@@ -1,3 +1,15 @@
 {
-    "java.compile.nullAnalysis.mode": "disabled"
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-images/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/build/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/dist": true,
+    "**/build": true
+  }
 }

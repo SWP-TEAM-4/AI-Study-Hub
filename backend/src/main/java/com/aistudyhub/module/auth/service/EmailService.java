@@ -204,63 +204,74 @@ public class EmailService {
 
   private String buildWelcomeHtml(String fullName) {
     return """
-        <!DOCTYPE html>
+       <!DOCTYPE html>
         <html lang="vi">
         <head>
           <meta charset="UTF-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
           <title>Chào mừng – AI Study Hub</title>
         </head>
-        <body style="margin:0;padding:0;background:#0f0f1a;font-family:'Segoe UI',Arial,sans-serif;">
-          <table width="100%%" cellpadding="0" cellspacing="0" style="background:#0f0f1a;padding:40px 0;">
+        <body style="margin:0;padding:0;background:#ffffff;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+          <!-- Khung căn giữa màn hình -->
+          <table width="100%%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:40px 0;">
             <tr>
               <td align="center">
-                <table width="560" cellpadding="0" cellspacing="0"
-                       style="background:#1a1a2e;border-radius:16px;overflow:hidden;
-                              box-shadow:0 8px 32px rgba(99,102,241,0.25);">
-
-                  <!-- Header -->
+                <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;text-align:center;">
+                  
+                  <!-- Logo Text -->
                   <tr>
-                    <td style="background:linear-gradient(135deg,#6366f1 0%%,#8b5cf6 50%%,#06b6d4 100%%);
-                                padding:36px 40px;text-align:center;">
-                      <h1 style="margin:0;color:#fff;font-size:24px;font-weight:700;">AI Study Hub</h1>
-                      <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">
-                        Nền tảng học tập thông minh
-                      </p>
+                    <td align="center" style="padding-bottom:20px;">
+                      <h1 style="color:#cecece; font-size:28px; margin:0; letter-spacing: -1px; font-weight:800;">ai study hub</h1>
                     </td>
                   </tr>
 
-                  <!-- Body -->
+                  <!-- Hero Image (Đã thay bằng ảnh localhost của bạn) -->
                   <tr>
-                    <td style="padding:40px 40px 32px;">
-                      <h2 style="margin:0 0 16px;color:#e2e8f0;font-size:20px;font-weight:600;">
-                        Chào mừng, %s!
-                      </h2>
-                      <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-                        Tài khoản của bạn đã được tạo thành công trên <strong style="color:#a5b4fc;">AI Study Hub</strong>.<br/>
-                        Bắt đầu hành trình học tập thông minh ngay hôm nay!
+                    <td align="center" style="padding-bottom:25px; padding-left:20px; padding-right:20px;">
+                      <img src="http://localhost:5173/images/5d45a6737c5aadc9b85af3a585a72149.png" 
+                           alt="AI Study Hub Banner" 
+                           style="display:block; width:100%%; max-width:520px; height:auto; border-radius:16px;" />
+                    </td>
+                  </tr>
+
+                  <!-- Lời chào & Nút CTA Chính -->
+                  <tr>
+                    <td align="center" style="padding: 0 40px;">
+                      <h2 style="color:#4b4b4b; font-size:24px; font-weight:700; margin:0 0 15px;">Chào mừng, %s!</h2>
+                      <p style="color:#777777; font-size:16px; line-height:1.6; margin:0 0 25px;">
+                        Tài khoản của bạn đã được thiết lập thành công. Chào mừng bạn đến với AI Study Hub, nền tảng học tập thông minh nhất dành cho bạn!
                       </p>
+                      <a href="http://localhost:3000" 
+                         style="display:inline-block; padding:15px 40px; background:#1cb0f6; color:#ffffff; 
+                                text-decoration:none; border-radius:14px; font-size:15px; font-weight:bold; 
+                                text-transform:uppercase; border-bottom: 4px solid #1899d6;">
+                         HỌC NGAY NÀO
+                      </a>
+                    </td>
+                  </tr>
 
-                      <!-- Feature highlights -->
-                      <div style="background:#111827;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
-                        <p style="margin:0 0 12px;color:#6366f1;font-size:13px;font-weight:600;
-                                   text-transform:uppercase;letter-spacing:1px;">Tính năng nổi bật</p>
-                        <p style="margin:0 0 8px;color:#cbd5e1;font-size:14px;">Chat AI theo từng tài liệu học tập</p>
-                        <p style="margin:0 0 8px;color:#cbd5e1;font-size:14px;">Tạo Quiz, Test & Flashcard tự động</p>
-                        <p style="margin:0 0 8px;color:#cbd5e1;font-size:14px;">Quản lý Notebook & Document thông minh</p>
-                        <p style="margin:0;color:#cbd5e1;font-size:14px;">Chia sẻ nội dung trên Marketplace</p>
-                      </div>
+                  <!-- Đường kẻ phân cách -->
+                  <tr>
+                    <td align="center" style="padding: 40px 0;">
+                      <hr style="border:none; border-top: 1px solid #e5e5e5; width: 100%%; margin:0;">
+                    </td>
+                  </tr>
 
+                  <!-- Tính năng 1 -->
+                  <tr>
+                    <td align="left" style="padding: 0 20px;">
                       <table width="100%%" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td align="center">
-                            <a href="http://localhost:3000"
-                               style="display:inline-block;padding:14px 36px;
-                                      background:linear-gradient(135deg,#6366f1,#8b5cf6);
-                                      color:#fff;text-decoration:none;border-radius:10px;
-                                      font-size:15px;font-weight:600;
-                                      box-shadow:0 4px 16px rgba(99,102,241,0.4);">
-                               Bắt đầu học ngay
+                          <td width="100" align="center" valign="top">
+                            <div style="font-size: 65px; line-height: 1;">🔥</div>
+                          </td>
+                          <td valign="top" style="padding-left: 20px;">
+                            <h3 style="color:#4b4b4b; font-size:18px; margin:0 0 10px;">Bí kíp: Ôn tập hiệu quả</h3>
+                            <p style="color:#777777; font-size:15px; line-height:1.5; margin:0 0 15px;">
+                              Tạo thói quen vững chắc! Tự động tạo Quiz, Test & Flashcard từ tài liệu của bạn để giữ vững phong độ học tập mỗi ngày.
+                            </p>
+                            <a href="http://localhost:3000" style="color:#1cb0f6; font-weight:bold; text-decoration:none; font-size: 14px; text-transform:uppercase;">
+                              LUYỆN TẬP NGAY
                             </a>
                           </td>
                         </tr>
@@ -268,13 +279,57 @@ public class EmailService {
                     </td>
                   </tr>
 
+                  <!-- Đường kẻ phân cách -->
+                  <tr>
+                    <td align="center" style="padding: 40px 0;">
+                      <hr style="border:none; border-top: 1px solid #e5e5e5; width: 100%%; margin:0;">
+                    </td>
+                  </tr>
+
+                  <!-- Tính năng 2 -->
+                  <tr>
+                    <td align="left" style="padding: 0 20px;">
+                      <table width="100%%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td valign="top" style="padding-right: 20px; text-align:left;">
+                            <h3 style="color:#4b4b4b; font-size:18px; margin:0 0 10px;">Lộ trình học cá nhân hóa</h3>
+                            <p style="color:#777777; font-size:15px; line-height:1.5; margin:0;">
+                              Sắp xếp Notebook khoa học và trò chuyện cùng Trợ lý AI theo từng bài giảng để tiết kiệm tối đa thời gian tìm kiếm kiến thức.
+                            </p>
+                          </td>
+                          <td width="110" align="center" valign="top">
+                            <div style="font-size: 70px; line-height: 1;">📱</div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  
+                  <!-- Nút CTA phụ trợ -->
+                  <tr>
+                    <td align="center" style="padding-top: 30px;">
+                      <a href="http://localhost:3000" 
+                         style="display:inline-block; padding:15px 40px; background:#1cb0f6; color:#ffffff; 
+                                text-decoration:none; border-radius:14px; font-size:15px; font-weight:bold; 
+                                text-transform:uppercase; border-bottom: 4px solid #1899d6;">
+                         TÌM HIỂU THÊM
+                      </a>
+                    </td>
+                  </tr>
+
+                  <!-- Đường kẻ phân cách -->
+                  <tr>
+                    <td align="center" style="padding: 40px 0 30px;">
+                      <hr style="border:none; border-top: 1px solid #e5e5e5; width: 100%%; margin:0;">
+                    </td>
+                  </tr>
+
                   <!-- Footer -->
                   <tr>
-                    <td style="background:#111827;padding:20px 40px;text-align:center;
-                                border-top:1px solid #1f2937;">
-                      <p style="margin:0;color:#4b5563;font-size:12px;">
-                        © 2026 AI Study Hub – FPT University SWP391 Team 4<br/>
-                        Email này được gửi tự động, vui lòng không reply.
+                    <td align="center" style="padding: 0 40px;">
+                      <p style="color:#afafaf; font-size:12px; line-height:1.6; margin:0;">
+                        © 2026 AI Study Hub – FPT University SWP391 Team 4<br>
+                        Email này được gửi tự động, vui lòng không trả lời.
                       </p>
                     </td>
                   </tr>

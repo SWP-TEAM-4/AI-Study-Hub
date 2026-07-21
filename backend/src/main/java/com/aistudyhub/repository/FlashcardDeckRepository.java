@@ -14,6 +14,9 @@ import java.util.List;
 public interface FlashcardDeckRepository
                 extends JpaRepository<FlashcardDeck, Long>, JpaSpecificationExecutor<FlashcardDeck> {
 
+        boolean existsByUserIdAndClonedFromId(Long userId, Long clonedFromId);
+
+
         @Query("""
                         SELECT f.user.id AS userId,
                                COUNT(f.id) AS approvedContents,

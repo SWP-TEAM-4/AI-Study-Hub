@@ -15,6 +15,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { userService } from "../../services/userService";
 import { SkeletonCard } from "../ui/SkeletonCard";
+import { useAuthStore } from "../../store/useAuthStore";
 
 const containerVariants = {
   hidden: { opacity: 0, y: 15 },
@@ -62,6 +63,19 @@ const mockWeekActivity = [
 
 export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
   const [activeIdx, setActiveIdx] = React.useState<number | null>(null);
+  const { user } = useAuthStore();
+  const userId = user?.userId;
+  const [localSecondsTrigger, setLocalSecondsTrigger] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleUpdate = () => {
+      setLocalSecondsTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("studyTimeUpdated", handleUpdate);
+    return () => {
+      window.removeEventListener("studyTimeUpdated", handleUpdate);
+    };
+  }, []);
 
   const { data: apiTestHistory, isLoading } = useQuery({
     queryKey: ["weekActivityRealtime"],
@@ -73,13 +87,12 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
         return [];
       }
     },
-    staleTime: 0,
-    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    staleTime: 60000, // Cache results for 1 minute since active time is tracked locally
     refetchOnWindowFocus: true,
   });
 
   // Fallback to mock data if API is empty or loading
-  const chartData = React.useMemo(() => {
+  const [chartData, lastWeekTotal] = React.useMemo(() => {
     // Initialize days of the week (T2 - CN)
     const days = [
       { d: "T2", minutes: 0 },
@@ -90,10 +103,6 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
       { d: "T7", minutes: 0 },
       { d: "CN", minutes: 0 },
     ];
-
-    if (!apiTestHistory || apiTestHistory.length === 0) {
-      return mockWeekActivity;
-    }
 
     // Get current week range (Monday - Sunday)
     const today = new Date();
@@ -107,33 +116,101 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 7);
 
-    // Sum test durations (in minutes) for each day of the current week
-    apiTestHistory.forEach((test: any) => {
-      if (!test.createdAt) return;
-      const testDate = new Date(test.createdAt);
-      if (testDate >= startOfWeek && testDate < endOfWeek) {
-        const dayOfWeek = testDate.getDay(); // 0 (Sun) to 6 (Sat)
-        const targetIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        days[targetIndex].minutes += test.duration || 15; // default to 15 mins if duration is null/0
+    // 1. Sum test durations (in minutes) for each day of the current week from API
+    if (apiTestHistory && apiTestHistory.length > 0) {
+      apiTestHistory.forEach((test: any) => {
+        if (!test.createdAt) return;
+        const testDate = new Date(test.createdAt);
+        if (testDate >= startOfWeek && testDate < endOfWeek) {
+          const dayOfWeek = testDate.getDay(); // 0 (Sun) to 6 (Sat)
+          const targetIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          days[targetIndex].minutes += test.duration || 15; // default to 15 mins if duration is null/0
+        }
+      });
+    }
+
+    // 2. Fetch and merge real-time active study time from localStorage
+    if (userId) {
+      for (let i = 0; i < 7; i++) {
+        const targetDate = new Date(startOfWeek);
+        targetDate.setDate(startOfWeek.getDate() + i);
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+        const date = String(targetDate.getDate()).padStart(2, "0");
+        const dateString = `${year}-${month}-${date}`;
+        
+        const storageKey = `study_seconds_${userId}_${dateString}`;
+        const activeSeconds = parseInt(localStorage.getItem(storageKey) || "0", 10);
+        const activeMinutes = Math.round(activeSeconds / 60);
+
+        // We use the maximum of either test history minutes or real-time active minutes
+        days[i].minutes = Math.max(days[i].minutes, activeMinutes);
       }
-    });
+    }
+
+    // 3. Compute last week's total study minutes
+    let computedLastWeekTotal = 0;
+    const startOfLastWeek = new Date(startOfWeek);
+    startOfLastWeek.setDate(startOfWeek.getDate() - 7);
+    const endOfLastWeek = new Date(startOfWeek);
+
+    const lastWeekDays = [0, 0, 0, 0, 0, 0, 0];
+
+    if (apiTestHistory && apiTestHistory.length > 0) {
+      apiTestHistory.forEach((test: any) => {
+        if (!test.createdAt) return;
+        const testDate = new Date(test.createdAt);
+        if (testDate >= startOfLastWeek && testDate < endOfLastWeek) {
+          const dayOfWeek = testDate.getDay();
+          const targetIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          lastWeekDays[targetIndex] += test.duration || 15;
+        }
+      });
+    }
+
+    if (userId) {
+      for (let i = 0; i < 7; i++) {
+        const targetDate = new Date(startOfLastWeek);
+        targetDate.setDate(startOfLastWeek.getDate() + i);
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+        const date = String(targetDate.getDate()).padStart(2, "0");
+        const dateString = `${year}-${month}-${date}`;
+        
+        const storageKey = `study_seconds_${userId}_${dateString}`;
+        const activeSeconds = parseInt(localStorage.getItem(storageKey) || "0", 10);
+        const activeMinutes = Math.round(activeSeconds / 60);
+
+        lastWeekDays[i] = Math.max(lastWeekDays[i], activeMinutes);
+      }
+    }
+
+    computedLastWeekTotal = lastWeekDays.reduce((sum, mins) => sum + mins, 0);
 
     const totalRealMinutes = days.reduce((sum, d) => sum + d.minutes, 0);
     // If the user has history but no activity this week, we show real zeros, otherwise if history is completely empty we show mock data
-    if (totalRealMinutes === 0 && apiTestHistory.length === 0) {
-      return mockWeekActivity;
+    if (totalRealMinutes === 0 && (!apiTestHistory || apiTestHistory.length === 0)) {
+      return [mockWeekActivity, 0] as const;
     }
 
-    return days;
-  }, [apiTestHistory]);
+    return [days, computedLastWeekTotal] as const;
+  }, [apiTestHistory, userId, localSecondsTrigger]);
 
-  const { totalMinutes, avgMinutes, maxMinutes, peakIdx } = React.useMemo(() => {
+  const { totalMinutes, avgMinutes, maxMinutes, peakIdx, progressPercent } = React.useMemo(() => {
     const total = chartData.reduce((acc: number, curr: any) => acc + curr.minutes, 0);
     const avg = Math.round(total / chartData.length);
     const max = Math.max(...chartData.map((d: any) => d.minutes));
     const peak = chartData.findIndex((d: any) => d.minutes === max);
-    return { totalMinutes: total, avgMinutes: avg, maxMinutes: max, peakIdx: peak };
-  }, [chartData]);
+
+    let progress = 0;
+    if (lastWeekTotal > 0) {
+      progress = Math.round(((total - lastWeekTotal) / lastWeekTotal) * 100);
+    } else if (total > 0) {
+      progress = 100;
+    }
+
+    return { totalMinutes: total, avgMinutes: avg, maxMinutes: max, peakIdx: peak, progressPercent: progress };
+  }, [chartData, lastWeekTotal]);
 
   if (isLoading) {
     return <SkeletonCard />;
@@ -310,8 +387,12 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
         </div>
 
         <div className="flex shrink-0 flex-col sm:items-end gap-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-4 py-2 text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400 font-serif">
-            +24% TIẾN BỘ!
+          <div className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-extrabold font-serif ${
+            progressPercent >= 0 
+              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" 
+              : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+          }`}>
+            {progressPercent >= 0 ? `+${progressPercent}%` : `${progressPercent}%`} TIẾN BỘ!
           </div>
           <p className="text-[13px] font-bold text-muted-foreground">
             TB: {avgMinutes} phút/ngày

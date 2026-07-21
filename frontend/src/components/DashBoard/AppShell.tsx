@@ -46,6 +46,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { FeedbackModal } from "../ui/FeedbackModal";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCapabilities } from "../../hooks/useCapabilities";
+import { useStudyTimeTracker } from "../../hooks/useStudyTimeTracker";
 
 
 const nav = [
@@ -138,6 +139,7 @@ const NavItem = ({ active, icon: Icon, label, onClick, pathOrId }: { active: boo
 };
 
 export function AppShell() {
+  useStudyTimeTracker();
   const navigate = useNavigate();
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith("/admin");
@@ -271,7 +273,6 @@ export function AppShell() {
     >
       <style dangerouslySetInnerHTML={{
         __html: `
-          @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800;900&family=Quicksand:wght@400;600;700&display=swap');
           .font-nunito { font-family: 'Nunito', sans-serif; }
           .font-quicksand { font-family: 'Quicksand', sans-serif; }
           .chameleon-sidebar-nav::-webkit-scrollbar { display: none; }
@@ -571,33 +572,33 @@ export function AppShell() {
         <main id="main-scroll-container" className="flex-1 lg:pl-[104px] px-4 md:px-6 lg:pr-8 pt-[72px] lg:pt-[88px] pb-24 lg:pb-8 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative z-0">
           {/* Background Gradient Orbs */}
           <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-            {/* Light mode orbs — warm forest green */}
+            {/* Light mode orbs — warm orange/indigo/cyan */}
             <div className="absolute -top-[10%] -left-[5%] w-[55vw] h-[55vw] max-w-[600px] max-h-[600px] rounded-full
-              bg-gradient-to-br from-emerald-100/80 via-teal-100/60 to-transparent
+              bg-gradient-to-br from-orange-100/60 via-amber-50/40 to-transparent
               blur-[100px] dark:hidden" />
 
             <div className="absolute top-[40%] -right-[10%] w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] rounded-full
-              bg-gradient-to-bl from-green-100/70 via-emerald-50/50 to-transparent
+              bg-gradient-to-bl from-indigo-100/60 via-sky-50/40 to-transparent
               blur-[90px] dark:hidden" />
 
             <div className="absolute -bottom-[5%] left-[20%] w-[40vw] h-[40vw] max-w-[400px] max-h-[400px] rounded-full
-              bg-gradient-to-tr from-cyan-100/60 via-teal-50/40 to-transparent
+              bg-gradient-to-tr from-cyan-100/50 via-teal-50/30 to-transparent
               blur-[80px] dark:hidden" />
 
-            {/* Dark mode orbs — ocean emerald */}
+            {/* Dark mode orbs — neon fire & deep space */}
             <div className="absolute -top-[10%] left-[10%] w-[60vw] h-[60vw] max-w-[700px] max-h-[700px] rounded-full
               hidden dark:block
-              bg-[radial-gradient(ellipse_at_center,rgba(52,211,153,0.12)_0%,transparent_70%)]
+              bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.06)_0%,transparent_70%)]
               blur-[120px] animate-[aurora-pulse_10s_ease-in-out_infinite_alternate]" />
 
             <div className="absolute top-[50%] -right-[5%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full
               hidden dark:block
-              bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.09)_0%,transparent_70%)]
+              bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08)_0%,transparent_70%)]
               blur-[110px] animate-[aurora-pulse_14s_ease-in-out_infinite_alternate_3s]" />
 
             <div className="absolute -bottom-[10%] left-[30%] w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] rounded-full
               hidden dark:block
-              bg-[radial-gradient(ellipse_at_center,rgba(167,139,250,0.07)_0%,transparent_70%)]
+              bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.05)_0%,transparent_70%)]
               blur-[100px] animate-[aurora-pulse_12s_ease-in-out_infinite_alternate_6s]" />
           </div>
 

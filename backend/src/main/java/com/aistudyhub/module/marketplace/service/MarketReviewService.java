@@ -15,6 +15,7 @@ import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.module.community.service.RewardBadgeService;
 import com.aistudyhub.module.marketplace.dto.*;
+import com.aistudyhub.module.badge.service.BadgeService;
 import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
@@ -54,7 +55,11 @@ public class MarketReviewService {
     private final MarketplaceSubmissionService marketplaceSubmissionService;
     private final MarketplaceSubmissionRepository marketplaceSubmissionRepository;
     private final ReviewPolicyService reviewPolicyService;
+<<<<<<< HEAD
     private final RewardBadgeService rewardBadgeService;
+=======
+    private final BadgeService badgeService;
+>>>>>>> f0ae75f (fix các yêu cầu community trong gg docs)
 
     // ══════════════════════════════════════════════════════════════════════════
     // GET /api/reviewer/marketplace/pending — Pending Queue
@@ -428,6 +433,15 @@ public class MarketReviewService {
 
         documentRepository.save(document);
 
+        // Auto-grant badge khi document được approve
+        if (document.getMarketStatus() == MarketStatus.APPROVED) {
+            badgeService.autoGrantBadge(
+                    document.getUser().getId(),
+                    "Nhà đóng góp",
+                    "Đã có tài liệu được duyệt lên Marketplace",
+                    null);
+        }
+
         log.info("Document id={} voted by reviewer id={} result={} (reviewCount={}, acceptPct={})",
                 documentId, reviewer.getId(), request.getVoteResult(), totalReviews, acceptPercentage);
         logReviewAction(reviewer.getId(), ActivityTargetType.DOCUMENT, documentId, document.getTitle(),
@@ -486,6 +500,15 @@ public class MarketReviewService {
         });
 
         quizRepository.save(quiz);
+
+        // Auto-grant badge khi quiz được approve
+        if (quiz.getMarketStatus() == MarketStatus.APPROVED) {
+            badgeService.autoGrantBadge(
+                    quiz.getCreator().getId(),
+                    "Nhà đóng góp",
+                    "Đã có Quiz được duyệt lên Marketplace",
+                    null);
+        }
 
         log.info("Quiz id={} voted by reviewer id={} result={} (reviewCount={}, acceptPct={})",
                 quizId, reviewer.getId(), request.getVoteResult(), totalReviews, acceptPercentage);
@@ -546,6 +569,15 @@ public class MarketReviewService {
 
         flashcardDeckRepository.save(deck);
 
+        // Auto-grant badge khi flashcard deck được approve
+        if (deck.getMarketStatus() == MarketStatus.APPROVED) {
+            badgeService.autoGrantBadge(
+                    deck.getUser().getId(),
+                    "Nhà đóng góp",
+                    "Đã có bộ Flashcard được duyệt lên Marketplace",
+                    null);
+        }
+
         log.info("FlashcardDeck id={} voted by reviewer id={} result={} (reviewCount={}, acceptPct={})",
                 deckId, reviewer.getId(), request.getVoteResult(), totalReviews, acceptPercentage);
         logReviewAction(reviewer.getId(), ActivityTargetType.FLASHCARD_DECK, deckId, deck.getTitle(),
@@ -576,6 +608,8 @@ public class MarketReviewService {
         review = marketReviewRepository.save(review);
 
         notifyAuthor(document.getUser().getId(), document.getTitle(), true);
+        badgeService.autoGrantBadge(document.getUser().getId(), "Nhà đóng góp",
+                "Đã có tài liệu được duyệt lên Marketplace", null);
         logReviewAction(admin.getId(), ActivityTargetType.DOCUMENT, documentId, document.getTitle(),
                 document.getSubject() != null ? document.getSubject().getCode() : null,
                 "APPROVED", review.getId(), document.getReviewCount(),
@@ -601,6 +635,8 @@ public class MarketReviewService {
         review = marketReviewRepository.save(review);
 
         notifyAuthor(quiz.getCreator().getId(), quiz.getTitle(), true);
+        badgeService.autoGrantBadge(quiz.getCreator().getId(), "Nhà đóng góp",
+                "Đã có Quiz được duyệt lên Marketplace", null);
         logReviewAction(admin.getId(), ActivityTargetType.QUIZ, quizId, quiz.getTitle(),
                 quiz.getSubject() != null ? quiz.getSubject().getCode() : null,
                 "APPROVED", review.getId(), quiz.getReviewCount(),
@@ -626,6 +662,8 @@ public class MarketReviewService {
         review = marketReviewRepository.save(review);
 
         notifyAuthor(deck.getUser().getId(), deck.getTitle(), true);
+        badgeService.autoGrantBadge(deck.getUser().getId(), "Nhà đóng góp",
+                "Đã có bộ Flashcard được duyệt lên Marketplace", null);
         logReviewAction(admin.getId(), ActivityTargetType.FLASHCARD_DECK, deckId, deck.getTitle(),
                 deck.getSubject() != null ? deck.getSubject().getCode() : null,
                 "APPROVED", review.getId(), deck.getReviewCount(),

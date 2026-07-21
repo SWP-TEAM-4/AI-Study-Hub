@@ -9,6 +9,4 @@ import java.util.Optional;
 public interface BadgeRepository extends JpaRepository<Badge, Long> {
 
     List<Badge> findAllByOrderByCreatedAtDescIdDesc();
-
-    Optional<Badge> findFirstByNameIgnoreCaseOrderByIdAsc(String name);
 }

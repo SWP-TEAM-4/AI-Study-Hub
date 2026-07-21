@@ -287,7 +287,7 @@ const NotebookSkeletonCard = ({ index }: { index: number }) => (
       </div>
       <div className="flex justify-between items-center pt-2 border-t border-slate-200/40">
         <div className="h-4 w-20 bg-slate-200/70 rounded" />
-        <div className="h-7 w-7 bg-slate-200/80 rounded-lg" />
+        <div className="h-7 w-7 bg-slate-200/80 rounded-lg animate-pulse" />
       </div>
     </div>
   </motion.div>
@@ -295,11 +295,11 @@ const NotebookSkeletonCard = ({ index }: { index: number }) => (
 
 const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }: any) => {
   const THEMES = [
-    { bg: "bg-indigo-50 dark:bg-indigo-500/10", border: "border-indigo-200 dark:border-indigo-500/20", accent: "bg-indigo-500", text: "text-indigo-700 dark:text-indigo-400" },
-    { bg: "bg-teal-50 dark:bg-teal-500/10", border: "border-teal-200 dark:border-teal-500/20", accent: "bg-teal-500", text: "text-teal-700 dark:text-teal-400" },
-    { bg: "bg-rose-50 dark:bg-rose-500/10", border: "border-rose-200 dark:border-rose-500/20", accent: "bg-rose-500", text: "text-rose-700 dark:text-rose-400" },
-    { bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20", accent: "bg-amber-500", text: "text-amber-700 dark:text-amber-400" },
-    { bg: "bg-sky-50 dark:bg-sky-500/10", border: "border-sky-200 dark:border-sky-500/20", accent: "bg-sky-500", text: "text-sky-700 dark:text-sky-400" },
+    { bg: "bg-indigo-50/50 dark:bg-indigo-950/15", border: "border-indigo-100 dark:border-indigo-500/20", accent: "bg-indigo-500", text: "text-indigo-700 dark:text-indigo-400", hoverText: "group-hover:text-indigo-600 dark:group-hover:text-indigo-400" },
+    { bg: "bg-teal-50/50 dark:bg-teal-950/15", border: "border-teal-100 dark:border-teal-500/20", accent: "bg-teal-500", text: "text-teal-700 dark:text-teal-400", hoverText: "group-hover:text-teal-600 dark:group-hover:text-teal-400" },
+    { bg: "bg-rose-50/50 dark:bg-rose-950/15", border: "border-rose-100 dark:border-rose-500/20", accent: "bg-rose-500", text: "text-rose-700 dark:text-rose-400", hoverText: "group-hover:text-rose-600 dark:group-hover:text-rose-400" },
+    { bg: "bg-amber-50/50 dark:bg-amber-950/15", border: "border-amber-100 dark:border-amber-500/20", accent: "bg-amber-500", text: "text-amber-700 dark:text-amber-400", hoverText: "group-hover:text-amber-600 dark:group-hover:text-amber-400" },
+    { bg: "bg-sky-50/50 dark:bg-sky-950/15", border: "border-sky-100 dark:border-sky-500/20", accent: "bg-sky-500", text: "text-sky-700 dark:text-sky-400", hoverText: "group-hover:text-sky-600 dark:group-hover:text-sky-400" },
   ];
   const theme = THEMES[index % THEMES.length];
 
@@ -316,10 +316,10 @@ const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }:
         delay: index * 0.04 
       }}
       onClick={onClick}
-      className={`group relative w-full h-[200px] surface-card border-2 border-border rounded-xl shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-300 flex overflow-hidden`}
+      className={`group relative w-full h-[200px] rounded-xl shadow-sm hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-300 flex overflow-hidden border-2 ${theme.border} ${theme.bg}`}
     >
        {/* Spine */}
-       <div className={`w-8 shrink-0 ${theme.accent} flex flex-col justify-evenly items-center py-4 border-r-2 border-border relative`}>
+       <div className={`w-8 shrink-0 ${theme.accent} flex flex-col justify-evenly items-center py-4 border-r-2 ${theme.border} relative`}>
           <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-8 bg-[#1E293B] rounded-b-sm shadow-sm" />
           <div className="w-3.5 h-1.5 bg-white/40 rounded-full" />
           <div className="w-3.5 h-1.5 bg-white/40 rounded-full" />
@@ -327,23 +327,23 @@ const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }:
           <div className="w-3.5 h-1.5 bg-white/40 rounded-full" />
        </div>
 
-       <div className="flex-1 p-5 flex flex-col bg-background dark:bg-black/5 relative">
+       <div className="flex-1 p-5 flex flex-col bg-transparent relative">
           <div className="flex justify-between items-start mb-3">
-            <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${theme.bg} ${theme.text} border ${theme.border}`}>
+            <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-white/80 dark:bg-black/30 ${theme.text} border ${theme.border}`}>
               {getSubjectLabel(nb.subjectId)}
             </span>
             
             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={(e) => { e.stopPropagation(); onEdit(nb); }} className="p-1.5 bg-background border border-border rounded-md text-muted-foreground hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all"><Edit size={14}/></button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete(nb.id, e); }} className="p-1.5 bg-background border border-border rounded-md text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:shadow-sm transition-all"><Trash2 size={14}/></button>
+              <button onClick={(e) => { e.stopPropagation(); onEdit(nb); }} className="p-1.5 bg-white dark:bg-neutral-800 border border-border rounded-md text-muted-foreground hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all"><Edit size={14}/></button>
+              <button onClick={(e) => { e.stopPropagation(); onDelete(nb.id, e); }} className="p-1.5 bg-white dark:bg-neutral-800 border border-border rounded-md text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:shadow-sm transition-all"><Trash2 size={14}/></button>
             </div>
           </div>
           
-          <h3 className="text-[17px] font-bold text-foreground leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+          <h3 className={`text-[17px] font-bold text-foreground leading-snug line-clamp-2 ${theme.hoverText} transition-colors`}>
             {nb.title}
           </h3>
 
-          <div className="mt-auto pt-4 border-t-2 border-dashed border-border flex items-center justify-between">
+          <div className={`mt-auto pt-4 border-t-2 border-dashed ${theme.border} flex items-center justify-between`}>
             <div className="flex items-center gap-1.5 text-muted-foreground font-medium text-sm">
               <FolderOpen size={16} className={theme.text} />
               <span>{nb.documentCount || 0} tài liệu</span>
@@ -351,15 +351,15 @@ const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }:
             
             <motion.div 
               whileHover={{ x: 3 }}
-              className={`w-8 h-8 rounded-md flex items-center justify-center ${theme.bg} ${theme.text} border ${theme.border}`}
+              className={`w-8 h-8 rounded-md flex items-center justify-center bg-white/80 dark:bg-black/30 ${theme.text} border ${theme.border}`}
             >
                <ArrowRight size={16} />
             </motion.div>
           </div>
        </div>
     </motion.div>
-  )
-}
+  );
+};
 
 const AnimatedSelect = ({ value, onChange, options, placeholder }: { value: string, onChange: (v: string) => void, options: {label: string, value: string}[], placeholder: string }) => {
   const [isOpen, setIsOpen] = useState(false);

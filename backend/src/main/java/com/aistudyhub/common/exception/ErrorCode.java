@@ -146,6 +146,7 @@ public enum ErrorCode {
         CONTENT_NOT_APPROVED("CONTENT_NOT_APPROVED", "Content is not approved for marketplace", HttpStatus.BAD_REQUEST),
         CONTENT_NOT_MARKETPLACE("CONTENT_NOT_MARKETPLACE", "Content is not available in marketplace",
                         HttpStatus.NOT_FOUND),
+        DUPLICATE_CLONE("DUPLICATE_CLONE", "Bạn đã clone tài nguyên này rồi. Không thể clone lại.", HttpStatus.CONFLICT),
 
         // ── Governance ────────────────────────────────────────────────────────────
         REPORT_NOT_FOUND("REPORT_NOT_FOUND", "Report not found", HttpStatus.NOT_FOUND),
