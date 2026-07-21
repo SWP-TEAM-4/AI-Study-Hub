@@ -1,4 +1,6 @@
 import { ApiResponse } from "./types";
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
 
 // --- DTOs ---
 
@@ -25,7 +27,7 @@ export interface ComboDTO {
 const BASE_URL = "/api";
 
 async function academicRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
 
   if (token) {
@@ -39,13 +41,13 @@ async function academicRequest<T>(endpoint: string, options: RequestInit = {}): 
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  const result = safeParseJson<any>(text, {});
 
   if (response.status === 401) {
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
@@ -90,7 +92,7 @@ let mockComboSubjects: Record<number, number[]> = {
 async function publicRequest<T>(endpoint: string): Promise<T> {
   const response = await fetch(`/api${endpoint}`);
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  const result = safeParseJson<any>(text, {});
   if (!response.ok) {
     throw { status: response.status, message: result.message || "Lỗi giao tiếp API", errorCode: result.errorCode };
   }

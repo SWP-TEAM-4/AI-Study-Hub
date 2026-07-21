@@ -23,6 +23,7 @@ import { marketplaceService, AdminContentDTO } from "../services/marketplaceServ
 import { documentService } from "../services/documentService";
 import { Notify } from "notiflix";
 import { useTranslation } from "react-i18next";
+import { safeLocalStorage } from "../utils/safeStorage";
 
 export default function ReviewerPage() {
   const { t } = useTranslation();
@@ -44,7 +45,7 @@ export default function ReviewerPage() {
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const token = localStorage.getItem("auth_token")?.replace(/['"]+/g, '');
+        const token = safeLocalStorage.getItem("auth_token")?.replace(/['"]+/g, '');
         const headers: any = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
         const res = await fetch("/api/subjects?keyword=", { headers });
