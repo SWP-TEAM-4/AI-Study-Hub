@@ -14,6 +14,7 @@ import com.aistudyhub.module.document.dto.DocumentDeleteChunksResponse;
 import com.aistudyhub.module.document.dto.DocumentProcessRequest;
 import com.aistudyhub.module.document.dto.DocumentProcessResponse;
 import com.aistudyhub.module.document.dto.UpdateDocumentChunkRequest;
+import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.repository.DocumentChunkRepository;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.NotebookRepository;
@@ -52,6 +53,7 @@ public class DocumentChunkService {
     private final GeminiChunkingService geminiChunkingService;
     private final OpenAIEmbeddingService openAIEmbeddingService;
     private final AiUsageService aiUsageService;
+    private final CommunityPermissionService communityPermissionService;
     private final PlatformTransactionManager transactionManager;
 
     // ── 1. Process document → chunks ─────────────────────────────────────────
@@ -94,14 +96,11 @@ public class DocumentChunkService {
      */
     @Transactional(readOnly = true)
     public List<DocumentChunkResponse> getChunks(Long documentId, Long userId) {
-        // Validate document exists & ownership
-        Document document = documentRepository.findByIdAndUserId(documentId, userId)
-                .orElseThrow(() -> {
-                    if (documentRepository.existsById(documentId)) {
-                        return new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED);
-                    }
-                    return new AppException(ErrorCode.DOCUMENT_NOT_FOUND);
-                });
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+        if (!document.getUser().getId().equals(userId)) {
+            communityPermissionService.assertReviewerPermissionForDocument(userId, documentId);
+        }
 
         List<DocumentChunk> chunks = documentChunkRepository.findByDocumentIdOrderByChunkIndexAsc(documentId);
 
