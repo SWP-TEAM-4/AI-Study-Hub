@@ -1,6 +1,7 @@
 package com.aistudyhub.module.feedback.controller;
 
 import com.aistudyhub.common.response.ApiResponse;
+import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.module.feedback.dto.CreateSystemFeedbackRequest;
 import com.aistudyhub.module.feedback.dto.SystemFeedbackResponse;
 import com.aistudyhub.module.feedback.service.SystemFeedbackService;
@@ -13,9 +14,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "System Feedback", description = "Người dùng gửi feedback cho hệ thống")
@@ -26,6 +29,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class FeedbackController {
 
     private final SystemFeedbackService systemFeedbackService;
+
+    @Operation(summary = "Xem danh sách feedback của tôi")
+    @GetMapping
+    public ResponseEntity<ApiResponse<PaginationResponse<SystemFeedbackResponse>>> getMyFeedbacks(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "newest") String sort,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        PaginationResponse<SystemFeedbackResponse> response = systemFeedbackService.getMyFeedbacks(
+                principal.getId(),
+                page,
+                size,
+                sort);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 
     @Operation(summary = "Gửi feedback hệ thống")
     @PostMapping

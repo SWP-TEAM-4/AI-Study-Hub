@@ -116,6 +116,24 @@ class BE035Test {
     }
 
     @Test
+    void getMyFeedbacks_ReturnsOnlyCurrentUsersFeedbacks() throws Exception {
+        saveFeedback(student, "Upload bị chậm", "PDF lớn chậm", "/documents/upload", SystemFeedbackStatus.OPEN);
+        saveFeedback(otherStudent, "UI bug", "Nút bị lệch", "/home", SystemFeedbackStatus.IN_PROGRESS);
+        saveFeedback(student, "Upload failed", "Mất kết nối", "/documents/upload", SystemFeedbackStatus.RESOLVED);
+
+        mockMvc.perform(get("/api/feedbacks")
+                        .with(SecurityMockMvcRequestPostProcessors.user(userDetails(student)))
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.items[0].userId").value(student.getId()))
+                .andExpect(jsonPath("$.data.items[1].userId").value(student.getId()));
+    }
+
+    @Test
     void adminUpdateStatus_Success_PersistsAdminNote() throws Exception {
         SystemFeedback feedback = saveFeedback(student,
                 "Upload bị chậm",
