@@ -12,6 +12,8 @@ import com.aistudyhub.module.community.dto.ContentReportRequest;
 import com.aistudyhub.module.community.dto.ContentReportResponse;
 import com.aistudyhub.module.community.service.CommunityPermissionService.ContentTarget;
 import com.aistudyhub.module.reputation.service.ReputationService;
+import com.aistudyhub.module.systemconfig.SystemConfigKeys;
+import com.aistudyhub.module.systemconfig.service.SystemConfigService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
 import jakarta.persistence.criteria.Predicate;
@@ -25,6 +27,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,6 +47,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ContentReportService {
 
+    private static final int DEFAULT_CONTENT_REPORT_DAILY_LIMIT = 10;
+
     private static final java.util.List<String> ALLOWED_REASONS = java.util.List.of(
             "LO_DE_CHINH_QUY",
             "SAI_DAP_AN_CORE",
@@ -60,6 +66,7 @@ public class ContentReportService {
     private final CommunityPermissionService communityPermissionService;
     private final com.aistudyhub.module.notification.service.NotificationService notificationService;
     private final ReputationService reputationService;
+    private final SystemConfigService systemConfigService;
 
     // ── 1. Tạo báo cáo vi phạm ────────────────────────────────────────────────
 
@@ -90,6 +97,7 @@ public class ContentReportService {
         // Bước 2: Chuẩn hóa targetType
         String targetType = normalizeTargetType(request.getTargetType());
         Long targetId = request.getTargetId();
+        enforceDailyReportLimit(userId);
 
         // Bước 3: Build entity với trạng thái mặc định PENDING_ADMIN
         ContentReport report = ContentReport.builder()
@@ -149,6 +157,24 @@ public class ContentReportService {
                 report.getId(), currentUser.getId(), targetType, targetId);
 
         return toResponse(report, targetType, targetId, targetTitle);
+    }
+
+    private void enforceDailyReportLimit(Long userId) {
+        int dailyLimit = systemConfigService.getIntValueOrDefault(
+                SystemConfigKeys.CONTENT_REPORT_DAILY_LIMIT,
+                DEFAULT_CONTENT_REPORT_DAILY_LIMIT);
+        if (dailyLimit <= 0) {
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime dayStart = today.atStartOfDay();
+        LocalDateTime dayEnd = today.plusDays(1).atStartOfDay();
+        long usedToday = contentReportRepository.countByReporterIdAndCreatedAtBetween(userId, dayStart, dayEnd);
+        if (usedToday >= dailyLimit) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Daily content report limit reached. Please try again tomorrow.");
+        }
     }
 
     // ── 2. Student xem danh sách báo cáo của mình ─────────────────────────────

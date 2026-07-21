@@ -20,6 +20,12 @@ public interface QuizRepository extends JpaRepository<Quiz, Long>, JpaSpecificat
 
     Optional<Quiz> findFirstByCreatorIdAndClonedFrom_IdOrderByIdAsc(Long creatorId, Long clonedFromId);
 
+    Page<Quiz> findByCreatorIdAndVisibilityAndMarketStatusOrderByUpdatedAtDesc(
+            Long creatorId,
+            Visibility visibility,
+            MarketStatus marketStatus,
+            Pageable pageable);
+
     @Override
     @EntityGraph(attributePaths = {"notebook", "subject", "creator", "academicTerm"})
     Page<Quiz> findAll(Specification<Quiz> spec, Pageable pageable);

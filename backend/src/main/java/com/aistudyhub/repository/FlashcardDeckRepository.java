@@ -4,6 +4,8 @@ import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.entity.FlashcardDeck;
 import com.aistudyhub.repository.projection.UserContributionStatsProjection;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -16,6 +18,12 @@ public interface FlashcardDeckRepository
                 extends JpaRepository<FlashcardDeck, Long>, JpaSpecificationExecutor<FlashcardDeck> {
 
         Optional<FlashcardDeck> findFirstByUserIdAndClonedFrom_IdOrderByIdAsc(Long userId, Long clonedFromId);
+
+        Page<FlashcardDeck> findByUserIdAndVisibilityAndMarketStatusOrderByUpdatedAtDesc(
+                        Long userId,
+                        Visibility visibility,
+                        MarketStatus marketStatus,
+                        Pageable pageable);
 
         @Query("""
                         SELECT f.user.id AS userId,

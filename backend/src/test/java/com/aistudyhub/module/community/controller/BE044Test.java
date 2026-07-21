@@ -5,6 +5,7 @@ import com.aistudyhub.entity.*;
 import com.aistudyhub.repository.*;
 import com.aistudyhub.security.CustomUserDetails;
 import com.aistudyhub.module.community.service.ContentReportService;
+import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,9 @@ class BE044Test {
 
         @Autowired
         private CommunityRoleRepository communityRoleRepository;
+
+        @Autowired
+        private SystemConfigRepository systemConfigRepository;
 
         @Autowired
         private ContentReportService contentReportService;
@@ -185,6 +189,41 @@ class BE044Test {
                                 .andExpect(jsonPath("$.data.status").value("PENDING_ADMIN"))
                                 .andExpect(jsonPath("$.data.reporterName").value("Normal Student"))
                                 .andExpect(jsonPath("$.data.reporterId").value(student.getId()));
+
+                assertEquals(1, contentReportRepository.count());
+        }
+
+        @Test
+        void createReport_ReturnsBadRequest_WhenDailyReportLimitReached() throws Exception {
+                upsertSystemConfig(SystemConfigKeys.CONTENT_REPORT_DAILY_LIMIT, "1");
+
+                mockMvc.perform(post("/api/reports")
+                                .with(SecurityMockMvcRequestPostProcessors.user(userDetails(student)))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "targetType": "DOCUMENT",
+                                                  "targetId": %d,
+                                                  "reasonType": "COPYRIGHT",
+                                                  "reportDetails": "Report trong giới hạn ngày."
+                                                }
+                                                """.formatted(doc1.getId())))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                mockMvc.perform(post("/api/reports")
+                                .with(SecurityMockMvcRequestPostProcessors.user(userDetails(student)))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {
+                                                  "targetType": "QUIZ",
+                                                  "targetId": %d,
+                                                  "reasonType": "SPAM",
+                                                  "reportDetails": "Report vượt giới hạn ngày."
+                                                }
+                                                """.formatted(quiz1.getId())))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.success").value(false));
 
                 assertEquals(1, contentReportRepository.count());
         }
@@ -653,5 +692,16 @@ class BE044Test {
 
         private CustomUserDetails userDetails(User user) {
                 return new CustomUserDetails(user);
+        }
+
+        private void upsertSystemConfig(String key, String value) {
+                SystemConfig config = systemConfigRepository.findByConfigKey(key)
+                                .orElseGet(() -> SystemConfig.builder()
+                                                .configKey(key)
+                                                .description("BE-044 test config")
+                                                .isPublic(false)
+                                                .build());
+                config.setConfigValue(value);
+                systemConfigRepository.save(config);
         }
 }

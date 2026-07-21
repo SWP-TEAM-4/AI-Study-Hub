@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
+  Award,
   ShieldCheck, 
   XCircle, 
   Clock, 
@@ -19,7 +20,7 @@ import {
   Download,
   ExternalLink
 } from "lucide-react";
-import { marketplaceService, AdminContentDTO } from "../services/marketplaceService";
+import { marketplaceService, type AdminContentDTO } from "../services/marketplaceService";
 import { documentService } from "../services/documentService";
 import { Notify } from "notiflix";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,21 @@ export default function ReviewerPage() {
   const [reviewNote, setReviewNote] = useState("");
   const [isVoting, setIsVoting] = useState(false);
   const [subjectsMap, setSubjectsMap] = useState<Record<number, string>>({});
+  const [lastVoteReward, setLastVoteReward] = useState<{
+    pointsDelta?: number | null;
+    title?: string | null;
+    message?: string | null;
+    targetTitle: string;
+    subjectLabel: string;
+  } | null>(null);
+
+  const resolveSubjectLabel = (item?: any) => {
+    if (!item) return "Không rõ môn";
+    if (item.subject?.code) return item.subject.code;
+    if (item.subjectCode) return item.subjectCode;
+    if (item.subjectId) return subjectsMap[item.subjectId] || `Môn #${item.subjectId}`;
+    return "Không rõ môn";
+  };
 
   useEffect(() => {
     const fetchSubjects = async () => {
@@ -131,12 +147,22 @@ export default function ReviewerPage() {
       );
       
       if (res.success) {
+        const rewardDelta = res.data.reviewerRewardPointsDelta;
+        if (rewardDelta !== undefined && rewardDelta !== null) {
+          setLastVoteReward({
+            pointsDelta: rewardDelta,
+            title: res.data.reviewerRewardTitle,
+            message: res.data.reviewerRewardMessage,
+            targetTitle: detailedInfo?.title || selectedItem.title,
+            subjectLabel: resolveSubjectLabel(detailedInfo || selectedItem),
+          });
+        }
         if (res.data.decisionReached) {
           Notify.success(res.data.submissionStatus === "APPROVED"
-            ? "Nội dung đã đủ điều kiện và được xuất bản."
-            : "Nội dung đã đủ điều kiện và bị từ chối.");
+            ? `Nội dung đã đủ điều kiện và được xuất bản.${rewardDelta ? ` Bạn nhận ${rewardDelta > 0 ? "+" : ""}${rewardDelta} điểm.` : ""}`
+            : `Nội dung đã đủ điều kiện và bị từ chối.${rewardDelta ? ` Bạn nhận ${rewardDelta > 0 ? "+" : ""}${rewardDelta} điểm.` : ""}`);
         } else {
-          Notify.info(`Đã ghi nhận vote (${res.data.totalVotes}/${res.data.requiredVotes}). Nội dung vẫn đang chờ.`);
+          Notify.info(`Đã ghi nhận vote (${res.data.totalVotes}/${res.data.requiredVotes}).${rewardDelta ? ` Bạn nhận ${rewardDelta > 0 ? "+" : ""}${rewardDelta} điểm.` : ""}`);
         }
         // Remove item from queue
         setQueue(prev => prev.filter(c => !(c.targetType === selectedItem.targetType && c.targetId === selectedItem.targetId)));
@@ -216,6 +242,28 @@ export default function ReviewerPage() {
           </div>
         </div>
       </div>
+
+      {lastVoteReward && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-foreground">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 font-bold text-emerald-600">
+                <Award size={16} /> {lastVoteReward.title || "Đã ghi nhận điểm reviewer"}
+              </div>
+              <div className="mt-1 truncate text-xs font-semibold text-muted-foreground">
+                {lastVoteReward.targetTitle} · {lastVoteReward.subjectLabel}
+              </div>
+            </div>
+            <div className="shrink-0 rounded-lg bg-background/70 px-3 py-1 text-right font-mono text-base font-black text-emerald-600">
+              {lastVoteReward.pointsDelta && lastVoteReward.pointsDelta > 0 ? "+" : ""}
+              {lastVoteReward.pointsDelta ?? 0} điểm
+            </div>
+          </div>
+          {lastVoteReward.message && (
+            <div className="mt-2 line-clamp-2 text-xs text-muted-foreground">{lastVoteReward.message}</div>
+          )}
+        </div>
+      )}
 
       {/* ── CHÍNH: CONSOLE MÀN HÌNH ĐÔI ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -320,6 +368,7 @@ export default function ReviewerPage() {
                         <div className="min-w-0">
                           <div className="font-mono text-[10px] text-muted-foreground flex items-center gap-2">
                             <span className="text-primary font-bold">[SIG-{typeLabel}-{item.targetId}]</span>
+                            {item.subjectId && <span>{resolveSubjectLabel(item)}</span>}
                             {item.submittedAt && (
                               <span>
                                 {new Date(item.submittedAt).toLocaleTimeString()}
@@ -419,7 +468,7 @@ export default function ReviewerPage() {
                         <BookOpen size={12} className="text-primary" /> MÔN HỌC
                       </div>
                       <div className="text-xs font-semibold text-foreground mt-1">
-                        {detailedInfo?.subject?.code || (detailedInfo?.subjectId ? subjectsMap[detailedInfo.subjectId] || `Môn #${detailedInfo.subjectId}` : "Không có")}
+                        {resolveSubjectLabel(detailedInfo || selectedItem)}
                       </div>
                     </div>
                     {/* Metric 3 */}
@@ -457,6 +506,22 @@ export default function ReviewerPage() {
                       <div className="text-xs font-bold text-amber-500 mt-1 uppercase">
                         {detailedInfo?.marketStatus || "PENDING"}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-5 rounded-xl border border-primary/15 bg-primary/5 p-3 font-mono text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-primary font-bold">
+                        <ShieldCheck size={14} /> PHẠM VI REVIEWER
+                      </div>
+                      <span className="rounded-full border border-primary/20 bg-background/70 px-2 py-0.5 text-[10px] font-bold text-primary">
+                        {resolveSubjectLabel(detailedInfo || selectedItem)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                      <span>Chính sách: {selectedItem.policyMode === "SINGLE_REVIEWER" ? "Một reviewer" : "Biểu quyết nhiều reviewer"}</span>
+                      <span>Yêu cầu: {selectedItem.requiredVotes ?? detailedInfo?.requiredVotes ?? 1} vote</span>
+                      {selectedItem.adminRequired && <span>Cần admin xử lý khi thiếu reviewer cùng môn</span>}
                     </div>
                   </div>
 

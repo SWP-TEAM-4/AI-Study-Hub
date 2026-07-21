@@ -5,6 +5,8 @@ import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.repository.projection.UserContributionStatsProjection;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -23,6 +25,12 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
     Optional<Document> findFirstByUserIdAndClonedFrom_IdOrderByIdAsc(Long userId, Long clonedFromId);
 
     List<Document> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    Page<Document> findByUserIdAndVisibilityAndMarketStatusOrderByUpdatedAtDesc(
+            Long userId,
+            Visibility visibility,
+            MarketStatus marketStatus,
+            Pageable pageable);
 
     List<Document> findByProcessingStatus(ProcessingStatus status);
 

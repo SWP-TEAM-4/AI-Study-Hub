@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.time.LocalDateTime;
+
 /**
  * Repository cho bảng content_reports.
  * JpaSpecificationExecutor cho phép query linh hoạt với Specification (filter admin).
@@ -24,4 +26,6 @@ public interface ContentReportRepository extends JpaRepository<ContentReport, Lo
     boolean existsByReporterIdAndQuizIdAndStatus(Long reporterId, Long quizId, ReportStatus status);
 
     boolean existsByReporterIdAndFlashcardDeckIdAndStatus(Long reporterId, Long flashcardDeckId, ReportStatus status);
+
+    long countByReporterIdAndCreatedAtBetween(Long reporterId, LocalDateTime from, LocalDateTime to);
 }

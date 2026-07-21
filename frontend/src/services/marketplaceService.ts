@@ -39,6 +39,9 @@ export interface VoteResultDTO {
   requiredVotes: number;
   approvalPercentageRequired: number;
   decisionReached: boolean;
+  reviewerRewardPointsDelta?: number | null;
+  reviewerRewardTitle?: string | null;
+  reviewerRewardMessage?: string | null;
 }
 
 export interface ReviewPolicyDTO {

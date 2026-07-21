@@ -29,7 +29,8 @@ import {
   type MarketplaceItemDTO,
 } from "../services/communityMarketplaceService";
 import { reputationService, type ReputationLeaderboardItemDTO, type ReputationLeaderboardKind } from "../services/reputationService";
-import { badgeService, type BadgeDTO } from "../services/badgeService";
+import { communityService, type CommunityProfileDTO } from "../services/communityService";
+import type { BadgeDTO } from "../services/badgeService";
 import CommunityDetailPage from "./CommunityDetailPage";
 
 type CategoryFilter = CommunityCategory | "leaderboard";
@@ -166,15 +167,15 @@ function BadgeChips({ badges, limit = 2 }: { badges?: BadgeDTO[]; limit?: number
 }
 
 function HonorModal({
-  user,
+  profile,
   loading,
   onClose,
 }: {
-  user: { userId: number; fullName: string; badges: BadgeDTO[] } | null;
+  profile: CommunityProfileDTO | null;
   loading: boolean;
   onClose: () => void;
 }) {
-  if (!user) return null;
+  if (!profile) return null;
 
   return (
     <motion.div
@@ -189,12 +190,19 @@ function HonorModal({
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.96, y: 12 }}
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl"
+        className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h3 className="truncate font-display text-lg font-bold text-foreground">{user.fullName || `User #${user.userId}`}</h3>
-            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">Danh hiệu công khai của thành viên</p>
+        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/10 text-sm font-black text-primary">
+              {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : (profile.fullName || "U").slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate font-display text-lg font-bold text-foreground">{profile.fullName || `User #${profile.userId}`}</h3>
+              <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                {formatNumber(profile.reputationPoints)} reputation · {profile.joinedAt ? `Tham gia ${new Date(profile.joinedAt).toLocaleDateString("vi-VN")}` : `User #${profile.userId}`}
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground">
             <X size={16} />
@@ -202,26 +210,102 @@ function HonorModal({
         </div>
 
         {loading ? (
-          <div className="mt-5 space-y-2">
+          <div className="space-y-2 p-6">
             {Array.from({ length: 3 }).map((_, index) => (
               <div key={index} className="h-14 animate-pulse rounded-xl bg-muted" />
             ))}
           </div>
-        ) : user.badges.length === 0 ? (
-          <p className="mt-5 rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Thành viên này chưa có huy hiệu công khai.</p>
         ) : (
-          <div className="mt-5 grid gap-2">
-            {user.badges.map((badge) => (
-              <div key={badge.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
-                <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
-                  {badge.iconUrl ? <img src={badge.iconUrl} alt="" className="size-6 rounded object-cover" /> : <Award size={17} />}
+          <div className="max-h-[72vh] overflow-y-auto p-6">
+            <div className="grid gap-5 md:grid-cols-[1fr_1fr]">
+              <section>
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-bold"><Award size={15} className="text-amber-500" /> Huy hiệu</h4>
+                {profile.badges.length === 0 ? (
+                  <p className="rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Thành viên này chưa có huy hiệu công khai.</p>
+                ) : (
+                  <div className="grid gap-2">
+                    {profile.badges.slice(0, 5).map((badge) => (
+                      <div key={badge.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
+                          {badge.iconUrl ? <img src={badge.iconUrl} alt="" className="size-5 rounded object-cover" /> : <Award size={16} />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-foreground">{badge.name}</div>
+                          <div className="line-clamp-1 text-xs text-muted-foreground">{badge.description || "Danh hiệu cộng đồng"}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-bold"><Trophy size={15} className="text-primary" /> Top môn</h4>
+                {profile.topSubjects.length === 0 ? (
+                  <p className="rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Chưa có điểm theo môn.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {profile.topSubjects.slice(0, 5).map((subject) => (
+                      <div key={subject.subjectId} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold">{subject.subjectCode || `Môn #${subject.subjectId}`}</div>
+                          <div className="truncate text-xs text-muted-foreground">{subject.subjectName || "Môn học"}</div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-sm font-black text-primary">{formatNumber(subject.score)}</div>
+                          <div className="text-[10px] font-semibold text-muted-foreground">{formatNumber(subject.eventCount)} event</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+
+            <section className="mt-5">
+              <h4 className="mb-2 flex items-center gap-2 text-sm font-bold"><FileText size={15} className="text-emerald-600" /> Đóng góp gần đây</h4>
+              {profile.contributions.length === 0 ? (
+                <p className="rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Chưa có nội dung marketplace đã duyệt.</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {profile.contributions.slice(0, 6).map((item) => (
+                    <div key={`${item.targetType}-${item.targetId}`} className="rounded-xl border border-border bg-muted/15 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{typeStyle[item.targetType]?.label ?? item.targetType}</span>
+                        <span className="text-[10px] font-semibold text-muted-foreground">{item.subjectCode || "No subject"}</span>
+                      </div>
+                      <div className="mt-2 line-clamp-2 text-sm font-bold">{item.title}</div>
+                      <div className="mt-2 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
+                        <span><Download size={11} className="inline" /> {formatNumber(item.downloadCount)}</span>
+                        <span><Star size={11} className="inline" /> {Number(item.communityRatingAvg ?? 0).toFixed(1)}</span>
+                        <span>{formatNumber(item.communityReviewCount)} review</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-bold text-foreground">{badge.name}</div>
-                  <div className="line-clamp-2 text-xs text-muted-foreground">{badge.description || "Danh hiệu cộng đồng"}</div>
+              )}
+            </section>
+
+            <section className="mt-5">
+              <h4 className="mb-2 flex items-center gap-2 text-sm font-bold"><Star size={15} className="text-amber-500" /> Review công khai</h4>
+              {profile.reviewHistory.length === 0 ? (
+                <p className="rounded-xl border border-border bg-muted/25 p-4 text-sm text-muted-foreground">Chưa có review cộng đồng công khai.</p>
+              ) : (
+                <div className="space-y-2">
+                  {profile.reviewHistory.slice(0, 4).map((review) => (
+                    <div key={review.id} className="rounded-xl border border-border bg-muted/15 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="truncate text-sm font-bold">{review.targetTitle || `${review.targetType} #${review.targetId}`}</div>
+                        <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600">
+                          {review.rating ?? "N/A"} sao
+                        </span>
+                      </div>
+                      {review.content && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{review.content}</p>}
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))}
+              )}
+            </section>
           </div>
         )}
       </motion.div>
@@ -441,7 +525,7 @@ export default function CommunityPage() {
   const [subjects, setSubjects] = useState<SubjectDTO[]>([]);
   const [semesters, setSemesters] = useState<SemesterDTO[]>([]);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItemDTO | null>(null);
-  const [selectedHonorUser, setSelectedHonorUser] = useState<{ userId: number; fullName: string; badges: BadgeDTO[] } | null>(null);
+  const [selectedCommunityProfile, setSelectedCommunityProfile] = useState<CommunityProfileDTO | null>(null);
   const [loadingHonorUser, setLoadingHonorUser] = useState(false);
   const [clonedItems, setClonedItems] = useState<Record<string, CloneResultDTO>>({});
   const [loading, setLoading] = useState(true);
@@ -603,15 +687,22 @@ export default function CommunityPage() {
   );
 
   async function openUserHonors(userId: number, fullName: string, initialBadges?: BadgeDTO[]) {
-    setSelectedHonorUser({ userId, fullName, badges: initialBadges ?? [] });
-    if (initialBadges && initialBadges.length > 0) return;
-
+    setSelectedCommunityProfile({
+      userId,
+      fullName,
+      avatarUrl: null,
+      reputationPoints: 0,
+      badges: initialBadges ?? [],
+      topSubjects: [],
+      contributions: [],
+      reviewHistory: [],
+    });
     setLoadingHonorUser(true);
     try {
-      const response = await badgeService.getUserBadges(userId);
-      setSelectedHonorUser({ userId, fullName, badges: response.data ?? [] });
+      const response = await communityService.getCommunityProfile(userId);
+      setSelectedCommunityProfile(response.data);
     } catch (err: any) {
-      Notify.failure(err?.message || "Không tải được danh hiệu thành viên.");
+      Notify.failure(err?.message || "Không tải được hồ sơ cộng đồng.");
     } finally {
       setLoadingHonorUser(false);
     }
@@ -848,10 +939,10 @@ export default function CommunityPage() {
       )}
       <AnimatePresence>
         <HonorModal
-          user={selectedHonorUser}
+          profile={selectedCommunityProfile}
           loading={loadingHonorUser}
           onClose={() => {
-            setSelectedHonorUser(null);
+            setSelectedCommunityProfile(null);
             setLoadingHonorUser(false);
           }}
         />

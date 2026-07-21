@@ -17,6 +17,7 @@ import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.module.community.service.RewardBadgeService;
 import com.aistudyhub.module.marketplace.dto.*;
 import com.aistudyhub.module.notification.service.NotificationService;
+import com.aistudyhub.module.reputation.dto.ReputationEventResponse;
 import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.module.user.service.UserService;
 import com.aistudyhub.repository.*;
@@ -449,13 +450,13 @@ public class MarketReviewService {
                 document.getSubject() != null ? document.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
         rewardBadgeService.awardReviewerBadges(reviewer);
-        rewardReviewerVote(reviewer, document.getSubject() != null ? document.getSubject().getId() : null,
+        ReputationEventResponse voteReward = rewardReviewerVote(reviewer, document.getSubject() != null ? document.getSubject().getId() : null,
                 "DOCUMENT", documentId, review.getId());
         if (decision.reached()) {
             rewardMarketplaceDecision(submission, "DOCUMENT", documentId, submission.getStatus(), null);
         }
 
-        return toReviewResponse(review, "DOCUMENT", documentId, submission, decision);
+        return toReviewResponse(review, "DOCUMENT", documentId, submission, decision, voteReward);
     }
 
     private MarketReviewResponse voteForQuiz(User reviewer, Long quizId, MarketReviewRequest request) {
@@ -513,13 +514,13 @@ public class MarketReviewService {
                 quiz.getSubject() != null ? quiz.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
         rewardBadgeService.awardReviewerBadges(reviewer);
-        rewardReviewerVote(reviewer, quiz.getSubject() != null ? quiz.getSubject().getId() : null,
+        ReputationEventResponse voteReward = rewardReviewerVote(reviewer, quiz.getSubject() != null ? quiz.getSubject().getId() : null,
                 "QUIZ", quizId, review.getId());
         if (decision.reached()) {
             rewardMarketplaceDecision(submission, "QUIZ", quizId, submission.getStatus(), null);
         }
 
-        return toReviewResponse(review, "QUIZ", quizId, submission, decision);
+        return toReviewResponse(review, "QUIZ", quizId, submission, decision, voteReward);
     }
 
     private MarketReviewResponse voteForFlashcardDeck(User reviewer, Long deckId, MarketReviewRequest request) {
@@ -577,13 +578,13 @@ public class MarketReviewService {
                 deck.getSubject() != null ? deck.getSubject().getCode() : null,
                 request.getVoteResult(), review.getId(), totalReviews, acceptPercentage);
         rewardBadgeService.awardReviewerBadges(reviewer);
-        rewardReviewerVote(reviewer, deck.getSubject() != null ? deck.getSubject().getId() : null,
+        ReputationEventResponse voteReward = rewardReviewerVote(reviewer, deck.getSubject() != null ? deck.getSubject().getId() : null,
                 "FLASHCARD_DECK", deckId, review.getId());
         if (decision.reached()) {
             rewardMarketplaceDecision(submission, "FLASHCARD_DECK", deckId, submission.getStatus(), null);
         }
 
-        return toReviewResponse(review, "FLASHCARD_DECK", deckId, submission, decision);
+        return toReviewResponse(review, "FLASHCARD_DECK", deckId, submission, decision, voteReward);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -810,6 +811,11 @@ public class MarketReviewService {
 
     private MarketReviewResponse toReviewResponse(MarketReview review, String type, Long targetId,
             MarketplaceSubmission submission, ReviewDecision decision) {
+        return toReviewResponse(review, type, targetId, submission, decision, null);
+    }
+
+    private MarketReviewResponse toReviewResponse(MarketReview review, String type, Long targetId,
+            MarketplaceSubmission submission, ReviewDecision decision, ReputationEventResponse voteReward) {
         return MarketReviewResponse.builder()
                 .id(review.getId()).reviewerId(review.getReviewer().getId()).targetType(type).targetId(targetId)
                 .voteResult(review.getVoteResult()).reviewNote(review.getReviewNote()).createdAt(review.getCreatedAt())
@@ -817,7 +823,11 @@ public class MarketReviewService {
                 .approvedVotes(decision.approved()).rejectedVotes(decision.rejected()).totalVotes(decision.total())
                 .requiredVotes(submission.getRequiredVotesSnapshot())
                 .approvalPercentageRequired(submission.getApprovalPercentageSnapshot())
-                .decisionReached(decision.reached()).build();
+                .decisionReached(decision.reached())
+                .reviewerRewardPointsDelta(voteReward != null ? voteReward.getPointsDelta() : null)
+                .reviewerRewardTitle(voteReward != null ? voteReward.getDisplayTitle() : null)
+                .reviewerRewardMessage(voteReward != null ? voteReward.getDisplayMessage() : null)
+                .build();
     }
 
     private MarketReviewResponse completeAdminDecision(MarketReview review, String type, Long targetId,
@@ -837,11 +847,11 @@ public class MarketReviewService {
                 new ReviewDecision(total, approved, rejected, BigDecimal.ZERO, true));
     }
 
-    private void rewardReviewerVote(User reviewer, Long subjectId, String targetType, Long targetId, Long reviewId) {
+    private ReputationEventResponse rewardReviewerVote(User reviewer, Long subjectId, String targetType, Long targetId, Long reviewId) {
         if (reviewer == null || reviewId == null) {
-            return;
+            return null;
         }
-        reputationService.applyConfiguredEvent(
+        return reputationService.applyConfiguredEvent(
                 reviewer.getId(),
                 subjectId,
                 ReputationEventType.REVIEWER_MARKETPLACE_VOTE,

@@ -37,6 +37,8 @@ public interface MarketReviewRepository extends JpaRepository<MarketReview, Long
 
     Page<MarketReview> findByFlashcardDeckIdAndVoteResultIsNull(Long flashcardDeckId, Pageable pageable);
 
+    Page<MarketReview> findByReviewerIdAndVoteResultIsNullOrderByCreatedAtDesc(Long reviewerId, Pageable pageable);
+
     long countByDocumentIdAndVoteResultIsNull(Long documentId);
 
     long countByQuizIdAndVoteResultIsNull(Long quizId);

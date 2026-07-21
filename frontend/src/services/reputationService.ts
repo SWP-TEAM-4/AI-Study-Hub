@@ -91,6 +91,8 @@ export interface ReputationEventDTO {
   sourceId?: number | null;
   pointsDelta: number;
   reason?: string | null;
+  displayTitle?: string | null;
+  displayMessage?: string | null;
   periodKey?: string | null;
   createdAt?: string | null;
 }

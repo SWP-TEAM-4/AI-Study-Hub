@@ -128,6 +128,12 @@ public class AiUsageServiceImpl implements AiUsageService {
         aiQuotaTierService.assertQuotaAvailable(userId, actionType);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public void assertQuotaAvailable(Long userId, AiActionType actionType, int requestCount) {
+        aiQuotaTierService.assertQuotaAvailable(userId, actionType, requestCount);
+    }
+
     private List<AiUsageLogs> findLogs(Long userId, LocalDate fromDate, LocalDate toDate, AiActionType actionType) {
         validateDateRange(fromDate, toDate);
         LocalDateTime fromDateTime = fromDate == null ? null : fromDate.atStartOfDay();
