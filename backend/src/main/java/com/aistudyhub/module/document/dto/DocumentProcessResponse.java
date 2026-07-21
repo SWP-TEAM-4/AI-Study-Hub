@@ -14,6 +14,9 @@ public class DocumentProcessResponse {
 
     private Long documentId;
     private String processingStatus;
+    private String moderationStatus;
+    private String violationSeverity;
+    private String moderationNote;
     private int chunkCount;
     private List<DocumentChunkResponse> chunks;
     private String message;

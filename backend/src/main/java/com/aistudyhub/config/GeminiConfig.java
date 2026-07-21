@@ -64,6 +64,20 @@ public class GeminiConfig {
     private int maxRetries;
 
     /**
+     * Initial backoff delay for retryable Gemini failures.
+     */
+    @Value("${app.ai.gemini.retry-initial-delay-ms:2000}")
+    private long retryInitialDelayMs;
+
+    /**
+     * Minimum spacing between Gemini requests in this backend instance.
+     * Useful because document auto-processing can otherwise burst several segment
+     * requests and hit Gemini 429 quickly.
+     */
+    @Value("${app.ai.gemini.min-request-interval-ms:1200}")
+    private long minRequestIntervalMs;
+
+    /**
      * Get the complete API endpoint URL for content generation.
      * Format: {baseUrl}/{model}:generateContent
      *

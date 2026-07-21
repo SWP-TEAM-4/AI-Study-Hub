@@ -3,6 +3,8 @@ package com.aistudyhub.module.marketplace.dto;
 import com.aistudyhub.entity.Document;
 import com.aistudyhub.entity.FlashcardDeck;
 import com.aistudyhub.entity.Quiz;
+import com.aistudyhub.common.enums.DocumentModerationStatus;
+import com.aistudyhub.common.enums.ProcessingStatus;
 
 /**
  * Class Mapper dùng chung để ánh xạ các thực thể database (Document, Quiz,
@@ -31,6 +33,9 @@ public final class MarketplaceItemResponseMapper {
         if (doc == null) {
             return null;
         }
+        boolean canExposeFileReference =
+                doc.getProcessingStatus() == ProcessingStatus.SUCCESS
+                        && doc.getModerationStatus() == DocumentModerationStatus.SAFE;
         return MarketplaceItemResponse.builder()
                 .targetType("DOCUMENT")
                 .targetId(doc.getId())
@@ -45,7 +50,7 @@ public final class MarketplaceItemResponseMapper {
                 .communityRatingAvg(doc.getCommunityRatingAvg())
                 .marketStatus(doc.getMarketStatus())
                 .visibility(doc.getVisibility())
-                .fileUrl(doc.getFileUrl())
+                .fileUrl(canExposeFileReference ? doc.getFileUrl() : null)
                 .fileType(doc.getFileType())
                 .createdAt(doc.getCreatedAt())
                 .clonedFromId(doc.getClonedFrom() != null ? doc.getClonedFrom().getId() : null)

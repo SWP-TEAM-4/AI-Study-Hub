@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
@@ -44,6 +46,7 @@ public class DocumentUploadService {
     private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
     private final ActivityLogService activityLogService;
+    private final DocumentAutoProcessingService documentAutoProcessingService;
 
     @Value("${spring.servlet.multipart.max-file-size:50MB}")
     private String maxFileSizeConfig;
@@ -131,6 +134,21 @@ public class DocumentUploadService {
                 document.getFileType(),
                 subject != null ? subject.getCode() : null);
 
+        scheduleAutomaticProcessing(document.getId(), userId);
+
         return DocumentResponseMapper.toResponse(document);
+    }
+
+    private void scheduleAutomaticProcessing(Long documentId, Long userId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    documentAutoProcessingService.processUploadedDocument(documentId, userId);
+                }
+            });
+            return;
+        }
+        documentAutoProcessingService.processUploadedDocument(documentId, userId);
     }
 }

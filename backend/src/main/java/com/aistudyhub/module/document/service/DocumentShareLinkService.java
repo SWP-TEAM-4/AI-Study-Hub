@@ -38,11 +38,13 @@ public class DocumentShareLinkService {
     private final DocumentShareLinkRepository documentShareLinkRepository;
     private final DocumentChunkRepository documentChunkRepository;
     private final StorageService storageService;
+    private final DocumentSafetyGuard documentSafetyGuard;
 
     @Transactional
     public DocumentShareLinkResponse createShareLink(Long documentId, Long currentUserId, boolean isAdmin,
                                                      CreateDocumentShareLinkRequest request) {
         Document document = resolveManageableDocument(documentId, currentUserId, isAdmin);
+        documentSafetyGuard.assertDistributable(document);
         if (documentShareLinkRepository.findByDocumentId(documentId).isPresent()) {
             throw new AppException(ErrorCode.DOCUMENT_SHARE_LINK_ALREADY_EXISTS);
         }
@@ -93,6 +95,9 @@ public class DocumentShareLinkService {
 
         validateExpiry(request.getExpiresAt());
         validateAccessOptions(enabled, allowPreview, allowDownload);
+        if (enabled) {
+            documentSafetyGuard.assertDistributable(document);
+        }
 
         if (request.getIsEnabled() != null) {
             shareLink.setEnabled(request.getIsEnabled());
@@ -187,6 +192,7 @@ public class DocumentShareLinkService {
         if (shareLink.getExpiresAt() != null && DateUtil.isExpired(shareLink.getExpiresAt())) {
             throw new AppException(ErrorCode.DOCUMENT_SHARE_LINK_EXPIRED);
         }
+        documentSafetyGuard.assertDistributable(shareLink.getDocument());
         return shareLink;
     }
 

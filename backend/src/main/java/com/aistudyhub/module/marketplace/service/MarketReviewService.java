@@ -5,7 +5,9 @@ import com.aistudyhub.common.enums.ActivityTargetType;
 import com.aistudyhub.common.enums.CommunityRoleStatus;
 import com.aistudyhub.common.enums.CommunityRoleType;
 import com.aistudyhub.common.enums.CommunityScopeType;
+import com.aistudyhub.common.enums.DocumentModerationStatus;
 import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.ReputationEventType;
 import com.aistudyhub.common.enums.Visibility;
 import com.aistudyhub.common.exception.AppException;
@@ -15,6 +17,7 @@ import com.aistudyhub.entity.*;
 import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.module.community.service.RewardBadgeService;
+import com.aistudyhub.module.document.service.DocumentSafetyGuard;
 import com.aistudyhub.module.marketplace.dto.*;
 import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.module.reputation.dto.ReputationEventResponse;
@@ -59,6 +62,7 @@ public class MarketReviewService {
     private final ReviewPolicyService reviewPolicyService;
     private final RewardBadgeService rewardBadgeService;
     private final ReputationService reputationService;
+    private final DocumentSafetyGuard documentSafetyGuard;
 
     // ══════════════════════════════════════════════════════════════════════════
     // GET /api/reviewer/marketplace/pending — Pending Queue
@@ -111,6 +115,8 @@ public class MarketReviewService {
         Specification<Document> docSpec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("marketStatus"), MarketStatus.PENDING));
+            predicates.add(cb.equal(root.get("processingStatus"), ProcessingStatus.SUCCESS));
+            predicates.add(cb.equal(root.get("moderationStatus"), DocumentModerationStatus.SAFE));
             if (!isAdmin) predicates.add(cb.notEqual(root.get("user").get("id"), currentUser.getId()));
 
             if (restrictBySubjects) {
@@ -221,7 +227,7 @@ public class MarketReviewService {
                     .targetType("DOCUMENT")
                     .targetId(doc.getId())
                     .title(doc.getTitle())
-                    .fileUrl(doc.getFileUrl())
+                    .fileUrl(documentSafetyGuard.isDistributable(doc) ? doc.getFileUrl() : null)
                     .fileType(doc.getFileType())
                     .submittedAt(marketplaceSubmissionRepository
                             .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
@@ -302,6 +308,7 @@ public class MarketReviewService {
                 communityPermissionService.assertReviewerPermissionForDocument(currentUser.getId(), targetId);
                 Document doc = documentRepository.findById(targetId)
                         .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+                documentSafetyGuard.assertDistributable(doc);
                 yield toItemResponse(doc);
             }
             case "QUIZ" -> {
@@ -402,6 +409,7 @@ public class MarketReviewService {
         if (document.getMarketStatus() != MarketStatus.PENDING) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Document is not pending review");
         }
+        documentSafetyGuard.assertDistributable(document);
 
         assertNotOwner(reviewer, document.getUser());
         MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
@@ -597,6 +605,7 @@ public class MarketReviewService {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
         assertPendingReview(document.getMarketStatus(), "Document");
+        documentSafetyGuard.assertDistributable(document);
         MarketplaceSubmission submission = marketplaceSubmissionService.getOrCreateLegacyPending(
                 "DOCUMENT", documentId, document.getSubject(), document.getUser());
         document.setMarketStatus(MarketStatus.APPROVED);
@@ -1038,7 +1047,7 @@ public class MarketReviewService {
                 .communityRatingAvg(doc.getCommunityRatingAvg())
                 .marketStatus(doc.getMarketStatus())
                 .visibility(doc.getVisibility())
-                .fileUrl(doc.getFileUrl())
+                .fileUrl(documentSafetyGuard.isDistributable(doc) ? doc.getFileUrl() : null)
                 .fileType(doc.getFileType())
                 .createdAt(doc.getCreatedAt())
                 .build();
