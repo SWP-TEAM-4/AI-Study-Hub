@@ -24,6 +24,7 @@ import com.aistudyhub.entity.QuizQuestion;
 import com.aistudyhub.repository.QuizQuestionRepository;
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.Visibility;
+import com.aistudyhub.common.enums.Role;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.response.PaginationResponse;
@@ -41,8 +42,10 @@ import com.aistudyhub.module.marketplace.dto.MarketplaceQueryRequest;
 import com.aistudyhub.module.quiz.dto.QuizResponse;
 import com.aistudyhub.module.quiz.dto.QuizResponseMapper;
 import com.aistudyhub.module.user.service.UserService;
+import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.repository.DocumentRepository;
 import com.aistudyhub.repository.FlashcardDeckRepository;
+import com.aistudyhub.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +65,8 @@ public class MarketPlaceService {
     private final QuizQuestionRepository quizQuestionRepository;
     private final ActivityLogService activityLogService;
     private final MarketplaceSubmissionService marketplaceSubmissionService;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     /**
      * Gửi yêu cầu đăng tải một tài liệu học tập (Document) lên Marketplace.
@@ -114,6 +119,7 @@ public class MarketPlaceService {
         document.setSubmitNote(note);
         // Bước 8: Lưu thực thể đã cập nhật vào DB
         Document savedDoc = documentRepository.save(document);
+        notifySubmission(savedDoc.getUser().getId(), savedDoc.getTitle());
         log.info("Document id={} has been submitted to the marketplace by userId={}", documentId, currentUserId);
         LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("marketStatus", savedDoc.getMarketStatus().name());
@@ -130,6 +136,14 @@ public class MarketPlaceService {
                 savedDoc.getSubject() != null ? savedDoc.getSubject().getCode() : null);
         // Bước 9: Trả về DTO thông qua Mapper
         return DocumentResponseMapper.toResponse(savedDoc);
+    }
+
+    private void notifySubmission(Long authorId, String title) {
+        notificationService.createNotification(authorId, "Đã gửi đơn kiểm duyệt",
+                "Nội dung \"" + title + "\" đã được gửi và đang chờ kiểm duyệt.");
+        userRepository.findAllByRoleAndIsActiveTrue(Role.ADMIN).forEach(admin ->
+                notificationService.createNotification(admin.getId(), "Có đơn kiểm duyệt mới",
+                        "Nội dung \"" + title + "\" đang chờ bạn kiểm duyệt."));
     }
 
     /**

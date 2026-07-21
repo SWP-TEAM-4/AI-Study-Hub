@@ -16,6 +16,9 @@ public class MarketPendingItemResponse {
     private String targetType; // "DOCUMENT", "QUIZ", "FLASHCARD_DECK"
     private Long targetId;
     private String title;
+    // Có giá trị với DOCUMENT để màn kiểm duyệt mở file mà không cần gọi API khác.
+    private String fileUrl;
+    private String fileType;
     private LocalDateTime submittedAt;
     private Long subjectId;
     private Long ownerId;
