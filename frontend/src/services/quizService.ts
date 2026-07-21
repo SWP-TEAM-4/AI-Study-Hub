@@ -340,7 +340,7 @@ export const quizService = {
     );
   },
 
-  async submitQuizToMarketplace(id: number, note = "Submit for marketplace review"): Promise<ApiResponse<QuizDTO>> {
+  async submitQuizToMarketplace(id: number, note: string): Promise<ApiResponse<QuizDTO>> {
     const res = await qRequest<ApiResponse<QuizDTO>>(`/marketplace/quizzes/${id}/submit`, {
       method: "POST",
       body: JSON.stringify({ note }),

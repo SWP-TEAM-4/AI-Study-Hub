@@ -139,7 +139,7 @@ export const marketplaceService = {
     return marketRequest(`/marketplace/flashcard-decks/${id}/clone`, { method: "POST", body: JSON.stringify({ targetNotebookId }) });
   },
 
-  async submitFlashcardDeck(id: number): Promise<ApiResponse<unknown>> {
-    return marketRequest(`/marketplace/flashcard-decks/${id}/submit`, { method: "POST", body: JSON.stringify({ note: "Submit for marketplace review" }) });
+  async submitFlashcardDeck(id: number, note: string): Promise<ApiResponse<unknown>> {
+    return marketRequest(`/marketplace/flashcard-decks/${id}/submit`, { method: "POST", body: JSON.stringify({ note }) });
   },
 };

@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ArrowLeft, RotateCw, ThumbsUp, ThumbsDown, Trophy, Calendar, Layers, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { flashcardService, ReviewCardResponseDTO, FlashcardDTO } from "../services/flashcardService";
@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 interface FlashcardStudyPageProps {
   deckId: string;
   onBack: () => void;
+  initialMode?: StudyMode | null;
 }
 
 type StudyMode = "all" | "due";
@@ -17,19 +18,26 @@ interface CardWithMeta extends FlashcardDTO {
   nextReviewAt?: string;
 }
 
-export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPageProps) {
-  const [mode, setMode] = useState<StudyMode | null>(null); // null = chọn mode
-  const [idx, setIdx] = useState(0);
+export default function FlashcardStudyPage({ deckId, onBack, initialMode = null }: FlashcardStudyPageProps) {
+  const shouldReduceMotion = useReducedMotion();
+  const [mode, setMode] = useState<StudyMode | null>(initialMode); // null = chọn mode
   const [flipped, setFlipped] = useState(false);
-  const [stats, setStats] = useState({ known: 0, again: 0 });
+  const [stats, setStats] = useState({ known: 0, again: 0, total: 0 });
   const [isSaving, setIsSaving] = useState(false);
+  const [isFlipAnimating, setIsFlipAnimating] = useState(false);
   const [exitDirection, setExitDirection] = useState<number | null>(null);
   const [lastReview, setLastReview] = useState<ReviewCardResponseDTO | null>(null);
   const [cards, setCards] = useState<CardWithMeta[]>([]);
-  const [loadingCards, setLoadingCards] = useState(false);
+  const [initialCardCount, setInitialCardCount] = useState(0);
+  const [cardSequence, setCardSequence] = useState(0);
+  const [loadingCards, setLoadingCards] = useState(Boolean(initialMode));
   const [loadCardsError, setLoadCardsError] = useState<string | null>(null);
   const [deckTitle, setDeckTitle] = useState<string>("");
   const flipLockedRef = useRef(false); // tránh bấm rate khi chưa lật
+  const flipAnimationLockRef = useRef(false);
+  const flipTimerRef = useRef<number | null>(null);
+  const retrySequenceRef = useRef(0);
+  const initialCardsRef = useRef<CardWithMeta[]>([]);
 
   // Lấy thông tin deck (dùng để có title cho màn hình chọn mode)
   const deckInfoQuery = useQuery({
@@ -50,10 +58,11 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
       setLoadingCards(true);
       setLoadCardsError(null);
       try {
+        let loadedCards: CardWithMeta[] = [];
         if (selectedMode === "due") {
           const res = await flashcardService.getFlashcardsDue(Number(deckId));
           if (res.success) {
-            setCards(res.data ?? []);
+            loadedCards = res.data ?? [];
           } else {
             setLoadCardsError(res.message || "Không thể tải thẻ đến hạn.");
           }
@@ -61,15 +70,19 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
           const res = await flashcardService.getFlashcardDeckDetails(Number(deckId));
           if (res.success) {
             setDeckTitle(res.data.title);
-            setCards(res.data.cards ?? []);
+            loadedCards = res.data.cards ?? [];
           } else {
             setLoadCardsError(res.message || "Không thể tải bộ thẻ.");
           }
         }
-        setIdx(0);
+        initialCardsRef.current = loadedCards;
+        setCards(loadedCards);
+        setInitialCardCount(loadedCards.length);
+        setCardSequence(0);
         setFlipped(false);
-        setStats({ known: 0, again: 0 });
+        setStats({ known: 0, again: 0, total: 0 });
         setLastReview(null);
+        retrySequenceRef.current = 0;
         flipLockedRef.current = true; // bắt buộc lật trước khi chấm
       } catch (e: any) {
         setLoadCardsError(e?.message || "Lỗi khi tải danh sách thẻ.");
@@ -86,19 +99,35 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
     }
   }, [mode, loadCards]);
 
+  useEffect(() => () => {
+    if (flipTimerRef.current !== null) {
+      window.clearTimeout(flipTimerRef.current);
+    }
+  }, []);
+
   const handleFlip = useCallback(() => {
-    if (isSaving) return;
+    if (isSaving || flipAnimationLockRef.current) return;
+    flipAnimationLockRef.current = true;
+    setIsFlipAnimating(true);
     setFlipped((f) => {
       const next = !f;
-      if (next) flipLockedRef.current = false; // đã lật thì cho phép chấm
+      flipLockedRef.current = !next; // chỉ cho phép chấm khi mặt đáp án đang hiển thị
       return next;
     });
-  }, [isSaving]);
+    if (flipTimerRef.current !== null) {
+      window.clearTimeout(flipTimerRef.current);
+    }
+    flipTimerRef.current = window.setTimeout(() => {
+      flipAnimationLockRef.current = false;
+      setIsFlipAnimating(false);
+      flipTimerRef.current = null;
+    }, shouldReduceMotion ? 40 : 210);
+  }, [isSaving, shouldReduceMotion]);
 
   const advance = useCallback(
     async (known: boolean) => {
-      if (isSaving) return;
-      const card = cards[idx];
+      if (isSaving || flipAnimationLockRef.current) return;
+      const card = cards[0];
       if (!card) return;
       if (flipLockedRef.current) {
         Notify.warning("Vui lòng lật thẻ trước khi chấm điểm.");
@@ -108,20 +137,29 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
       setIsSaving(true);
       try {
         const res = await flashcardService.reviewFlashcard(card.id, known);
-        if (res.success) {
-          setLastReview(res.data);
+        if (!res.success) {
+          throw new Error(res.message || "Không thể lưu kết quả ôn tập");
         }
+        setLastReview(res.data);
         setStats((s) => ({
           known: s.known + (known ? 1 : 0),
           again: s.again + (known ? 0 : 1),
+          total: s.total + 1,
         }));
-        // delay nhỏ để animation exit chạy
-        setTimeout(() => {
-          setIdx((prev) => prev + 1);
-          setFlipped(false);
-          setExitDirection(null);
-          flipLockedRef.current = true;
-        }, 220);
+        await new Promise((resolve) => window.setTimeout(resolve, shouldReduceMotion ? 20 : 150));
+        setCards((currentQueue) => {
+          const nextQueue = currentQueue.slice(1);
+          if (!known && mode === "all") {
+            const requeueDistance = 2 + (retrySequenceRef.current % 2);
+            retrySequenceRef.current += 1;
+            nextQueue.splice(Math.min(requeueDistance, nextQueue.length), 0, card);
+          }
+          return nextQueue;
+        });
+        setCardSequence((value) => value + 1);
+        setFlipped(false);
+        setExitDirection(null);
+        flipLockedRef.current = true;
       } catch (e) {
         console.error(e);
         Notify.failure("Lỗi khi lưu kết quả ôn tập");
@@ -130,15 +168,15 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
         setIsSaving(false);
       }
     },
-    [cards, idx, isSaving],
+    [cards, isSaving, mode, shouldReduceMotion],
   );
 
   // Phím tắt
   useEffect(() => {
     if (!mode) return;
-    if (idx >= cards.length) return;
+    if (cards.length === 0) return;
     const onKey = (e: KeyboardEvent) => {
-      if (isSaving) return;
+      if (isSaving || flipAnimationLockRef.current) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === " " || e.key === "Enter") {
@@ -157,7 +195,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mode, idx, cards.length, isSaving, handleFlip, advance, onBack]);
+  }, [mode, cards.length, isSaving, handleFlip, advance, onBack]);
 
   // ─── Màn hình chọn mode ────────────────────────────────────────────────────
   if (!mode) {
@@ -191,29 +229,35 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
 
           <div className="mt-6 grid sm:grid-cols-2 gap-3">
             <button
-              onClick={() => setMode("due")}
+              onClick={() => {
+                setLoadingCards(true);
+                setMode("all");
+              }}
               disabled={deckInfoQuery.isLoading}
-              className="group text-left p-5 rounded-2xl border-2 border-border hover:border-primary bg-card hover:bg-primary/5 transition-all disabled:opacity-50"
+              className="group text-left p-5 rounded-2xl border-2 border-primary/40 bg-primary/5 hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
             >
-              <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center mb-3">
+              <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center mb-3">
+                <Layers size={18} />
+              </div>
+              <div className="font-bold">Học nhanh</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Học {totalCards || ""} thẻ; thẻ chưa thuộc sẽ quay lại sau vài thẻ khác.
+              </p>
+            </button>
+            <button
+              onClick={() => {
+                setLoadingCards(true);
+                setMode("due");
+              }}
+              disabled={deckInfoQuery.isLoading}
+              className="group text-left p-5 rounded-2xl border-2 border-border hover:border-primary/60 bg-card hover:bg-muted/40 transition-colors disabled:opacity-50"
+            >
+              <div className="size-10 rounded-xl bg-muted text-foreground grid place-items-center mb-3">
                 <Sparkles size={18} />
               </div>
               <div className="font-bold">Ôn thẻ đến hạn</div>
               <p className="text-xs text-muted-foreground mt-1">
-                Chỉ học những thẻ đã đến hạn theo lịch Leitner box. Khuyến nghị hằng ngày.
-              </p>
-            </button>
-            <button
-              onClick={() => setMode("all")}
-              disabled={deckInfoQuery.isLoading}
-              className="group text-left p-5 rounded-2xl border-2 border-border hover:border-primary bg-card hover:bg-primary/5 transition-all disabled:opacity-50"
-            >
-              <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center mb-3">
-                <Layers size={18} />
-              </div>
-              <div className="font-bold">Ôn toàn bộ</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Học lần lượt tất cả {totalCards || ""} thẻ trong bộ.
+                Chỉ học những thẻ đã đến hạn theo lịch Leitner hiện tại.
               </p>
             </button>
           </div>
@@ -260,7 +304,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
   }
 
   // ─── Trống ────────────────────────────────────────────────────────────────
-  if (cards.length === 0) {
+  if (cards.length === 0 && initialCardCount === 0) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-muted-foreground space-y-3">
         <p className="text-base font-medium">
@@ -276,50 +320,50 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
     );
   }
 
-  const card = cards[idx];
+  const card = cards[0];
 
   // ─── Hoàn thành ───────────────────────────────────────────────────────────
-  if (idx >= cards.length || !card) {
+  if (!card) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: shouldReduceMotion ? 0.01 : 0.22, ease: "easeOut" }}
         className="max-w-xl mx-auto py-8"
       >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className="surface-card p-10 text-center gradient-hero rounded-3xl border border-border shadow-xl"
-        >
-          <motion.div
-            initial={{ scale: 0, rotate: -20 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-            className="size-20 mx-auto mb-5 rounded-3xl bg-primary text-primary-foreground grid place-items-center shadow-lg shadow-primary/30"
-          >
+        <div className="surface-card p-8 sm:p-10 text-center gradient-hero rounded-3xl border border-border shadow-lg">
+          <div className="size-16 mx-auto mb-5 rounded-2xl bg-primary text-primary-foreground grid place-items-center">
             <Trophy size={36} />
-          </motion.div>
-          <h1 className="text-3xl font-bold">Hoàn thành deck! 🎉</h1>
-          <p className="text-muted-foreground mt-2">Hôm nay bạn đã ôn xong {cards.length} thẻ.</p>
-          <div className="mt-6 grid grid-cols-2 gap-3">
+          </div>
+          <h1 className="text-3xl font-bold">Hoàn thành phiên học</h1>
+          <p className="text-muted-foreground mt-2">
+            {mode === "all"
+              ? `Bạn đã thuộc toàn bộ ${initialCardCount} thẻ trong hàng đợi.`
+              : `Bạn đã xử lý ${initialCardCount} thẻ đến hạn.`}
+          </p>
+          <div className="mt-6 grid grid-cols-3 gap-3">
             <div className="bg-card border border-border rounded-xl p-4">
               <div className="text-2xl font-bold text-success">{stats.known}</div>
               <div className="text-xs text-muted-foreground">Đã thuộc</div>
             </div>
             <div className="bg-card border border-border rounded-xl p-4">
               <div className="text-2xl font-bold" style={{ color: "var(--color-coral)" }}>{stats.again}</div>
-              <div className="text-xs text-muted-foreground">Cần ôn lại</div>
+              <div className="text-xs text-muted-foreground">Lần học lại</div>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+              <div className="text-xs text-muted-foreground">Tổng lượt</div>
             </div>
           </div>
           <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
             <button
               onClick={() => {
-                setIdx(0);
-                setStats({ known: 0, again: 0 });
+                setCards([...initialCardsRef.current]);
+                setStats({ known: 0, again: 0, total: 0 });
                 setLastReview(null);
                 setFlipped(false);
+                setCardSequence(0);
+                retrySequenceRef.current = 0;
                 flipLockedRef.current = true;
               }}
               className="inline-flex px-5 min-h-[44px] rounded-xl bg-muted text-foreground items-center justify-center font-medium text-sm hover:bg-muted/80 transition-colors gap-2"
@@ -333,10 +377,15 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
               Về danh sách
             </button>
           </div>
-        </motion.div>
+        </div>
       </motion.div>
     );
   }
+
+  const completedCards = mode === "all" ? stats.known : stats.total;
+  const progressPercentage = initialCardCount > 0
+    ? Math.min(100, Math.round((completedCards / initialCardCount) * 100))
+    : 0;
 
   // ─── Màn hình học ─────────────────────────────────────────────────────────
   return (
@@ -350,9 +399,11 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
         </button>
         <div className="flex items-center gap-3">
           <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            {mode === "due" ? "Ôn đến hạn" : "Ôn toàn bộ"}
+            {mode === "due" ? "Ôn đến hạn" : "Học nhanh"}
           </span>
-          <div className="text-sm text-muted-foreground">{idx + 1}/{cards.length}</div>
+          <div className="text-sm text-muted-foreground">
+            Đã thuộc {stats.known} · Còn {cards.length}
+          </div>
         </div>
       </div>
 
@@ -361,25 +412,20 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
           className="h-full rounded-full"
           style={{ background: "var(--color-coral)" }}
           initial={false}
-          animate={{ width: `${(idx / cards.length) * 100}%` }}
-          transition={{ duration: 0.3 }}
+          animate={{ width: `${progressPercentage}%` }}
+          transition={{ duration: shouldReduceMotion ? 0.01 : 0.2, ease: "easeOut" }}
         />
       </div>
 
-      <div className="relative h-72 lg:h-96" style={{ perspective: 1200 }}>
+      <div className="relative h-72 lg:h-96" style={{ perspective: 1400 }}>
         <AnimatePresence mode="wait">
           <motion.div
-            key={card.id}
-            initial={{ opacity: 0, scale: 0.95, x: 0, rotateY: 0 }}
-            animate={{ opacity: 1, x: 0, scale: 1, rotateY: flipped ? 180 : 0 }}
-            exit={{
-              opacity: 0,
-              x: (exitDirection ?? 0) * 200,
-              rotate: 0,
-              scale: 0.95,
-            }}
-            transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-            className={`absolute inset-0 ${isSaving ? "cursor-not-allowed" : "cursor-pointer"}`}
+            key={`${card.id}-${cardSequence}`}
+            initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 12 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.15, ease: "easeOut" }}
+            className={`absolute inset-0 ${isSaving || isFlipAnimating ? "cursor-not-allowed" : "cursor-pointer"}`}
             onClick={handleFlip}
             role="button"
             tabIndex={0}
@@ -390,58 +436,69 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
               }
             }}
             aria-label={flipped ? "Đáp án" : "Câu hỏi - bấm để lật"}
-            style={{
-              transformStyle: "preserve-3d",
-              borderRadius: "1rem",
-            }}
+            aria-pressed={flipped}
           >
-            {/* Front */}
-            <div
-              className="absolute inset-0 surface-card flex items-center justify-center p-8 text-center gradient-hero rounded-2xl border-2 shadow-xl"
+            <motion.div
+              className="absolute inset-0"
+              initial={false}
+              animate={{ rotateY: flipped ? 180 : 0 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.2, ease: [0.25, 0.1, 0.25, 1] }}
               style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                borderColor:
-                  exitDirection === -1
-                    ? "oklch(0.62 0.18 25)"
-                    : exitDirection === 1
-                      ? "var(--color-success)"
-                      : "var(--border)",
-                transition: "border-color 0.15s ease",
+                transformStyle: "preserve-3d",
+                willChange: isFlipAnimating ? "transform" : "auto",
               }}
             >
-              <div style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
-                <div className="text-xs uppercase tracking-wider text-primary font-semibold mb-3">Câu hỏi</div>
-                <div className="text-2xl lg:text-3xl font-display font-semibold leading-tight">{card.frontText}</div>
-                <div className="mt-6 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <RotateCw size={12} /> {flipped ? "Đã lật" : "Bấm để lật thẻ"}
+              {/* Front */}
+              <div
+                className="absolute inset-0 surface-card overflow-hidden rounded-2xl border-2 shadow-lg"
+                style={{
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                  transform: "rotateY(0deg) translateZ(0.1px)",
+                  borderColor:
+                    exitDirection === -1
+                      ? "oklch(0.62 0.18 25)"
+                      : exitDirection === 1
+                        ? "var(--color-success)"
+                        : "var(--border)",
+                }}
+              >
+                <div className="h-full overflow-y-auto flex items-center justify-center p-8 text-center gradient-hero">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-primary font-semibold mb-3">Câu hỏi</div>
+                    <div className="text-2xl lg:text-3xl font-display font-semibold leading-tight break-words">{card.frontText}</div>
+                    <div className="mt-6 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <RotateCw size={12} /> Bấm để lật thẻ
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Back */}
-            <div
-              className="absolute inset-0 surface-card flex items-center justify-center p-8 text-center rounded-2xl border-2 shadow-xl"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg)",
-                background: "var(--color-ink)",
-                color: "var(--color-cream)",
-                borderColor:
-                  exitDirection === -1
-                    ? "oklch(0.62 0.18 25)"
-                    : exitDirection === 1
-                      ? "var(--color-success)"
-                      : "var(--border)",
-                transition: "border-color 0.15s ease",
-              }}
-            >
-              <div style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
-                <div className="text-xs uppercase tracking-wider font-semibold mb-3 opacity-60">Đáp án</div>
-                <div className="text-xl lg:text-2xl font-display font-medium leading-snug">{card.backText}</div>
+              {/* Back */}
+              <div
+                className="absolute inset-0 surface-card overflow-hidden rounded-2xl border-2 shadow-lg"
+                style={{
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                  transform: "rotateY(180deg) translateZ(0.1px)",
+                  background: "var(--color-ink)",
+                  color: "var(--color-cream)",
+                  borderColor:
+                    exitDirection === -1
+                      ? "oklch(0.62 0.18 25)"
+                      : exitDirection === 1
+                        ? "var(--color-success)"
+                        : "var(--border)",
+                }}
+              >
+                <div className="h-full overflow-y-auto flex items-center justify-center p-8 text-center">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider font-semibold mb-3 opacity-60">Đáp án</div>
+                    <div className="text-xl lg:text-2xl font-display font-medium leading-snug break-words">{card.backText}</div>
+                  </div>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -465,7 +522,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={() => advance(false)}
-          disabled={isSaving || flipLockedRef.current}
+          disabled={isSaving || isFlipAnimating || flipLockedRef.current}
           className="inline-flex items-center justify-center gap-2 h-12 min-h-[44px] rounded-xl font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           style={{ background: "oklch(0.62 0.18 25 / 0.1)", color: "var(--color-coral)" }}
         >
@@ -474,7 +531,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
         </button>
         <button
           onClick={() => advance(true)}
-          disabled={isSaving || flipLockedRef.current}
+          disabled={isSaving || isFlipAnimating || flipLockedRef.current}
           className="inline-flex items-center justify-center gap-2 h-12 min-h-[44px] rounded-xl text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           style={{ background: "var(--color-success)" }}
         >

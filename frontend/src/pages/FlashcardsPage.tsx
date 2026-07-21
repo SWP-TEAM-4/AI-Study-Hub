@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Search, Plus, Sparkles, MoreHorizontal, Edit, Globe, Tag, Trash2, Eye,
-  AlertCircle, RefreshCw, Clock, Users, Loader2, X
+  AlertCircle, RefreshCw, Clock, Users, Loader2, X, Play, CalendarCheck
 } from "lucide-react";
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,7 @@ import FlashcardStudyPage from "./FlashcardStudyPage";
 import FlashcardDetailPage from "./FlashcardDetailPage";
 import { Notify, Confirm } from "notiflix";
 import CustomSelect from "../components/ui/CustomSelect";
+import MarketplacePublishModal, { MarketplacePublishValues } from "../components/ui/MarketplacePublishModal";
 import {
   useFlashcardDecks,
   useGenerateFlashcardDeck,
@@ -187,9 +188,12 @@ export default function FlashcardsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
+  const [activeStudyMode, setActiveStudyMode] = useState<"all" | "due" | null>(null);
   const [detailDeckId, setDetailDeckId] = useState<number | null>(null);
   const [detailDeckCache, setDetailDeckCache] = useState<FlashcardDeckDTO | null>(null);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [publishDeck, setPublishDeck] = useState<FlashcardDeckDTO | null>(null);
+  const [isPublishingDeck, setIsPublishingDeck] = useState(false);
 
   const { data: decksList = [], isLoading, isError, error, refetch } = useFlashcardDecks();
   const generateMutation = useGenerateFlashcardDeck();
@@ -285,13 +289,42 @@ export default function FlashcardsPage() {
     }
   };
 
-  const handlePublish = async (id: number) => {
+  const handlePublish = (deck: FlashcardDeckDTO) => {
+    if (deck.clonedFromId) {
+      Notify.warning("Bộ Flashcard clone từ Marketplace không thể đăng lại lên cộng đồng.");
+      return;
+    }
+
+    const cardCount = progressMap[deck.id]?.totalCards ?? deck.cards.length;
+    if (cardCount <= 0) {
+      Notify.warning("Bộ Flashcard cần có ít nhất một thẻ trước khi đăng lên cộng đồng.");
+      return;
+    }
+
+    setPublishDeck(deck);
+  };
+
+  const submitDeckToMarketplace = async (values: MarketplacePublishValues) => {
+    if (!publishDeck) return;
+    setIsPublishingDeck(true);
     try {
-      await flashcardService.submitToMarketplace(id);
-      Notify.success("Đã gửi bộ thẻ lên Marketplace. Trạng thái: Chờ duyệt.");
+      const metadataChanged = publishDeck.title !== values.title || publishDeck.subjectId !== values.subjectId;
+      if (metadataChanged) {
+        await flashcardService.updateFlashcardDeck(publishDeck.id, {
+          title: values.title,
+          notebookId: publishDeck.notebookId,
+          subjectId: values.subjectId,
+          visibility: publishDeck.visibility,
+        });
+      }
+      await flashcardService.submitToMarketplace(publishDeck.id, values.reviewNote);
+      setPublishDeck(null);
+      Notify.success(`Đã gửi “${values.title}” lên Marketplace. Trạng thái: Chờ duyệt.`);
       await refetch();
     } catch (e: any) {
       Notify.failure(e.message || "Không thể gửi bộ thẻ lên Marketplace");
+    } finally {
+      setIsPublishingDeck(false);
     }
   };
   const handleAddTag = () => Notify.warning("Backend hiện chưa có API gắn tag cho Flashcard Deck. API tag hiện chỉ hỗ trợ Document.");
@@ -310,6 +343,11 @@ export default function FlashcardsPage() {
   const handleViewDetail = (deck: FlashcardDeckDTO) => {
     setDetailDeckCache(deck);
     setDetailDeckId(deck.id);
+  };
+
+  const startStudy = (deckId: number, mode: "all" | "due") => {
+    setActiveStudyMode(mode);
+    setActiveDeckId(deckId.toString());
   };
 
   const list = useMemo(
@@ -349,7 +387,14 @@ export default function FlashcardsPage() {
   if (activeDeckId) {
     return (
       <Suspense fallback={<div className="py-20 text-center text-muted-foreground"><div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />Đang tải dữ liệu bộ thẻ...</div>}>
-        <FlashcardStudyPage deckId={activeDeckId} onBack={() => setActiveDeckId(null)} />
+        <FlashcardStudyPage
+          deckId={activeDeckId}
+          initialMode={activeStudyMode}
+          onBack={() => {
+            setActiveDeckId(null);
+            setActiveStudyMode(null);
+          }}
+        />
       </Suspense>
     );
   }
@@ -365,6 +410,7 @@ export default function FlashcardsPage() {
           refetch();
         }}
         onStudy={() => {
+          setActiveStudyMode(null);
           setActiveDeckId(detailDeckId.toString());
           setDetailDeckId(null);
         }}
@@ -390,6 +436,22 @@ export default function FlashcardsPage() {
           />
         )}
       </AnimatePresence>
+
+      <MarketplacePublishModal
+        isOpen={Boolean(publishDeck)}
+        kind="FLASHCARD_DECK"
+        target={publishDeck ? {
+          id: publishDeck.id,
+          title: publishDeck.title,
+          subjectId: publishDeck.subjectId,
+          itemCount: progressMap[publishDeck.id]?.totalCards ?? publishDeck.cards.length,
+          isResubmission: publishDeck.marketStatus === "REJECTED",
+        } : null}
+        subjects={subjects}
+        isSubmitting={isPublishingDeck}
+        onClose={() => !isPublishingDeck && setPublishDeck(null)}
+        onSubmit={submitDeckToMarketplace}
+      />
 
       {isEditorOpen && (
         <div
@@ -613,9 +675,9 @@ export default function FlashcardsPage() {
           ) : list.length > 0 ? (
             list.map((deck, i) => {
               const progress = progressMap[deck.id];
-              const masteredCount = progress?.reviewedCards ?? 0;
+              const studiedCount = progress?.reviewedCards ?? 0;
               const totalCards = progress?.totalCards ?? deck.cards.length;
-              const pct = totalCards > 0 ? Math.round(progress?.rememberedRate ?? 0) : 0;
+              const studiedPct = totalCards > 0 ? Math.min(100, Math.round((studiedCount / totalCards) * 100)) : 0;
               const subject = deck.subjectId ? subjectMap[deck.subjectId] : null;
               const visKey = (deck.visibility as string) || "PRIVATE";
               const visBadge = visibilityLabel[visKey] || visibilityLabel.PRIVATE;
@@ -629,21 +691,24 @@ export default function FlashcardsPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.25 }}
-                  className="surface-card p-5 !overflow-visible"
+                  className="surface-card p-5 !overflow-visible flex h-full flex-col"
                 >
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                       <span
-                        className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ${visBadge.color}`}
+                        className={`inline-flex min-h-6 items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${visBadge.color}`}
                       >
-                        <VisIcon size={10} />
+                        <VisIcon size={12} />
                         {visBadge.label}
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-medium">
+                      <span
+                        title={subject ? `${subject.code} - ${subject.name}` : "Tự do"}
+                        className="max-w-full truncate text-xs px-2.5 py-1 rounded-full bg-muted font-medium text-muted-foreground"
+                      >
                         {subject ? `${subject.code} - ${subject.name}` : "Tự do"}
                       </span>
                       {mBadge.label && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${mBadge.color}`}>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${mBadge.color}`}>
                           {mBadge.label}
                         </span>
                       )}
@@ -653,7 +718,7 @@ export default function FlashcardsPage() {
                     <div className="relative group/menu shrink-0">
                       <button
                         aria-label="Mở menu thao tác"
-                        className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"
+                        className="grid size-11 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                       >
                         <MoreHorizontal size={16} />
                       </button>
@@ -663,49 +728,59 @@ export default function FlashcardsPage() {
                       >
                         <button
                           onClick={() => handleViewDetail(deck)}
-                          className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50"
+                          className="flex min-h-11 items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50"
                         >
                           <Eye size={14} /> Xem chi tiết
                         </button>
                         <button
                           onClick={() => handleEdit(deck)}
-                          className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50"
+                          className="flex min-h-11 items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50"
                         >
                           <Edit size={14} /> {t('pages.flashcards.edit')}
                         </button>
                         <button
                           onClick={handleAddTag}
-                          className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50"
+                          className="flex min-h-11 items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50"
                         >
                           <Tag size={14} /> {t('pages.flashcards.addTag')}
                         </button>
-                        {deck.marketStatus !== "PENDING" && deck.marketStatus !== "APPROVED" && (
+                        {!deck.clonedFromId && deck.marketStatus !== "PENDING" && deck.marketStatus !== "APPROVED" && (
                           <button
-                            onClick={() => handlePublish(deck.id)}
-                            className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10"
+                            onClick={() => handlePublish(deck)}
+                            className="flex min-h-11 items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10"
                           >
                             <Globe size={14} /> {t('pages.flashcards.publish')}
                           </button>
                         )}
                         <button
                           onClick={() => handleDeleteDeck(deck.id, deck.title)}
-                          className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50"
+                          className="flex min-h-11 items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50"
                         >
                           <Trash2 size={14} /> {t('pages.flashcards.delete', "Xóa bộ thẻ")}
                         </button>
                       </div>
                     </div>
                   </div>
-                  <h3 className="font-display text-lg font-semibold line-clamp-2 min-h-[3.5rem]">
+                  <h3 className="font-display text-lg font-semibold leading-snug line-clamp-2 min-h-[3.1rem]">
                     {deck.title}
                   </h3>
-                  <div className="mt-3 flex items-center justify-between text-sm">
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <BookOpen size={13} /> {totalCards} thẻ
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock size={13} /> Tạo {new Date(deck.createdAt).toLocaleDateString("vi-VN")}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      {deck.clonedFromId ? "Từ Marketplace" : "Tự tạo"}
+                    </span>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between text-sm">
                     <span className="text-muted-foreground flex items-center gap-1.5">
-                      <BookOpen size={12} /> {t('pages.flashcards.progress')}
+                      Đã học
                     </span>
                     <span className="font-medium">
-                      {masteredCount}/{totalCards}{" "}
-                      <span className="text-xs text-muted-foreground">({totalCards} thẻ)</span>
+                      {studiedCount}/{totalCards}
                     </span>
                   </div>
                   <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
@@ -713,21 +788,24 @@ export default function FlashcardsPage() {
                       className="h-full rounded-full"
                       style={{ background: "linear-gradient(to right, var(--color-coral), var(--color-primary))" }}
                       initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.8, delay: i * 0.05 }}
+                      animate={{ width: `${studiedPct}%` }}
+                      transition={{ duration: 0.35, delay: i * 0.03, ease: "easeOut" }}
                     />
                   </div>
-                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                    <Clock size={10} />
-                    Tạo {new Date(deck.createdAt).toLocaleDateString("vi-VN")}
+                  <div className="mt-auto pt-5 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => startStudy(deck.id, "all")}
+                      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                    >
+                      <Play size={15} fill="currentColor" /> Học nhanh
+                    </button>
+                    <button
+                      onClick={() => startStudy(deck.id, "due")}
+                      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/60"
+                    >
+                      <CalendarCheck size={15} /> Ôn đến hạn
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setActiveDeckId(deck.id.toString())}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-1.5 h-10 rounded-xl text-white text-sm font-medium hover:opacity-90"
-                    style={{ background: "var(--color-coral)" }}
-                  >
-                    <Plus size={16} /> {t('pages.flashcards.studyNow')}
-                  </button>
                 </motion.div>
               );
             })

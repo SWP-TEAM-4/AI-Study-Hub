@@ -236,7 +236,7 @@ export const flashcardService = {
 
   async submitToMarketplace(
     id: number,
-    note = "Submit for marketplace review",
+    note: string,
   ): Promise<ApiResponse<FlashcardDeckDTO>> {
     const res = await flashcardRequest<ApiResponse<FlashcardDeckDTO>>(`/marketplace/flashcard-decks/${id}/submit`, {
       method: "POST",
