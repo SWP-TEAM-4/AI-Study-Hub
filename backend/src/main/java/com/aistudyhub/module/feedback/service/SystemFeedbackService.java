@@ -47,6 +47,24 @@ public class SystemFeedbackService {
     }
 
     @Transactional(readOnly = true)
+    public PaginationResponse<SystemFeedbackResponse> getMyFeedbacks(Long currentUserId,
+            int page,
+            int size,
+            String sort) {
+
+        userRepository.findByIdAndIsActiveTrue(currentUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Sort.Direction direction = "oldest".equalsIgnoreCase(sort) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(direction, "createdAt"));
+
+        Page<SystemFeedbackResponse> result = systemFeedbackRepository.findByUserId(currentUserId, pageable)
+                .map(this::toResponse);
+
+        return PaginationResponse.of(result);
+    }
+
+    @Transactional(readOnly = true)
     public PaginationResponse<SystemFeedbackResponse> searchFeedbacks(String keyword,
             String status,
             int page,
