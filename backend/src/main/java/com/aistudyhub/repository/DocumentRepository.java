@@ -20,6 +20,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
 
     Optional<Document> findByIdAndUserId(Long id, Long userId);
 
+    Optional<Document> findFirstByUserIdAndClonedFrom_IdOrderByIdAsc(Long userId, Long clonedFromId);
+
     List<Document> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     List<Document> findByProcessingStatus(ProcessingStatus status);

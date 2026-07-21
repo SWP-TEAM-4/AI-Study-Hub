@@ -23,6 +23,7 @@ import {
   Send,
   Gauge,
   History,
+  ChevronDown,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -46,6 +47,63 @@ const emptyStats = {
   tests: 0,
   flashcardDecks: 0,
 };
+
+function computeInitials(fullName?: string | null): string {
+  if (!fullName) return "";
+  const words = fullName.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
+function usePersistentDisclosure(key: string, defaultOpen: boolean) {
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window === "undefined") return defaultOpen;
+    try {
+      const stored = localStorage.getItem(key);
+      return stored === null ? defaultOpen : stored === "1";
+    } catch {
+      return defaultOpen;
+    }
+  });
+
+  const setOpen = (value: boolean) => {
+    setIsOpen(value);
+    try {
+      localStorage.setItem(key, value ? "1" : "0");
+    } catch {
+      // Ignore storage privacy/quota errors.
+    }
+  };
+
+  const toggle = () => setOpen(!isOpen);
+  return { isOpen, setOpen, toggle } as const;
+}
+
+function computeStreakFromLogs(logs: { createdAt: string }[]): number {
+  if (!logs || logs.length === 0) return 0;
+
+  const toDayKey = (ts: string | Date): string => {
+    const d = typeof ts === "string" ? new Date(ts) : ts;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const uniqueDays = new Set(logs.map((log) => toDayKey(log.createdAt)));
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  let cursor = uniqueDays.has(toDayKey(today)) ? today : yesterday;
+  let streak = 0;
+  while (uniqueDays.has(toDayKey(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
 
 // ─── 🧑‍🎓 2. MAIN PROFILE COMPONENT ──────────────────────────────────────────────
 
@@ -100,6 +158,10 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
   const [fbContent, setFbContent] = useState("");
   const [isFbSubmitting, setFbSubmitting] = useState(false);
 
+  const testHistoryDisclosure = usePersistentDisclosure("profile.testHistory.open", true);
+  const activityLogDisclosure = usePersistentDisclosure("profile.activityLogs.open", true);
+  const myRolesDisclosure = usePersistentDisclosure("profile.myRoles.open", true);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 🔄 HÀM NẠP TIẾN TRÌNH ĐỒNG BỘ ĐÃ NÂNG CẤP BIỆN PHÁP AN TOÀN
@@ -120,7 +182,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
       const [badgesRes, testsRes, logsRes, aiRes, quotaRes, reputationRes, refRes, rolesRes, notebooksRes, documentsRes, flashcardsRes, semestersRes, combosRes] = await Promise.allSettled([
         userService.getMyBadges(),
         userService.getMyTestHistory({ page: 0, size: 5, sort: "newest" }),
-        userService.getMyActivityLogs({ page: 0, size: 8, sort: "newest" }),
+        userService.getMyActivityLogs({ page: 0, size: 100, sort: "newest" }),
         userService.getMyAIUsage(),
         reputationService.getMyAiQuota(),
         reputationService.getMyReputationEvents(0, 8),
@@ -330,6 +392,8 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     { label: "Bộ flashcard", value: stats.flashcardDecks, icon: BookMarked },
   ];
 
+  const learningStreak = computeStreakFromLogs(activityLogs);
+
   const aiUsageCards = [
     { label: "Tổng request", value: aiUsage?.totalRequests ?? 0 },
     { label: "Chat", value: aiUsage?.chatRequests ?? 0 },
@@ -383,7 +447,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
             {userInfo.avatarUrl ? (
               <img src={userInfo.avatarUrl} alt={userInfo.fullName} className="w-full h-full object-cover" />
             ) : (
-              userInfo.fullName.slice(0, 2).toUpperCase()
+              computeInitials(userInfo.fullName) || "U"
             )}
           </div>
 
@@ -399,7 +463,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
               <span className="inline-flex items-center gap-1"><MapPin size={13} className="text-coral/70" /> FPT University HCM</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-coral/10 text-coral text-xs font-semibold border border-coral/10"><Flame size={12} fill="currentColor" /> Chuỗi 7 ngày</div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-coral/10 text-coral text-xs font-semibold border border-coral/10"><Flame size={12} fill="currentColor" /> Chuỗi học tập {learningStreak} ngày</div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning/10 text-warning-foreground text-xs font-semibold border border-warning/10"><Award size={12} /> {userInfo.reputationPoints.toLocaleString()} reputation</div>
             </div>
           </div>
@@ -575,82 +639,152 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
       {/* Vai trò cộng đồng */}
       {myRoles.length > 0 && (
         <section className="surface-card p-6">
-          <h2 className="font-display text-lg font-semibold mb-4 flex items-center gap-2 text-foreground text-left">
-            <UserCheck className="text-primary" size={18} /> Vai trò cộng đồng
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {myRoles.map((r, i) => (
+          <div className="flex items-center justify-between mb-4 text-left">
+            <h2 className="font-display text-lg font-semibold flex items-center gap-2 text-foreground">
+              <UserCheck className="text-primary" size={18} /> Vai trò cộng đồng
+            </h2>
+            <button
+              onClick={myRolesDisclosure.toggle}
+              aria-expanded={myRolesDisclosure.isOpen}
+              aria-label={myRolesDisclosure.isOpen ? "Thu gọn" : "Mở rộng"}
+              className="size-8 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center"
+            >
+              <motion.span animate={{ rotate: myRolesDisclosure.isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={16} />
+              </motion.span>
+            </button>
+          </div>
+          <AnimatePresence initial={false}>
+            {myRolesDisclosure.isOpen && (
               <motion.div
-                key={r.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="p-4 rounded-2xl bg-muted/40 border border-border/50 text-left relative overflow-hidden"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden"
               >
-                <div className="absolute -right-4 -top-4 size-20 bg-primary/10 rounded-full blur-2xl"></div>
-                <div className="font-bold text-foreground text-sm tracking-wide">{r.roleType}</div>
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
-                  Phạm vi: {r.scopeType} {r.scopeId ? `(${r.scopeId})` : ""}
-                </div>
-                <div className="text-[11px] font-mono text-primary/80 mt-3 pt-3 border-t border-border/50">
-                  Từ {new Date(r.startAt).toLocaleDateString("vi-VN")} {r.endAt && `- ${new Date(r.endAt).toLocaleDateString("vi-VN")}`}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {myRoles.map((r, i) => (
+                    <motion.div
+                      key={r.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="p-4 rounded-2xl bg-muted/40 border border-border/50 text-left relative overflow-hidden"
+                    >
+                      <div className="absolute -right-4 -top-4 size-20 bg-primary/10 rounded-full blur-2xl"></div>
+                      <div className="font-bold text-foreground text-sm tracking-wide">{r.roleType}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
+                        Phạm vi: {r.scopeType} {r.scopeId ? `(${r.scopeId})` : ""}
+                      </div>
+                      <div className="text-[11px] font-mono text-primary/80 mt-3 pt-3 border-t border-border/50">
+                        Từ {new Date(r.startAt).toLocaleDateString("vi-VN")} {r.endAt && `- ${new Date(r.endAt).toLocaleDateString("vi-VN")}`}
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
               </motion.div>
-            ))}
-          </div>
+            )}
+          </AnimatePresence>
         </section>
       )}
 
       {/* Lịch sử thi & Nhật ký hoạt động */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="surface-card p-5 lg:col-span-2 overflow-hidden flex flex-col justify-between">
-          <div className="text-left mb-4">
-            <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2"><GraduationCap size={22} className="text-primary" /> Lịch sử làm bài kiểm tra</h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Kết quả điểm số các bài test trắc nghiệm kiến thức môn học</p>
+        <div className="surface-card p-5 lg:col-span-2 overflow-hidden flex flex-col">
+          <div className="text-left mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2"><GraduationCap size={22} className="text-primary" /> Lịch sử làm bài kiểm tra</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Kết quả điểm số các bài test trắc nghiệm kiến thức môn học</p>
+            </div>
+            <button
+              onClick={testHistoryDisclosure.toggle}
+              aria-expanded={testHistoryDisclosure.isOpen}
+              aria-label={testHistoryDisclosure.isOpen ? "Thu gọn" : "Mở rộng"}
+              className="size-8 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center shrink-0"
+            >
+              <motion.span animate={{ rotate: testHistoryDisclosure.isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={16} />
+              </motion.span>
+            </button>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-border/50">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-muted/50 text-[10px] font-bold uppercase text-muted-foreground border-b border-border/40">
-                <tr><th className="px-4 py-3">Bài kiểm tra / Quiz</th><th className="px-4 py-3">Điểm số</th><th className="px-4 py-3 hidden sm:table-cell">Thời gian</th><th className="px-4 py-3 text-right">Trạng thái</th></tr>
-              </thead>
-              <tbody className="divide-y divide-border/40 text-foreground font-medium">
-                {testHistory.length === 0 ? (
-                  <tr><td colSpan={4} className="py-6 text-center text-muted-foreground">Chưa tham gia bài kiểm tra nào.</td></tr>
-                ) : (
-                  testHistory.map((test) => (
-                    <tr key={test.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-foreground truncate max-w-[200px] text-left">{test.title}</td>
-                      <td className="px-4 py-3 font-mono font-bold text-primary text-left">{test.totalScore}/10</td>
-                      <td className="px-4 py-3 hidden sm:table-cell text-left text-muted-foreground">{test.duration} phút</td>
-                      <td className="px-4 py-3 text-right"><span className={`text-[9px] px-2.5 py-0.5 rounded-full font-medium uppercase ${test.status === "COMPLETED" ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : "bg-amber-500/12 text-amber-300 border border-amber-500/25"}`}>{test.status}</span></td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AnimatePresence initial={false}>
+            {testHistoryDisclosure.isOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden flex-1 flex flex-col"
+              >
+                <div className="overflow-x-auto rounded-xl border border-border/50 flex-1">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-muted/50 text-[10px] font-bold uppercase text-muted-foreground border-b border-border/40">
+                      <tr><th className="px-4 py-3">Bài kiểm tra / Quiz</th><th className="px-4 py-3">Điểm số</th><th className="px-4 py-3 hidden sm:table-cell">Thời gian</th><th className="px-4 py-3 text-right">Trạng thái</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40 text-foreground font-medium">
+                      {testHistory.length === 0 ? (
+                        <tr><td colSpan={4} className="py-6 text-center text-muted-foreground">Chưa tham gia bài kiểm tra nào.</td></tr>
+                      ) : (
+                        testHistory.map((test) => (
+                          <tr key={test.id} className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-3 font-semibold text-foreground truncate max-w-[200px] text-left">{test.title}</td>
+                            <td className="px-4 py-3 font-mono font-bold text-primary text-left">{test.totalScore}/10</td>
+                            <td className="px-4 py-3 hidden sm:table-cell text-left text-muted-foreground">{test.duration} phút</td>
+                            <td className="px-4 py-3 text-right"><span className={`text-[9px] px-2.5 py-0.5 rounded-full font-medium uppercase ${test.status === "COMPLETED" ? "bg-emerald-500/12 text-emerald-300 border border-emerald-500/25" : "bg-amber-500/12 text-amber-300 border border-amber-500/25"}`}>{test.status}</span></td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Nhật ký hoạt động */}
-        <div className="surface-card p-5">
-          <div className="text-left mb-4">
+        <div className="surface-card p-5 flex flex-col">
+          <div className="text-left mb-4 flex items-start justify-between gap-3">
             <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2"><FileText size={16} className="text-coral" /> Nhật ký hoạt động</h2>
+            <button
+              onClick={activityLogDisclosure.toggle}
+              aria-expanded={activityLogDisclosure.isOpen}
+              aria-label={activityLogDisclosure.isOpen ? "Thu gọn" : "Mở rộng"}
+              className="size-8 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center shrink-0"
+            >
+              <motion.span animate={{ rotate: activityLogDisclosure.isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={16} />
+              </motion.span>
+            </button>
           </div>
-          <div className="space-y-4 text-left">
-            {activityLogs.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4">Chưa có nhật ký hoạt động.</p>
-            ) : (
-              activityLogs.map((log) => (
-                <div key={log.id} className="flex gap-3 relative before:absolute before:left-[5px] before:top-3 before:bottom-[-21px] before:w-[1px] before:bg-border/60 last:before:hidden">
-                  <div className="size-2.5 rounded-full bg-primary ring-4 ring-primary/10 mt-1 shrink-0 z-10" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-foreground leading-snug truncate">{log.action}</p>
-                    <span className="text-[10px] font-mono text-muted-foreground/70 block mt-0.5">{new Date(log.createdAt).toLocaleDateString("vi-VN")}</span>
-                  </div>
+          <AnimatePresence initial={false}>
+            {activityLogDisclosure.isOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden flex-1"
+              >
+                <div className="space-y-4 text-left">
+                  {activityLogs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-4">Chưa có nhật ký hoạt động.</p>
+                  ) : (
+                    activityLogs.map((log) => (
+                      <div key={log.id} className="flex gap-3 relative before:absolute before:left-[5px] before:top-3 before:bottom-[-21px] before:w-[1px] before:bg-border/60 last:before:hidden">
+                        <div className="size-2.5 rounded-full bg-primary ring-4 ring-primary/10 mt-1 shrink-0 z-10" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-foreground leading-snug truncate">{log.action}</p>
+                          <span className="text-[10px] font-mono text-muted-foreground/70 block mt-0.5">{new Date(log.createdAt).toLocaleDateString("vi-VN")}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ))
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
       </section>
 

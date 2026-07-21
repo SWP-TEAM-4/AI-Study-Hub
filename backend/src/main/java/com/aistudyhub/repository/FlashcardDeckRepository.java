@@ -10,9 +10,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface FlashcardDeckRepository
                 extends JpaRepository<FlashcardDeck, Long>, JpaSpecificationExecutor<FlashcardDeck> {
+
+        Optional<FlashcardDeck> findFirstByUserIdAndClonedFrom_IdOrderByIdAsc(Long userId, Long clonedFromId);
 
         @Query("""
                         SELECT f.user.id AS userId,
