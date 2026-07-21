@@ -67,8 +67,8 @@ interface LoginPanelProps {
 export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset">(() => {
-    return (safeLocalStorage.getItem("loginPanelMode") as "login" | "signup" | "forgot" | "reset") || "login";
+  const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset" | "verify">(() => {
+    return (safeLocalStorage.getItem("loginPanelMode") as "login" | "signup" | "forgot" | "reset" | "verify") || "login";
   });
 
   const [showCombo, setShowCombo] = useState(false);
@@ -80,6 +80,9 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [resetMessage, setResetMessage] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
+  const [verificationExpireMinutes, setVerificationExpireMinutes] = useState(10);
   const formContainerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const oauthHandledRef = useRef(false);
@@ -275,15 +278,83 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
         });
 
         if (response.success) {
-          Notify.success("Tạo tài khoản học viên mới thành công!");
-          const { accessToken, tokenType, ...user } = response.data;
-          setOnboardingUser(user as AuthUser);
-          setPassword(""); setConfirmPassword("");
-          setTimeout(() => setShowCombo(true), 450);
+          Notify.success("Đã gửi mã xác thực tới email của bạn!");
+          setPendingVerificationEmail(response.data.email || cleanEmail);
+          setEmail(response.data.email || cleanEmail);
+          setVerificationExpireMinutes(response.data.expireMinutes || 10);
+          setPassword("");
+          setConfirmPassword("");
+          setVerificationCode("");
+          setMode("verify");
         }
       }
     } catch (err: any) {
+      if (mode === "signup" && err?.errorCode === "EMAIL_NOT_VERIFIED") {
+        setPendingVerificationEmail(cleanEmail);
+        setEmail(cleanEmail);
+        setPassword("");
+        setConfirmPassword("");
+        setVerificationCode("");
+        setMode("verify");
+        Notify.warning("Email này đã đăng ký nhưng chưa xác thực. Vui lòng nhập mã hoặc gửi lại mã.");
+        return;
+      }
       Notify.failure(err.message || "Xử lý yêu cầu xác thực thất bại!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = (pendingVerificationEmail || email).trim().toLowerCase();
+    const cleanCode = verificationCode.trim();
+
+    if (!cleanEmail) {
+      Notify.failure("Vui lòng nhập email cần xác thực.");
+      return;
+    }
+    if (!/^\d{6}$/.test(cleanCode)) {
+      Notify.failure("Mã xác thực phải gồm đúng 6 chữ số.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authService.verifyRegistration(cleanEmail, cleanCode);
+      if (response.success) {
+        Notify.success("Xác thực email thành công!");
+        const { accessToken, tokenType, ...user } = response.data;
+        setVerificationCode("");
+        setPendingVerificationEmail("");
+        completeOAuthSession(accessToken, user as AuthUser);
+      }
+    } catch (err: any) {
+      Notify.failure(err.message || "Xác thực email thất bại.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerificationCode = async () => {
+    const cleanEmail = (pendingVerificationEmail || email).trim().toLowerCase();
+    if (!cleanEmail) {
+      Notify.failure("Vui lòng nhập email cần gửi lại mã.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authService.resendRegistrationVerification(cleanEmail);
+      if (response.success) {
+        setPendingVerificationEmail(response.data.email || cleanEmail);
+        setEmail(response.data.email || cleanEmail);
+        setVerificationExpireMinutes(response.data.expireMinutes || verificationExpireMinutes);
+        setVerificationCode("");
+        Notify.success("Đã gửi lại mã xác thực.");
+      }
+    } catch (err: any) {
+      Notify.failure(err.message || "Không thể gửi lại mã xác thực.");
     } finally {
       setLoading(false);
     }
@@ -470,7 +541,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -10 }}
                         type="button"
-                        onClick={() => { setMode("login"); setEmail(""); setResetMessage(""); setPassword(""); setConfirmPassword(""); setFullName(""); setResetToken(""); }}
+                        onClick={() => { setMode("login"); setEmail(""); setResetMessage(""); setPassword(""); setConfirmPassword(""); setFullName(""); setResetToken(""); setVerificationCode(""); setPendingVerificationEmail(""); }}
                         className="group flex items-center gap-2 text-cream/40 hover:text-neon mb-5 transition-all duration-300 font-mono text-[11px] uppercase tracking-wider cursor-pointer"
                       >
                         <ArrowLeft size={13} className="group-hover:-translate-x-1 transition-transform" /> Back to Login
@@ -490,7 +561,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
                     )}
                   </AnimatePresence>
 
-                  {mode === "forgot" || mode === "reset" ? (
+                  {mode === "forgot" || mode === "reset" || mode === "verify" ? (
                     <>
                       <div className="mb-3 flex items-center gap-2 gsap-fade-header">
                         <div className="p-1.5 rounded-lg bg-neon/10 border border-neon/20">
@@ -499,10 +570,41 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
                         <span className="font-grotesk text-[11px] uppercase tracking-[0.25em] text-cream/60 font-semibold">AI Study Hub</span>
                       </div>
 
-                      <h1 className="text-3xl font-black tracking-tight text-white uppercase font-grotesk mb-1 gsap-fade-header">Reset Password</h1>
-                      <p className="text-2xl font-condiment text-neon mb-6 drop-shadow-[0_0_8px_rgba(111,255,0,0.3)] gsap-fade-header">Get back in</p>
+                      <h1 className="text-3xl font-black tracking-tight text-white uppercase font-grotesk mb-1 gsap-fade-header">
+                        {mode === "verify" ? "Verify Email" : "Reset Password"}
+                      </h1>
+                      <p className="text-2xl font-condiment text-neon mb-6 drop-shadow-[0_0_8px_rgba(111,255,0,0.3)] gsap-fade-header">
+                        {mode === "verify" ? "activate account" : "Get back in"}
+                      </p>
 
-                      {mode === "forgot" ? (
+                      {mode === "verify" ? (
+                        <form onSubmit={handleVerifyRegistration} className="space-y-4">
+                          <div className="p-4 bg-emerald-500/10 border border-emerald-400/20 rounded-2xl gsap-fade-field">
+                            <p className="text-xs font-mono text-center text-emerald-300 leading-relaxed">
+                              Nhập mã 6 số đã gửi tới email của bạn. Mã có hiệu lực trong {verificationExpireMinutes} phút.
+                            </p>
+                          </div>
+                          <div className="gsap-fade-field">
+                            <Field Icon={Mail} type="email" placeholder="Email address" value={pendingVerificationEmail || email} onChange={(value) => { setPendingVerificationEmail(value); setEmail(value); }} />
+                          </div>
+                          <div className="gsap-fade-field">
+                            <Field Icon={Lock} type="text" placeholder="6-digit verification code" value={verificationCode} onChange={(value) => setVerificationCode(value.replace(/\D/g, "").slice(0, 6))} />
+                          </div>
+                          <button
+                            type="submit"
+                            disabled={loading || !(pendingVerificationEmail || email) || verificationCode.length !== 6}
+                            className="w-full py-3.5 rounded-2xl bg-neon text-space font-grotesk uppercase tracking-widest text-xs hover:brightness-110 active:scale-[0.99] transition-all duration-300 disabled:opacity-40 font-black shadow-[0_0_25px_rgba(111,255,0,0.2)] gsap-fade-btn cursor-pointer"
+                          >
+                            {loading ? "Verifying..." : "Activate Account"}
+                          </button>
+                          <div className="mt-5 text-center gsap-fade-footer">
+                            <span className="text-[11px] font-mono text-cream/40 uppercase tracking-wider">Chưa nhận được mã? </span>
+                            <button type="button" disabled={loading} onClick={handleResendVerificationCode} className="text-neon hover:text-white font-bold text-[11px] font-mono transition-colors uppercase tracking-wider disabled:opacity-40 cursor-pointer">
+                              Gửi lại mã
+                            </button>
+                          </div>
+                        </form>
+                      ) : mode === "forgot" ? (
                         <>
                           {resetMessage ? (
                             <div className="p-4 bg-emerald-500/10 border border-emerald-400/20 rounded-2xl mb-4 gsap-fade-field">
@@ -694,7 +796,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
                       <p className="mt-5 text-center text-[10px] font-mono uppercase tracking-wide text-cream/40 gsap-fade-footer">
                         {mode === "login" ? "New explorer? " : "Already orbiting? "}
                         <button type="button"
-                          onClick={() => { setMode(mode === "login" ? "signup" : "login"); setFullName(""); setEmail(""); setPassword(""); setConfirmPassword(""); }}
+                          onClick={() => { setMode(mode === "login" ? "signup" : "login"); setFullName(""); setEmail(""); setPassword(""); setConfirmPassword(""); setVerificationCode(""); setPendingVerificationEmail(""); }}
                           className="text-neon hover:underline font-black tracking-widest ml-1 cursor-pointer">
                           {mode === "login" ? "Create account" : "Sign in"}
                         </button>

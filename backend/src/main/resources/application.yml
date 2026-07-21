@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/aistudyhub2
+    url: jdbc:postgresql://localhost:5432/aistudyhub5
     username: postgres
     password: huyplay
     driver-class-name: org.postgresql.Driver
@@ -110,6 +110,8 @@ app:
     from: contact@huyplay.vn
     from-name: AI Study Hub
     reset-password-url: http://localhost:5173/reset-password
+    dashboard-url: http://localhost:5173/dashboard
+    onboarding-url: http://localhost:5173/onboarding
     token-expire-minutes: 30
 
   oauth:
