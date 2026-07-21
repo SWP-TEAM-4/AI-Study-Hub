@@ -17,6 +17,8 @@ export interface AdminContentDTO {
   adminRequired?: boolean;
   policyMode?: "SINGLE_REVIEWER" | "QUORUM";
   requiredVotes?: number;
+  fileUrl?: string | null;
+  fileType?: string | null;
 }
 
 export interface VoteResultDTO {
