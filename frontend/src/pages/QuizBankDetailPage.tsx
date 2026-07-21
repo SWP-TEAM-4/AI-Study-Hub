@@ -6,17 +6,15 @@ import {
   ChevronUp,
   Clock,
   Edit,
-  Eye,
   Play,
   Plus,
   RotateCcw,
   Settings2,
   Trash2,
-  X,
 } from "lucide-react";
-import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Confirm, Notify } from "notiflix";
-import { QuestionDTO, QuestionPayload, quizService, StartTestPayload, TestDTO, UserTestHistoryDTO } from "../services/quizService";
+import { QuestionDTO, QuestionPayload, quizService, StartTestPayload, UserTestHistoryDTO } from "../services/quizService";
 
 interface QuizBankDetailPageProps {
   quizId: number;
@@ -34,26 +32,13 @@ const createBlankQuestionPayload = (): QuestionPayload => ({
   ],
 });
 
-const getFillBlankAnswerOption = (question: QuestionDTO) => question.options.find((option) => option.isCorrect);
-
 const toQuestionPayload = (question: QuestionDTO): QuestionPayload => ({
   questionText: question.questionText.trim(),
   questionType: question.questionType,
   explanation: question.explanation?.trim() || "",
   options:
     question.questionType === "FILL_IN_THE_BLANK"
-      ? (() => {
-          const correctAnswer = getFillBlankAnswerOption(question);
-          return correctAnswer
-            ? [
-                {
-                  id: correctAnswer.id,
-                  optionText: correctAnswer.optionText.trim(),
-                  isCorrect: true,
-                },
-              ]
-            : [];
-        })()
+      ? []
       : question.options.map((option) => ({
           id: option.id,
           optionText: option.optionText.trim(),
@@ -64,7 +49,6 @@ const toQuestionPayload = (question: QuestionDTO): QuestionPayload => ({
 export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: QuizBankDetailPageProps) {
   const [questions, setQuestions] = useState<QuestionDTO[]>([]);
   const [history, setHistory] = useState<UserTestHistoryDTO[]>([]);
-  const [historyTotal, setHistoryTotal] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [activeQuestionId, setActiveQuestionId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,10 +57,6 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
   const [timeLimit, setTimeLimit] = useState(30);
   const [randomCount, setRandomCount] = useState(5);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
-  const [activeHistoryId, setActiveHistoryId] = useState<number | null>(null);
-  const [historyResult, setHistoryResult] = useState<TestDTO | null>(null);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  const selectionAnchorId = useRef<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -90,10 +70,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
         quizService.getQuizTestHistory(quizId, { size: 5 }),
       ]);
       if (questionRes.success) setQuestions(questionRes.data);
-      if (historyRes.success) {
-        setHistory(historyRes.data.items);
-        setHistoryTotal(historyRes.data.totalElements);
-      }
+      if (historyRes.success) setHistory(historyRes.data.items);
     } catch (e: any) {
       Notify.failure(e.message || "Không thể tải dữ liệu Quiz Bank");
     } finally {
@@ -111,37 +88,8 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
     setExpandedId(id);
   };
 
-  const handleQuestionSelection = (id: number, event: MouseEvent<HTMLButtonElement | HTMLDivElement>) => {
-    event.stopPropagation();
-
-    const anchorIndex = questions.findIndex((question) => question.id === selectionAnchorId.current);
-    const currentIndex = questions.findIndex((question) => question.id === id);
-    let nextSelectedIds: number[];
-
-    if (event.shiftKey && anchorIndex >= 0 && currentIndex >= 0) {
-      const start = Math.min(anchorIndex, currentIndex);
-      const end = Math.max(anchorIndex, currentIndex);
-      const rangeIds = questions.slice(start, end + 1).map((question) => question.id);
-      nextSelectedIds = event.ctrlKey || event.metaKey
-        ? Array.from(new Set([...selectedQuestionIds, ...rangeIds]))
-        : rangeIds;
-    } else {
-      nextSelectedIds = selectedQuestionIds.includes(id)
-        ? selectedQuestionIds.filter((questionId) => questionId !== id)
-        : [...selectedQuestionIds, id];
-      selectionAnchorId.current = id;
-    }
-
-    setSelectedQuestionIds(nextSelectedIds);
-    setSelectionMode(nextSelectedIds.length > 0 ? "SELECTED" : "ALL");
-  };
-
-  const handleQuestionRowClick = (id: number, event: MouseEvent<HTMLDivElement>) => {
-    if (event.shiftKey || event.ctrlKey || event.metaKey) {
-      handleQuestionSelection(id, event);
-      return;
-    }
-    handleSelectQuestion(id);
+  const toggleSelectedForTest = (id: number) => {
+    setSelectedQuestionIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const replaceQuestion = (questionId: number, patch: Partial<QuestionDTO>) => {
@@ -179,10 +127,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
         try {
           await quizService.deleteQuestion(id);
           setQuestions((prev) => prev.filter((q) => q.id !== id));
-          const nextSelectedIds = selectedQuestionIds.filter((questionId) => questionId !== id);
-          setSelectedQuestionIds(nextSelectedIds);
-          if (nextSelectedIds.length === 0 && selectionMode === "SELECTED") setSelectionMode("ALL");
-          if (selectionAnchorId.current === id) selectionAnchorId.current = null;
+          setSelectedQuestionIds((prev) => prev.filter((x) => x !== id));
           if (activeQuestionId === id) setActiveQuestionId(null);
           Notify.success("Đã xóa câu hỏi");
         } catch (e: any) {
@@ -192,55 +137,9 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
     );
   };
 
-  const handleViewHistory = async (item: UserTestHistoryDTO) => {
-    if (item.status !== "COMPLETED") {
-      Notify.info("Lượt làm bài này chưa được nộp nên chưa có kết quả chi tiết");
-      return;
-    }
-
-    setActiveHistoryId(item.id);
-    setHistoryResult(null);
-    setIsHistoryLoading(true);
-    try {
-      const res = await quizService.getTestResult(item.id);
-      if (res.success && res.data) setHistoryResult(res.data);
-    } catch (e: any) {
-      setActiveHistoryId(null);
-      Notify.failure(e.message || "Không thể tải kết quả bài test");
-    } finally {
-      setIsHistoryLoading(false);
-    }
-  };
-
-  const handleDeleteHistory = (item: UserTestHistoryDTO) => {
-    Confirm.show(
-      "Xóa lịch sử làm bài",
-      "Lượt làm bài và toàn bộ câu trả lời đã lưu sẽ bị xóa. Bạn có muốn tiếp tục?",
-      "Xóa",
-      "Hủy",
-      async () => {
-        try {
-          await quizService.deleteTest(item.id);
-          setHistory((prev) => prev.filter((historyItem) => historyItem.id !== item.id));
-          setHistoryTotal((prev) => Math.max(0, prev - 1));
-          if (activeHistoryId === item.id) {
-            setActiveHistoryId(null);
-            setHistoryResult(null);
-          }
-          Notify.success("Đã xóa lịch sử làm bài");
-        } catch (e: any) {
-          Notify.failure(e.message || "Không thể xóa lịch sử làm bài");
-        }
-      },
-    );
-  };
-
   const validateQuestion = (question: QuestionDTO) => {
     if (!question.questionText.trim()) return "Nội dung câu hỏi không được để trống";
-    if (question.questionType === "FILL_IN_THE_BLANK") {
-      const correctAnswer = getFillBlankAnswerOption(question);
-      if (!correctAnswer?.optionText.trim()) return "Đáp án đúng không được để trống";
-    } else {
+    if (question.questionType !== "FILL_IN_THE_BLANK") {
       const validOptions = question.options.filter((option) => option.optionText.trim());
       if (validOptions.length < 2) return "Câu trắc nghiệm cần ít nhất 2 đáp án";
       if (!validOptions.some((option) => option.isCorrect)) return "Cần chọn ít nhất 1 đáp án đúng";
@@ -287,13 +186,9 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
       Notify.warning(`Số câu ngẫu nhiên phải từ 1 đến ${questions.length}`);
       return null;
     }
-    if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 1440) {
-      Notify.warning("Thời gian làm bài phải từ 1 đến 1440 phút");
-      return null;
-    }
 
     return {
-      duration: timeLimit,
+      duration: timeLimit || 30,
       quizSelectionMode: selectionMode,
       questionIds: selectionMode === "SELECTED" ? selectedQuestionIds : undefined,
       randomCount: selectionMode === "RANDOM" ? randomCount : undefined,
@@ -317,8 +212,8 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-10.5rem)] lg:h-[calc(100dvh-7.5rem)] min-h-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-      <div className="flex items-center justify-between mb-4 pb-4 border-b border-border shrink-0">
+    <div className="flex flex-col h-[calc(100vh-6rem)] animate-in fade-in zoom-in-95 duration-200">
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
@@ -364,34 +259,26 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                   className={`border rounded-xl transition-all ${
                     activeQuestionId === question.id
                       ? "border-primary ring-1 ring-primary/20 bg-primary/5"
-                      : selectedQuestionIds.includes(question.id)
-                        ? "border-primary/50 bg-primary/5"
-                        : "border-border bg-card hover:border-primary/40"
+                      : "border-border bg-card hover:border-primary/40"
                   }`}
                 >
-                  <div
-                    className="p-3 cursor-pointer flex items-start gap-3"
-                    onClick={(event) => handleQuestionRowClick(question.id, event)}
-                  >
+                  <div className="p-3 cursor-pointer flex items-start gap-3" onClick={() => handleSelectQuestion(question.id)}>
                     <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={selectedQuestionIds.includes(question.id)}
-                      onClick={(event) => handleQuestionSelection(question.id, event)}
-                      className={`size-5 rounded flex items-center justify-center shrink-0 mt-0.5 border transition-colors ${
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectedForTest(question.id);
+                      }}
+                      className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border ${
                         selectedQuestionIds.includes(question.id)
                           ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card text-transparent border-border hover:border-primary"
+                          : "bg-muted text-muted-foreground border-border"
                       }`}
                       title="Chọn câu này cho chế độ SELECTED"
                     >
-                      <Check size={13} strokeWidth={3} />
+                      {idx + 1}
                     </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium line-clamp-2">
-                        <span className="mr-1.5 text-xs text-muted-foreground">#{idx + 1}</span>
-                        {question.questionText}
-                      </p>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium line-clamp-2">{question.questionText}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button
@@ -480,7 +367,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                       <div className="text-[10px] text-muted-foreground mt-0.5">Điểm cao nhất</div>
                     </div>
                     <div className="p-3 rounded-xl bg-muted/40 border border-border text-center">
-                      <div className="text-xl font-display font-bold text-foreground">{historyTotal}</div>
+                      <div className="text-xl font-display font-bold text-foreground">{history.length}</div>
                       <div className="text-[10px] text-muted-foreground mt-0.5">Số lần đã làm</div>
                     </div>
                   </div>
@@ -495,29 +382,11 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                       </div>
                     ) : (
                       history.map((item) => (
-                        <div key={item.id} className="flex items-center gap-1 rounded-lg bg-card border border-border text-xs">
-                          <button
-                            type="button"
-                            onClick={() => handleViewHistory(item)}
-                            className="flex-1 min-w-0 flex justify-between items-center gap-2 p-2 text-left hover:bg-muted/40 transition-colors rounded-l-lg"
-                            title={item.status === "COMPLETED" ? "Xem kết quả chi tiết" : "Bài đang làm"}
-                          >
-                            <span className="font-medium truncate">
-                              {item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : item.title}
-                            </span>
-                            <span className="flex items-center gap-1.5 shrink-0">
-                              {item.status === "COMPLETED" && <Eye size={12} className="text-muted-foreground" />}
-                              <span className="font-bold text-success">{item.totalScore ?? "-"}/10</span>
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteHistory(item)}
-                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded-r-lg"
-                            title="Xóa lịch sử làm bài"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                        <div key={item.id} className="flex justify-between items-center p-2 rounded-lg bg-card border border-border text-xs">
+                          <span className="font-medium">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : item.title}
+                          </span>
+                          <span className="font-bold text-success">{item.totalScore ?? "-"}/10</span>
                         </div>
                       ))
                     )}
@@ -568,7 +437,6 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                       <input
                         type="number"
                         min={1}
-                        max={1440}
                         value={timeLimit}
                         onChange={(e) => setTimeLimit(Number(e.target.value))}
                         className="w-full h-9 pl-8 pr-3 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs"
@@ -592,7 +460,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="surface-card p-4 rounded-2xl flex-1 min-h-0 overflow-hidden flex flex-col border border-border bg-card"
+              className="surface-card p-4 rounded-2xl flex-1 flex flex-col border border-border bg-card"
             >
               <div className="flex items-center justify-between mb-3 border-b border-border pb-3">
                 <h3 className="font-bold flex items-center gap-2 text-base">
@@ -606,7 +474,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                 </button>
               </div>
 
-              <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-4 flex-1">
                 <div>
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
                     Loại câu hỏi
@@ -632,36 +500,6 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                     className="w-full min-h-[50px] p-2.5 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs resize-none"
                   />
                 </div>
-
-                {activeQuestion.questionType === "FILL_IN_THE_BLANK" && (
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                      Đáp án đúng
-                    </label>
-                    <input
-                      type="text"
-                      value={getFillBlankAnswerOption(activeQuestion)?.optionText ?? ""}
-                      onChange={(e) => {
-                        const currentAnswer = getFillBlankAnswerOption(activeQuestion);
-                        replaceQuestion(activeQuestion.id, {
-                          options: [
-                            {
-                              id: currentAnswer?.id,
-                              questionId: activeQuestion.id,
-                              optionText: e.target.value,
-                              isCorrect: true,
-                            },
-                          ],
-                        });
-                      }}
-                      placeholder="Nhập đáp án chuẩn để hệ thống chấm điểm"
-                      className="w-full h-9 px-3 rounded-xl bg-muted/40 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-xs"
-                    />
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Đáp án này được lưu ẩn và không hiển thị trong lúc làm bài.
-                    </p>
-                  </div>
-                )}
 
                 {activeQuestion.questionType !== "FILL_IN_THE_BLANK" && (
                   <div>
@@ -750,7 +588,7 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-border bg-card flex justify-end gap-3 shrink-0">
+              <div className="mt-4 pt-3 border-t border-border flex justify-end gap-3 shrink-0">
                 <button
                   disabled={isSaving}
                   onClick={handleSaveActiveQuestion}
@@ -763,98 +601,6 @@ export default function QuizBankDetailPage({ quizId, onBack, onStartTest }: Quiz
           )}
         </div>
       </div>
-
-      <AnimatePresence>
-        {activeHistoryId !== null && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center"
-            onClick={() => {
-              setActiveHistoryId(null);
-              setHistoryResult(null);
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl bg-card border border-border shadow-2xl flex flex-col"
-            >
-              <div className="p-5 border-b border-border flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-bold">Kết quả bài test</h3>
-                  {historyResult && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {historyResult.correctAnswers ?? 0}/{historyResult.totalQuestions ?? 0} câu đúng · {historyResult.totalScore ?? 0}/10 điểm
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveHistoryId(null);
-                    setHistoryResult(null);
-                  }}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                  title="Đóng"
-                >
-                  <X size={17} />
-                </button>
-              </div>
-
-              <div className="p-5 overflow-y-auto custom-scrollbar">
-                {isHistoryLoading ? (
-                  <div className="py-12 text-center text-sm text-muted-foreground">
-                    <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    Đang tải kết quả...
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {historyResult?.items?.map((item, index) => {
-                      const selectedOption = item.options?.find((option) => option.id === item.selectedOptionId);
-                      const correctAnswers = item.options
-                        ?.filter((option) => option.isCorrect)
-                        .map((option) => option.optionText)
-                        .join(", ");
-
-                      return (
-                        <div
-                          key={`${item.questionId}-${index}`}
-                          className={`p-4 rounded-xl border ${
-                            item.isCorrect ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="text-sm font-semibold">
-                              Câu {index + 1}: {item.questionText || `#${item.questionId}`}
-                            </p>
-                            <span className={`text-xs font-bold shrink-0 ${item.isCorrect ? "text-success" : "text-destructive"}`}>
-                              {item.isCorrect ? "Đúng" : "Sai"}
-                            </span>
-                          </div>
-                          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                            <p>
-                              Câu trả lời: {item.userAnswerText || selectedOption?.optionText || "Không trả lời"}
-                            </p>
-                            {!item.isCorrect && correctAnswers && <p>Đáp án đúng: {correctAnswers}</p>}
-                            {item.explanation && <p>Giải thích: {item.explanation}</p>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {historyResult?.items?.length === 0 && (
-                      <div className="py-10 text-center text-sm text-muted-foreground">Không có dữ liệu câu trả lời.</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
