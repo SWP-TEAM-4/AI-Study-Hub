@@ -103,7 +103,7 @@ export default function PublishModal({ isOpen, onClose, document: targetDocument
               <div className="p-2 bg-primary/10 text-primary rounded-xl">
                 <Share2 size={20} />
               </div>
-              <h3 className="font-bold text-lg text-foreground">{t("components.publishModal.title", "Chia sẻ Cộng đồng")}</h3>
+              <h3 className="font-bold font-display text-lg text-foreground">{t("components.publishModal.title", "Chia sẻ Cộng đồng")}</h3>
             </div>
             <button
               onClick={onClose}
