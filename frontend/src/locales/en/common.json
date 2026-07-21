@@ -44,7 +44,8 @@
     "today": "Today: 15th",
     "keepItUp": "Keep it up! ",
     "upload": "Upload",
-    "exit": "Exit"
+    "exit": "Exit",
+    "sendFeedback": "Send Feedback"
   },
     "filters": {
         "allSubjects": "All Subjects",

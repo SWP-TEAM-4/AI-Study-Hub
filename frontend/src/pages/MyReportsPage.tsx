@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useDeferredValue, useTransition } from "react";
 import {
   Flag,
   MessageSquare,
@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Eye,
   Search,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { trackingService, MyReportDTO, MyFeedbackDTO, MySubmissionDTO } from "../services/trackingService";
@@ -40,6 +41,10 @@ export default function MyReportsPage() {
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(0);
 
+  // Debounce keyword: tránh gọi API mỗi keystroke, giảm tải BE
+  const deferredKeyword = useDeferredValue(keyword);
+  const [, startKeywordTransition] = useTransition();
+
   // Data
   const [reports, setReports] = useState<MyReportDTO[]>([]);
   const [feedbacks, setFeedbacks] = useState<MyFeedbackDTO[]>([]);
@@ -51,7 +56,7 @@ export default function MyReportsPage() {
     setIsLoading(true);
     try {
       if (activeTab === "reports") {
-        const res = await trackingService.getMyReports({ page, size: 10, keyword });
+        const res = await trackingService.getMyReports({ page, size: 10, keyword: deferredKeyword });
         if (res.success) {
           setReports(res.data.items);
           setTotalElements(res.data.totalElements);
@@ -76,15 +81,23 @@ export default function MyReportsPage() {
     }
   };
 
-  useEffect(() => {
+  // Reset keyword + page khi đổi tab; keyword "dính" giữa các tab là UX xấu
+  const handleTabChange = (tab: TabType) => {
+    if (tab === activeTab) return;
+    setActiveTab(tab);
+    setKeyword("");
     setPage(0);
-  }, [activeTab]);
+  };
 
+  // Debounce loadData: chỉ chạy khi deferredKeyword đã ổn định
   useEffect(() => {
-    loadData();
-  }, [activeTab, page]);
+    startKeywordTransition(() => {
+      loadData();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, page, deferredKeyword]);
 
-  const totalPages = Math.ceil(totalElements / 10);
+  const totalPages = Math.max(1, Math.ceil(totalElements / 10));
 
   const renderStatus = (status: string) => {
     const cfg = STATUS_BADGE[status] || { label: status, classes: "bg-muted text-muted-foreground" };
@@ -159,10 +172,9 @@ export default function MyReportsPage() {
           <>
             <td className="px-6 py-4">
               <div className="font-semibold text-foreground text-sm">{item.title}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">#{item.targetType}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Loại: {item.targetType}</div>
             </td>
             <td className="px-6 py-4">{renderStatus(item.marketStatus || "PENDING")}</td>
-            <td className="px-6 py-4 text-sm text-muted-foreground">{item.targetType}</td>
             <td className="px-6 py-4 text-xs text-muted-foreground/70">
               {new Date(item.submittedAt || item.createdAt).toLocaleDateString("vi-VN")}
             </td>
@@ -189,7 +201,7 @@ export default function MyReportsPage() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === tab.id
                   ? "bg-card text-foreground shadow-sm"
@@ -213,6 +225,16 @@ export default function MyReportsPage() {
             placeholder="Tìm kiếm báo cáo..."
             className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground/50"
           />
+          {keyword && (
+            <button
+              onClick={() => { setKeyword(""); setPage(0); }}
+              aria-label="Xóa từ khóa"
+              title="Xóa từ khóa"
+              className="size-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shrink-0"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       )}
 
@@ -242,8 +264,7 @@ export default function MyReportsPage() {
                   <>
                     <th className="px-6 py-4 font-medium">Tên nội dung</th>
                     <th className="px-6 py-4 font-medium">Trạng thái</th>
-                    <th className="px-6 py-4 font-medium">Loại</th>
-                    <th className="px-6 py-4 font-medium">Ngày gửi</th>
+                    <th className="px-6 py-4 font-medium">Ngày tạo</th>
                   </>
                 )}
               </tr>

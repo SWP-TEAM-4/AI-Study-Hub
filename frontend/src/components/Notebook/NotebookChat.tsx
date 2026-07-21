@@ -185,8 +185,16 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
     const [quizResult, deckResult] = await Promise.allSettled([
       chatService.getNotebookQuizzes(notebookId), chatService.getNotebookDecks(notebookId),
     ]);
-    if (quizResult.status === "fulfilled") setRelatedQuizzes(quizResult.value);
-    if (deckResult.status === "fulfilled") setRelatedDecks(deckResult.value);
+    if (quizResult.status === "fulfilled") {
+      setRelatedQuizzes(quizResult.value);
+    } else {
+      console.warn("Failed to load notebook quizzes:", quizResult.reason);
+    }
+    if (deckResult.status === "fulfilled") {
+      setRelatedDecks(deckResult.value);
+    } else {
+      console.warn("Failed to load notebook decks:", deckResult.reason);
+    }
   };
 
   const loadSessions = async () => {
@@ -288,7 +296,7 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
       }
 
       const tempUserMessage: MessageDTO = {
-        id: -Date.now(),
+        id: Date.now() + Math.floor(Math.random() * 1000),
         sessionId,
         messageSequence: messages.length + 1,
         senderRole: "USER",
@@ -315,7 +323,13 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
         setThinking(false);
       } else {
         let currentLength = 0;
+        let isCancelled = false;
         typewriterTimerRef.current = setInterval(() => {
+          if (abortRef.current?.signal.aborted || isCancelled) {
+            if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+            typewriterTimerRef.current = null;
+            return;
+          }
           currentLength += Math.max(1, Math.ceil(fullContent.length / 180));
           if (currentLength >= fullContent.length) {
             if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
@@ -328,6 +342,10 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
             ? { ...item, content: fullContent.substring(0, currentLength) }
             : item));
         }, 14);
+
+        controller.signal.addEventListener("abort", () => {
+          isCancelled = true;
+        }, { once: true });
       }
 
       if (response.data.aiMessage.practiceType) setMode(response.data.aiMessage.practiceType === "QUIZ" ? "quiz" : "flashcard");
@@ -335,7 +353,7 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
       setThinking(false);
       if (error?.name !== "AbortError") {
         Notify.failure(error?.message || "Không thể gửi tin nhắn");
-        setMessages((items) => items.filter((item) => item.id > 0));
+        setMessages((items) => items.filter((item) => item.id !== tempUserMessage.id));
       }
     } finally { abortRef.current = null; }
   };

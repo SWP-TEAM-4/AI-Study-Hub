@@ -4,6 +4,7 @@ import { Search, Bell, Sun, Moon } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export function MobileHeader() {
   const { scrollY } = useScroll();
@@ -12,9 +13,10 @@ export function MobileHeader() {
   const navigate = useNavigate();
   const location = useLocation();
   const { open: openCommandPalette } = useCommandPalette();
+  const { user: authUser } = useAuthStore();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [displayInitials, setDisplayInitials] = useState("AK");
+  const [displayInitials, setDisplayInitials] = useState("");
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = scrollY.getPrevious() ?? 0;
@@ -49,19 +51,22 @@ export function MobileHeader() {
     });
   };
 
-  const syncProfileData = () => {
-    if (typeof window !== "undefined") {
-      const savedAvatar = localStorage.getItem("userAvatarUrl");
-      const savedName = localStorage.getItem("userFullName");
-      if (savedAvatar) setAvatarUrl(savedAvatar);
-      if (savedName) {
-        const words = savedName.trim().split(" ");
-        const initials = words.length >= 2
-          ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
-          : words[0].slice(0, 2).toUpperCase();
-        setDisplayInitials(initials);
-      }
-    }
+  const computeInitials = (name: string): string => {
+    if (!name) return "";
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return "";
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  };
+
+  const syncProfileData = (fallbackName?: string | null, fallbackAvatar?: string | null) => {
+    if (typeof window === "undefined") return;
+    const savedAvatar = localStorage.getItem("userAvatarUrl");
+    const savedName = localStorage.getItem("userFullName");
+    const finalAvatar = savedAvatar || fallbackAvatar || null;
+    const finalName = savedName || fallbackName || "";
+    setAvatarUrl(finalAvatar);
+    setDisplayInitials(computeInitials(finalName));
   };
 
   useEffect(() => {
@@ -70,6 +75,10 @@ export function MobileHeader() {
     window.addEventListener("profile-updated", handleProfileUpdate);
     return () => window.removeEventListener("profile-updated", handleProfileUpdate);
   }, []);
+
+  useEffect(() => {
+    syncProfileData(authUser?.fullName, authUser?.avatarUrl);
+  }, [authUser?.fullName, authUser?.avatarUrl]);
 
   // Determine title based on location
   let title = "Mind Space";

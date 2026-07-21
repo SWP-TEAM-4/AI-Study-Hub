@@ -15,7 +15,19 @@ export function useNotebooks() {
   return useQuery({
     queryKey: notebookKeys.list(),
     queryFn: () => notebookService.getNotebooks(),
-    staleTime: 5 * 60 * 1000, // 5 phút — giảm số lần gọi API không cần thiết
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    retry: (failureCount, error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      if (status === 401 || status === 403 || status === 404) return false;
+      return failureCount < 2;
+    },
+    onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      if (status === 401 || status === 403) return;
+      Notify.failure(error?.message || "Không thể tải danh sách Notebook");
+    },
     select: (data) => data?.data?.items ?? [],
   });
 }
@@ -97,7 +109,9 @@ export function useDeleteNotebook() {
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: notebookKeys.list() });
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: notebookKeys.list() });
+      }, 1000);
     },
   });
 }
