@@ -9,7 +9,7 @@ import {
   RefreshCw, BarChart2, Sparkles
 } from "lucide-react";
 import { Notify } from "notiflix";
-import { flashcardService, FlashcardDeckDTO, FlashcardDTO } from "../services/flashcardService";
+import { FlashcardDeckDTO, FlashcardDTO } from "../services/flashcardService";
 import { ReviewsSection } from "../components/ui/ReviewsSection";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -130,13 +130,8 @@ function CardCarousel({ cards }: { cards: FlashcardDTO[] }) {
 
 // ─── All Cards List ───────────────────────────────────────────────────────────
 
-function CardsList({ cards, onSaveCard, onDeleteCard }: { cards: FlashcardDTO[]; onSaveCard: (id: number, frontText: string, backText: string) => Promise<void>; onDeleteCard: (id: number) => void }) {
+function CardsList({ cards }: { cards: FlashcardDTO[] }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-   // inline edit state: cardId -> { frontText, backText }
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState<{ frontText: string; backText: string }>({ frontText: "", backText: "" });
-  const [isSaving, setIsSaving] = useState(false);
-
   const toggle = (id: number) => {
     setExpanded(prev => {
       const next = new Set(prev);
@@ -144,146 +139,51 @@ function CardsList({ cards, onSaveCard, onDeleteCard }: { cards: FlashcardDTO[];
       else next.add(id);
       return next;
     });
-    // cancel edit if collapsing
-    if (editingId === id) {
-      setEditingId(null);
-    }
-  };
-
-const startEdit = (card: FlashcardDTO, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingId(card.id);
-    setEditDraft({ frontText: card.frontText, backText: card.backText });
-    setExpanded(prev => new Set(prev).add(card.id));
-  };
-
-  const cancelEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingId(null);
-  };
-
-  const saveEdit = async (cardId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsSaving(true);
-    try {
-      await onSaveCard(cardId, editDraft.frontText, editDraft.backText);
-      setEditingId(null);
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (
     <div className="space-y-2">
-      {cards.map((card, i) => {
-        const isEditing = editingId === card.id;
-        return (
-          <motion.div
-            key={card.id}
-            layout
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.025 }}
-            className="rounded-2xl border border-border/50 bg-card/50 overflow-hidden"
+      {cards.map((card, i) => (
+        <motion.div
+          key={card.id}
+          layout
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.025 }}
+          className="rounded-2xl border border-border/50 bg-card/50 overflow-hidden"
+        >
+          <button
+            onClick={() => toggle(card.id)}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 transition-colors"
           >
-            <button
-              onClick={() => toggle(card.id)}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                  {i + 1}
-                </span>
-                <span className="text-sm font-medium text-foreground truncate">
-                  {isEditing ? editDraft.frontText || card.frontText : card.frontText}
-                </span>
-              </div>
-              <motion.div animate={{ rotate: expanded.has(card.id) ? 180 : 0 }}>
-                <ChevronRight size={15} className="text-muted-foreground rotate-90" />
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                {i + 1}
+              </span>
+              <span className="text-sm font-medium text-foreground truncate">{card.frontText}</span>
+            </div>
+            <motion.div animate={{ rotate: expanded.has(card.id) ? 180 : 0 }}>
+              <ChevronRight size={15} className="text-muted-foreground rotate-90" />
+            </motion.div>
+          </button>
+          <AnimatePresence>
+            {expanded.has(card.id) && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 pb-4 pt-0 border-t border-border/30">
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1.5">Đáp án</p>
+                  <p className="text-sm text-foreground leading-relaxed">{card.backText}</p>
+                </div>
               </motion.div>
-            </button>
-            <AnimatePresence>
-              {expanded.has(card.id) && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  {isEditing ? (
-                    /* ── Inline edit mode ── */
-                    <div className="px-4 pb-4 pt-3 border-t border-primary/20 space-y-3 bg-primary/5">
-                      <p className="text-xs font-bold uppercase tracking-wider text-primary/70">Chỉnh sửa thẻ</p>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mặt trước</label>
-                          <textarea
-                            value={editDraft.frontText}
-                            onChange={(e) => setEditDraft(prev => ({ ...prev, frontText: e.target.value }))}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="Mặt trước"
-                            rows={3}
-                            className="w-full rounded-xl border border-border bg-background/80 px-3 py-2 text-sm outline-none focus:border-primary transition-colors resize-none"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mặt sau</label>
-                          <textarea
-                            value={editDraft.backText}
-                            onChange={(e) => setEditDraft(prev => ({ ...prev, backText: e.target.value }))}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="Mặt sau"
-                            rows={3}
-                            className="w-full rounded-xl border border-border bg-background/80 px-3 py-2 text-sm outline-none focus:border-primary transition-colors resize-none"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => saveEdit(card.id, e)}
-                          disabled={isSaving}
-                          className="h-9 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
-                        >
-                          {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="h-9 px-4 rounded-xl bg-muted text-sm font-medium text-foreground hover:bg-muted/80 transition-colors"
-                        >
-                          Hủy
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── View mode ── */
-                    <div className="px-4 pb-4 pt-0 border-t border-border/30 space-y-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1.5">Đáp án</p>
-                        <p className="text-sm text-foreground leading-relaxed">{card.backText}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => startEdit(card, e)}
-                          className="h-9 px-3 rounded-xl bg-muted text-sm font-medium text-foreground hover:bg-muted/80 transition-colors"
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          onClick={() => onDeleteCard(card.id)}
-                          className="h-9 px-3 rounded-xl bg-destructive/10 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        );
-      })}
+            )}
+          </AnimatePresence>
+        </motion.div>
+      ))}
     </div>
   );
 }
@@ -300,80 +200,15 @@ type Tab = "preview" | "all-cards" | "reviews";
 
 export default function FlashcardDetailPage({ deck, onBack, onStudy }: FlashcardDetailPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>("preview");
-  const [currentDeck, setCurrentDeck] = useState(deck);
-  const [draftCard, setDraftCard] = useState<{ id: number | null; frontText: string; backText: string }>({ id: null, frontText: "", backText: "" });
-  const [isSavingCard, setIsSavingCard] = useState(false);
 
-  useEffect(() => {
-    setCurrentDeck(deck);
-  }, [deck]);
-
-  const visCfg = visibilityConfig[currentDeck.visibility] || visibilityConfig.PRIVATE;
+  const visCfg = visibilityConfig[deck.visibility] || visibilityConfig.PRIVATE;
   const VisIcon = visCfg.icon;
 
   const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "preview", label: "Xem trước", icon: Eye },
-    { key: "all-cards", label: "Tất cả thẻ", icon: Layers, count: currentDeck.cards.length },
-    { key: "reviews", label: "Đánh giá", icon: Star, count: currentDeck.reviewCount || undefined },
+    { key: "all-cards", label: "Tất cả thẻ", icon: Layers, count: deck.cards.length },
+    { key: "reviews", label: "Đánh giá", icon: Star, count: deck.reviewCount || undefined },
   ];
-
-  const handleSaveCard = async () => {
-    if (!draftCard.frontText.trim() || !draftCard.backText.trim()) {
-      Notify.warning("Vui lòng nhập cả mặt trước và mặt sau của thẻ");
-      return;
-    }
-
-    setIsSavingCard(true);
-    try {
-      if (draftCard.id) {
-        const res = await flashcardService.updateCard(draftCard.id, draftCard.frontText.trim(), draftCard.backText.trim());
-        setCurrentDeck((prev) => ({
-          ...prev,
-          cards: prev.cards.map((card) => card.id === draftCard.id ? { ...card, frontText: res.data.frontText, backText: res.data.backText } : card),
-        }));
-        Notify.success("Đã cập nhật thẻ");
-      } else {
-        const res = await flashcardService.addCardToDeck(currentDeck.id, draftCard.frontText.trim(), draftCard.backText.trim());
-        setCurrentDeck(res.data);
-        Notify.success("Đã thêm thẻ mới");
-      }
-      setDraftCard({ id: null, frontText: "", backText: "" });
-    } catch (e: any) {
-      Notify.failure(e?.message || "Không thể lưu thẻ");
-    } finally {
-      setIsSavingCard(false);
-    }
-  };
-
-  const handleSaveInlineCard = async (cardId: number, frontText: string, backText: string) => {
-    if (!frontText.trim() || !backText.trim()) {
-      Notify.warning("Vui lòng nhập cả mặt trước và mặt sau của thẻ");
-      return;
-    }
-    try {
-      const res = await flashcardService.updateCard(cardId, frontText.trim(), backText.trim());
-      setCurrentDeck((prev) => ({
-        ...prev,
-        cards: prev.cards.map((card) =>
-          card.id === cardId ? { ...card, frontText: res.data.frontText, backText: res.data.backText } : card
-        ),
-      }));
-      Notify.success("Đã cập nhật thẻ");
-    } catch (e: any) {
-      Notify.failure(e?.message || "Không thể lưu thẻ");
-      throw e; // re-throw so inline edit stays open
-    }
-  };
-
-  const handleDeleteCard = async (cardId: number) => {
-    try {
-      await flashcardService.deleteCard(cardId);
-      setCurrentDeck((prev) => ({ ...prev, cards: prev.cards.filter((card) => card.id !== cardId) }));
-      Notify.success("Đã xóa thẻ");
-    } catch (e: any) {
-      Notify.failure(e?.message || "Không thể xóa thẻ");
-    }
-  };
 
   return (
     <motion.div
@@ -410,10 +245,10 @@ export default function FlashcardDetailPage({ deck, onBack, onStudy }: Flashcard
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-snug">{currentDeck.title}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-snug">{deck.title}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 <Calendar size={13} className="inline mr-1" />
-                Tạo ngày {new Date(currentDeck.createdAt).toLocaleDateString("vi-VN")}
+                Tạo ngày {new Date(deck.createdAt).toLocaleDateString("vi-VN")}
               </p>
             </div>
           </div>
@@ -421,10 +256,10 @@ export default function FlashcardDetailPage({ deck, onBack, onStudy }: Flashcard
           {/* Stats row */}
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: Layers, label: "Số thẻ", value: currentDeck.cards.length, color: "text-primary" },
-              { icon: Download, label: "Tải về", value: currentDeck.downloadCount || 0, color: "text-blue-400" },
-              { icon: Star, label: "Đánh giá", value: currentDeck.reviewCount || 0, color: "text-amber-400" },
-              { icon: BarChart2, label: "Tỷ lệ đúng", value: `${currentDeck.acceptPercentage || 0}%`, color: "text-emerald-400" },
+              { icon: Layers, label: "Số thẻ", value: deck.cards.length, color: "text-primary" },
+              { icon: Download, label: "Tải về", value: deck.downloadCount || 0, color: "text-blue-400" },
+              { icon: Star, label: "Đánh giá", value: deck.reviewCount || 0, color: "text-amber-400" },
+              { icon: BarChart2, label: "Tỷ lệ đúng", value: `${deck.acceptPercentage || 0}%`, color: "text-emerald-400" },
             ].map(({ icon: Icon, label, value, color }) => (
               <div key={label} className="p-3 rounded-2xl bg-muted/30 border border-border/40 text-center">
                 <Icon size={16} className={`${color} mx-auto mb-1`} />
@@ -492,8 +327,8 @@ export default function FlashcardDetailPage({ deck, onBack, onStudy }: Flashcard
           transition={{ duration: 0.2 }}
         >
           {activeTab === "preview" && (
-            currentDeck.cards.length > 0
-              ? <CardCarousel cards={currentDeck.cards} />
+            deck.cards.length > 0
+              ? <CardCarousel cards={deck.cards} />
               : (
                 <div className="py-16 text-center text-muted-foreground">
                   <BookOpen size={36} className="mx-auto mb-3 opacity-30" />
@@ -506,7 +341,7 @@ export default function FlashcardDetailPage({ deck, onBack, onStudy }: Flashcard
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   <Layers size={15} className="text-primary" />
-                  Tất cả {currentDeck.cards.length} thẻ
+                  Tất cả {deck.cards.length} thẻ
                 </h3>
                 <button
                   onClick={() => setActiveTab("preview")}
@@ -515,51 +350,11 @@ export default function FlashcardDetailPage({ deck, onBack, onStudy }: Flashcard
                   <RefreshCw size={11} /> Chế độ học
                 </button>
               </div>
-              <div className="rounded-3xl border border-border/60 bg-card/70 p-5 shadow-sm space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-semibold text-sm flex items-center gap-2">
-                    <Layers size={15} className="text-primary" /> Thêm thẻ mới
-                  </h3>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mặt trước</label>
-                    <textarea
-                      value={draftCard.frontText}
-                      onChange={(e) => setDraftCard((prev) => ({ ...prev, frontText: e.target.value }))}
-                      placeholder="Nhập nội dung mặt trước..."
-                      rows={3}
-                      className="w-full rounded-xl border border-border bg-background/70 px-3 py-2 text-sm outline-none focus:border-primary transition-colors resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mặt sau</label>
-                    <textarea
-                      value={draftCard.backText}
-                      onChange={(e) => setDraftCard((prev) => ({ ...prev, backText: e.target.value }))}
-                      placeholder="Nhập nội dung mặt sau..."
-                      rows={3}
-                      className="w-full rounded-xl border border-border bg-background/70 px-3 py-2 text-sm outline-none focus:border-primary transition-colors resize-none"
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={handleSaveCard}
-                  disabled={isSavingCard}
-                  className="h-10 px-4 rounded-2xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
-                >
-                  {isSavingCard ? "Đang lưu..." : "Thêm thẻ"}
-                </button>
-              </div>
-              {currentDeck.cards.length > 0 ? (
-                <CardsList cards={currentDeck.cards} onSaveCard={handleSaveInlineCard} onDeleteCard={handleDeleteCard} />
-              ) : (
-                <p className="text-sm text-muted-foreground">Bộ thẻ này chưa có thẻ nào. Hãy thêm thẻ ở trên để bắt đầu.</p>
-              )}
+              <CardsList cards={deck.cards} />
             </div>
           )}
           {activeTab === "reviews" && (
-            <ReviewsSection targetType="FLASHCARD_DECK" targetId={currentDeck.id} />
+            <ReviewsSection targetType="FLASHCARD_DECK" targetId={deck.id} />
           )}
         </motion.div>
       </AnimatePresence>

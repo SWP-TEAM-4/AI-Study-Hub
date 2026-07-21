@@ -15,7 +15,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
   const [flipped, setFlipped] = useState(false);
   const [stats, setStats] = useState({ known: 0, again: 0 });
   const [isSaving, setIsSaving] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [exitDirection, setExitDirection] = useState<number | null>(null);
 
   const { data } = useSuspenseQuery({
     queryKey: ["deckDetails", deckId],
@@ -25,36 +25,47 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
   const cards = data?.data?.cards || [];
 
   if (cards.length === 0) {
-    return <div className="py-20 text-center text-muted-foreground">Bộ thẻ này hiện chưa có thẻ nào. <button onClick={onBack} className="text-primary hover:underline block mx-auto mt-2 min-h-[44px] min-w-[44px] px-3 rounded-lg">Quay lại</button></div>;
+    return (
+      <div className="py-20 text-center text-muted-foreground">
+        Bộ thẻ này hiện chưa có thẻ nào.
+        <button onClick={onBack} className="text-primary hover:underline block mx-auto mt-2 min-h-[44px] min-w-[44px] px-3 rounded-lg">
+          Quay lại
+        </button>
+      </div>
+    );
   }
 
+  // Kiểm tra an toàn nếu index vượt quá giới hạn để tránh màn hình trắng
   const card = cards[idx];
-  const isLast = idx >= cards.length - 1;
 
   const advance = useCallback(async (known: boolean) => {
-    if (isSaving || completed) return;
-    if (!card) return;
+    if (isSaving || !card) return;
 
+    setExitDirection(known ? 1 : -1);
     setIsSaving(true);
+
     try {
       await flashcardService.reviewFlashcard(card.id, known);
-      setStats((s) => ({ known: s.known + (known ? 1 : 0), again: s.again + (known ? 0 : 1) }));
+      setStats((s) => ({
+        known: s.known + (known ? 1 : 0),
+        again: s.again + (known ? 0 : 1)
+      }));
 
-      if (!isLast) {
-        setIdx((prevIdx) => prevIdx + 1);
-        setFlipped(false);
-      } else {
-        setCompleted(true);
-      }
+      // Chuyển sang thẻ kế tiếp ngay lập tức, AnimatePresence sẽ lo hiệu ứng trượt
+      setIdx((prevIdx) => prevIdx + 1);
+      setFlipped(false);
+      setExitDirection(null);
     } catch (e) {
       console.error(e);
       Notify.failure("Lỗi khi lưu kết quả ôn tập");
+      setExitDirection(null);
     } finally {
       setIsSaving(false);
     }
-  }, [card, completed, isLast, isSaving]);
+  }, [card, isSaving]);
 
-  if (completed || idx >= cards.length) {
+  // Màn hình kết quả khi đã duyệt hết các thẻ
+  if (idx >= cards.length || !card) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -62,12 +73,11 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="max-w-xl mx-auto py-8"
       >
-        {/* ── RESULT CARD ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className="surface-card p-10 text-center gradient-hero"
+          className="surface-card p-10 text-center gradient-hero rounded-3xl border border-border shadow-xl"
         >
           <motion.div
             initial={{ scale: 0, rotate: -20 }}
@@ -89,7 +99,10 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
               <div className="text-xs text-muted-foreground">Cần ôn lại</div>
             </div>
           </div>
-          <button onClick={onBack} className="mt-6 inline-flex px-5 min-h-[44px] rounded-xl bg-primary text-primary-foreground items-center justify-center font-medium text-sm hover:opacity-90 transition-opacity">
+          <button
+            onClick={onBack}
+            className="mt-6 inline-flex px-5 min-h-[44px] rounded-xl bg-primary text-primary-foreground items-center justify-center font-medium text-sm hover:opacity-90 transition-opacity"
+          >
             Về danh sách
           </button>
         </motion.div>
@@ -103,7 +116,7 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
         <button onClick={onBack} className="inline-flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
           <ArrowLeft size={14} /> Thoát
         </button>
-        <div className="text-sm text-muted-foreground">{Math.min(idx + 1, cards.length)}/{cards.length}</div>
+        <div className="text-sm text-muted-foreground">{idx + 1}/{cards.length}</div>
       </div>
 
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -119,22 +132,38 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
         <AnimatePresence mode="wait">
           <motion.div
             key={card.id}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
+            initial={{ opacity: 0, scale: 0.95, x: 0 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{
+              opacity: 0,
+              x: exitDirection !== null ? exitDirection * 200 : 0,
+              rotate: 0,
+              scale: 0.95
+            }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
             className={`absolute inset-0 ${isSaving ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             onClick={() => { if (!isSaving) setFlipped((f) => !f); }}
           >
             <motion.div
-              className="relative w-full h-full"
-              animate={{ rotateY: flipped ? 180 : 0 }}
-              transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
-              style={{ transformStyle: "preserve-3d" }}
+              className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl"
+              animate={{
+                rotateY: flipped ? 180 : 0,
+                borderColor: exitDirection === -1
+                  ? "oklch(0.62 0.18 25)"
+                  : exitDirection === 1
+                    ? "var(--color-success)"
+                    : "var(--border)"
+              }}
+              transition={{
+                rotateY: { duration: 0.45, ease: [0.4, 0, 0.2, 1] },
+                borderColor: { duration: 0.15 }
+              }}
+              style={{ transformStyle: "preserve-3d", borderWidth: "2px" }}
             >
               {/* Front */}
               <div
                 className="absolute inset-0 surface-card flex items-center justify-center p-8 text-center gradient-hero"
-                style={{ backfaceVisibility: "hidden" }}
+                style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
               >
                 <div>
                   <div className="text-xs uppercase tracking-wider text-primary font-semibold mb-3">Câu hỏi</div>
@@ -144,10 +173,17 @@ export default function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPag
                   </div>
                 </div>
               </div>
+
               {/* Back */}
               <div
                 className="absolute inset-0 surface-card flex items-center justify-center p-8 text-center"
-                style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "var(--color-ink)", color: "var(--color-cream)" }}
+                style={{
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                  transform: "rotateY(180deg)",
+                  background: "var(--color-ink)",
+                  color: "var(--color-cream)"
+                }}
               >
                 <div>
                   <div className="text-xs uppercase tracking-wider font-semibold mb-3 opacity-60">Đáp án</div>

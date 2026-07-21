@@ -1,6 +1,36 @@
 "use client";
 
-import { FolderOpen, Search, Upload, Plus, FileText, Download, Trash2, Globe, Tag, ExternalLink, X, Settings2, Share2, MoreVertical, CheckCircle2, Link, Copy, RefreshCw, Eye, Layers3, Loader2, AlertCircle, Grid, List, Pencil, Save } from "lucide-react";
+import {
+  Folder,
+  FolderOpen,
+  ChevronRight,
+  Search,
+  Upload,
+  Plus,
+  FileText,
+  Download,
+  Trash2,
+  Globe,
+  Tag,
+  ExternalLink,
+  X,
+  Settings2,
+  Share2,
+  MoreVertical,
+  CheckCircle2,
+  Link,
+  Copy,
+  RefreshCw,
+  Eye,
+  Layers3,
+  Loader2,
+  AlertCircle,
+  List,
+  Edit3,
+  ChevronDown,
+  FolderPlus,
+  Move
+} from "lucide-react";
 import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -8,15 +38,22 @@ import { ChunkDTO, DocumentDTO, ShareLinkDTO, TagDTO, documentService } from "..
 import { Notify, Confirm } from "notiflix";
 import CustomSelect from "../components/ui/CustomSelect";
 import PublishModal from "../components/ui/PublishModal";
-import { 
-  useDocuments, 
-  useUploadDocument, 
-  useDeleteDocument 
+import {
+  useDocuments,
+  useUploadDocument,
+  useDeleteDocument
 } from "../hooks/useDocuments";
 import { useSubjects } from "../hooks/useSubjects";
 import { motionFadeUp } from "../lib/motion";
 
-// 🎯 BẢNG MÀU CHUẨN THƯƠNG HIỆU CHO TỪNG LOẠI FILE (HỖ TRỢ CẢ DARK MODE)
+// Định nghĩa cấu trúc dữ liệu Thư mục
+interface FolderDTO {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdAt: string;
+}
+
 const typeStyles: Record<string, { activeBtn: string; badge: string }> = {
   all: {
     activeBtn: "bg-ink text-cream shadow-sm",
@@ -57,155 +94,6 @@ const processingStatusLabels: Record<DocumentDTO["processingStatus"], string> = 
   FAILED: "Chunking thất bại",
 };
 
-const DocumentCard = ({ doc, subjectMap, getSubjectLabel, documentTags, reprocessingId, deletingChunksId, processingStatusLabels, getStatusClass, chunkCounts, openOverview, openShareModal, handleDownload, downloadingId, handleEdit, openTagModal, handleReprocess, handleDeleteChunks, handlePublish, handleDeleteDoc, formatSize, formatDate, t }: any) => {
-  const isReprocessing = reprocessingId === doc.id;
-  const isDownloading = downloadingId === doc.id;
-  
-  // Extension specific theme colors
-  const ext = doc.fileType.toLowerCase();
-  const themesMap: Record<string, { bg: string; border: string; text: string; glow: string }> = {
-    pdf: { bg: "dark:bg-red-500/5", border: "dark:border-red-500/20", text: "text-red-500", glow: "rgba(239, 68, 68, 0.15)" },
-    docx: { bg: "dark:bg-blue-500/5", border: "dark:border-blue-500/20", text: "text-blue-500", glow: "rgba(59, 130, 246, 0.15)" },
-    pptx: { bg: "dark:bg-orange-500/5", border: "dark:border-orange-500/20", text: "text-orange-500", glow: "rgba(249, 115, 22, 0.15)" },
-    txt: { bg: "dark:bg-slate-500/5", border: "dark:border-slate-500/20", text: "text-slate-400", glow: "rgba(100, 116, 139, 0.15)" }
-  };
-  const docTheme = themesMap[ext] || { bg: "dark:bg-indigo-500/5", border: "dark:border-indigo-500/20", text: "text-indigo-400", glow: "rgba(99, 102, 241, 0.15)" };
-
-  return (
-    <motion.div 
-      variants={{
-        hidden: { opacity: 0, y: 15 },
-        show: { opacity: 1, y: 0 }
-      }}
-      className={`surface-card p-5 rounded-2xl border relative flex flex-col justify-between group hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_8px_30px_${docTheme.glow}] hover:-translate-y-1 transition-all duration-300 ${docTheme.bg} ${docTheme.border}`}
-      style={{ willChange: "transform" }}
-    >
-      <div>
-        {/* Card Header (File Type Badge & Options button) */}
-        <div className="flex items-center justify-between mb-4">
-          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-lg border tracking-wider select-none ${docTheme.text} ${docTheme.border} bg-white dark:bg-black/20`}>
-            {doc.fileType}
-          </span>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={() => openShareModal(doc)} 
-              className="size-8 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 grid place-items-center text-primary transition-colors outline-none" 
-              title="Chia sẻ"
-            >
-              <Share2 size={14} />
-            </button>
-            <div className="relative group/menu">
-              <button className="size-8 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
-                <MoreVertical size={14} />
-              </button>
-              <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
-                <button onClick={() => handleEdit(doc)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                  <FileText size={14} /> {t('pages.documents.table.editDesc')}
-                </button>
-                {doc.processingStatus === "SUCCESS" && (
-                  <button onClick={() => openOverview(doc)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                    <Pencil size={14} /> Sửa text AI
-                  </button>
-                )}
-                <button onClick={() => openTagModal(doc)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                  <Tag size={14} /> {t('pages.documents.table.addTag')}
-                </button>
-                <button onClick={() => handleReprocess(doc)} disabled={isReprocessing} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
-                  <RefreshCw size={14} className={isReprocessing ? "animate-spin" : ""} /> Xử lý AI chunks
-                </button>
-                <button onClick={() => handleDeleteChunks(doc)} disabled={deletingChunksId === doc.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
-                  <Trash2 size={14} /> Xóa AI chunks
-                </button>
-                <button onClick={() => handlePublish(doc.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                  <Globe size={14} /> {t('pages.documents.table.publish')}
-                </button>
-                <button onClick={() => handleDeleteDoc(doc.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
-                  <Trash2 size={14} /> Xóa tài liệu
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Title & Date */}
-        <button 
-          onClick={() => openOverview(doc)} 
-          className="font-extrabold text-foreground text-base tracking-tight font-serif line-clamp-2 text-left mb-1 hover:text-primary cursor-pointer transition-colors"
-        >
-          {doc.title}
-        </button>
-        <span className="text-[11px] font-bold text-muted-foreground block mb-3">
-          {formatDate(doc.createdAt)}
-        </span>
-
-        {/* Tags & Metadata badges */}
-        <div className="flex flex-wrap gap-1 mb-4">
-          {doc.subjectId ? (
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-muted/80 border border-border/30 font-medium text-muted-foreground">
-              {getSubjectLabel(doc.subjectId)}
-            </span>
-          ) : (
-            <span className="text-[10px] text-muted-foreground font-mono">N/A</span>
-          )}
-
-          {(documentTags[doc.id] ?? []).map((tag: any) => (
-            <span 
-              key={tag.id} 
-              className="inline-flex text-[10px] px-2 py-0.5 rounded-md font-medium border" 
-              style={{ color: tag.color, borderColor: `${tag.color}55`, backgroundColor: `${tag.color}14` }}
-            >
-              {tag.name}
-            </span>
-          ))}
-
-          <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(isReprocessing ? "PROCESSING" : doc.processingStatus)}`}>
-            {(doc.processingStatus === "PROCESSING" || doc.processingStatus === "PENDING" || isReprocessing) && <Loader2 size={10} className="animate-spin" />}
-            {processingStatusLabels[isReprocessing ? "PROCESSING" : doc.processingStatus]}
-          </span>
-          {doc.marketStatus !== "NONE" && (
-            <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(doc.marketStatus)}`}>
-              {doc.marketStatus}
-            </span>
-          )}
-        </div>
-
-        {/* Reprocessing Progress */}
-        {(doc.processingStatus === "PENDING" || doc.processingStatus === "PROCESSING" || isReprocessing) && (
-          <div className="mb-4 h-1 w-full rounded-full bg-muted overflow-hidden">
-            <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
-          </div>
-        )}
-      </div>
-
-      {/* Card Footer (Actions & Size) */}
-      <div className="mt-4 pt-4 border-t border-border/40 flex items-center justify-between text-xs font-bold text-muted-foreground">
-        <div>
-          <span>{formatSize(doc.fileSize)}</span>
-          <span className="mx-2">•</span>
-          <span>{doc.downloadCount || 0} tải</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {doc.processingStatus === "SUCCESS" && (
-            <button 
-              onClick={() => openOverview(doc)} 
-              className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold"
-            >
-              Overview
-            </button>
-          )}
-          <button 
-            onClick={() => handleDownload(doc)} 
-            disabled={isDownloading} 
-            className="size-8 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none disabled:opacity-50 border border-border"
-          >
-            {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
 export default function DocumentsPage() {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
@@ -217,12 +105,53 @@ export default function DocumentsPage() {
   const [filterVisibility, setFilterVisibility] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const activeAdvancedFilters = [filterSubject, filterVisibility, filterStatus].filter((value) => value !== "all").length;
+
+  // 📂 STATES QUẢN LÝ THƯ MỤC CHUYÊN SÂU
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [folders, setFolders] = useState<FolderDTO[]>([
+    { id: "folder_1", name: "Toán Đại Số Lớp 10", parentId: null, createdAt: new Date().toISOString() },
+    { id: "folder_2", name: "Ngữ Văn Tổng Hợp", parentId: null, createdAt: new Date().toISOString() },
+    { id: "folder_3", name: "Đề Thi Thử Học Kỳ I", parentId: "folder_1", createdAt: new Date().toISOString() },
+  ]);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [moveFileDoc, setMoveFileDoc] = useState<DocumentDTO | null>(null);
+
+  // Lưu trữ cục bộ ánh xạ FolderId cho các File vì API gốc chưa hỗ trợ phân cấp thư mục
+  const [fileFolderMap, setFileFolderMap] = useState<Record<number, string | null>>({});
+
+  // State hỗ trợ tìm kiếm môn học ngay trong select
+  const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
+  const [subjectSearchQuery, setSubjectSearchQuery] = useState("");
+  const subjectDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown khi click bên ngoài
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (subjectDropdownRef.current && !subjectDropdownRef.current.contains(event.target as Node)) {
+        setIsSubjectDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const { subjects, subjectMap } = useSubjects();
   const subjectFilterOptions = useMemo(
     () => subjects.map((subject) => ({ label: subject.code, value: String(subject.id) })),
     [subjects],
   );
+
+  // Lọc danh sách môn học dựa trên input tìm kiếm của người dùng
+  const filteredSubjectOptions = useMemo(() => {
+    if (!subjectSearchQuery.trim()) return subjectFilterOptions;
+    return subjectFilterOptions.filter(opt =>
+      opt.label.toLowerCase().includes(subjectSearchQuery.toLowerCase())
+    );
+  }, [subjectFilterOptions, subjectSearchQuery]);
+
   const getSubjectLabel = (subjectId: number | null) => {
     if (!subjectId) return "N/A";
     const subject = subjectMap[subjectId];
@@ -269,19 +198,21 @@ export default function DocumentsPage() {
   const [deletingChunksId, setDeletingChunksId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [chunkCounts, setChunkCounts] = useState<Record<number, number>>({});
+
+  // States phục vụ hiển thị & CHỈNH SỬA CHUNKS
   const [overviewDoc, setOverviewDoc] = useState<DocumentDTO | null>(null);
   const [overviewChunks, setOverviewChunks] = useState<ChunkDTO[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState("");
   const [editingChunkId, setEditingChunkId] = useState<number | null>(null);
-  const [editingChunkText, setEditingChunkText] = useState("");
-  const [savingChunkId, setSavingChunkId] = useState<number | null>(null);
+  const [editingChunkText, setEditingChunkText] = useState<string>("");
+  const [isSavingChunkId, setIsSavingChunkId] = useState<number | null>(null);
+
   const [tagModalDoc, setTagModalDoc] = useState<DocumentDTO | null>(null);
   const [availableTags, setAvailableTags] = useState<TagDTO[]>([]);
   const [documentTags, setDocumentTags] = useState<Record<number, TagDTO[]>>({});
   const [newTagName, setNewTagName] = useState("");
   const [isTagLoading, setIsTagLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const stats = useMemo(() => {
     const totalDocs = list.length;
@@ -289,6 +220,30 @@ export default function DocumentsPage() {
     const totalDownloads = list.reduce((sum, doc) => sum + (doc.downloadCount || 0), 0);
     return { totalDocs, totalSize, totalDownloads };
   }, [list]);
+
+  // 🧭 LOGIC TẠO BREADCRUMBS ĐƯỜNG DẪN THƯ MỤC CHA-CON (Chống lỗi folders undefined)
+  const breadcrumbs = useMemo(() => {
+    const crumbs: FolderDTO[] = [];
+    const safeFolders = Array.isArray(folders) ? folders : [];
+    let currentId = currentFolderId;
+    while (currentId) {
+      const folder = safeFolders.find(f => f.id === currentId);
+      if (folder) {
+        crumbs.unshift(folder);
+        currentId = folder.parentId;
+      } else {
+        break;
+      }
+    }
+    return crumbs;
+  }, [currentFolderId, folders]);
+
+  // 🔍 LỌC DANH SÁCH THƯ MỤC THEO THƯ MỤC CHA HIỆN TẠI (Chống lỗi folders undefined)
+  const currentFolders = useMemo(() => {
+    if (q.trim()) return [];
+    const safeFolders = Array.isArray(folders) ? folders : [];
+    return safeFolders.filter(f => f.parentId === currentFolderId);
+  }, [folders, currentFolderId, q]);
 
   const handleEdit = (doc: DocumentDTO) => {
     setEditModalDoc(doc);
@@ -322,6 +277,26 @@ export default function DocumentsPage() {
       Notify.failure("Cập nhật thất bại: " + (err.message || "Unknown error"));
     } finally {
       setIsSavingEdit(false);
+    }
+  };
+
+  // Hàm lưu nội dung Chunk đã chỉnh sửa xuống Cơ sở dữ liệu qua Service
+  const handleSaveChunkText = async (chunkId: number) => {
+    if (!editingChunkText.trim()) {
+      Notify.failure("Nội dung đoạn trích xuất không được để trống.");
+      return;
+    }
+    setIsSavingChunkId(chunkId);
+    try {
+      await documentService.updateChunk(chunkId, { textContent: editingChunkText });
+      Notify.success("Cập nhật nội dung chunk thành công!");
+
+      setOverviewChunks(prev => prev.map(c => c.id === chunkId ? { ...c, textContent: editingChunkText } : c));
+      setEditingChunkId(null);
+    } catch (err: any) {
+      Notify.failure("Lỗi không thể cập nhật nội dung: " + (err.message || "Lỗi hệ thống"));
+    } finally {
+      setIsSavingChunkId(null);
     }
   };
 
@@ -386,7 +361,7 @@ export default function DocumentsPage() {
       setIsTagLoading(false);
     }
   };
-  
+
   const handleDeleteDoc = (id: number) => {
     Confirm.show(
       "Xóa tài liệu",
@@ -403,13 +378,20 @@ export default function DocumentsPage() {
       const download = await documentService.downloadDocument(doc.id, doc.title, doc.fileType);
       const anchor = document.createElement("a");
       anchor.href = download.blobUrl;
-      anchor.download = download.fileName;
+
+      let finalFileName = download.fileName || doc.title;
+      if (doc.fileType.toLowerCase() === "pdf" && !finalFileName.toLowerCase().endsWith(".pdf")) {
+        finalFileName += ".pdf";
+      }
+
+      anchor.setAttribute("download", finalFileName);
+      anchor.style.display = "none";
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(download.blobUrl), 1000);
     } catch (err: any) {
-      Notify.failure("Không thể tải tài liệu: " + (err.message || "Unknown error"));
+      Notify.failure("Không thể tải tài liệu: " + (err.message || "Kiểm tra lại kết nối mạng hoặc quyền truy cập"));
     } finally {
       setDownloadingId(null);
     }
@@ -419,9 +401,8 @@ export default function DocumentsPage() {
     setOverviewDoc(doc);
     setOverviewChunks([]);
     setOverviewError("");
-    setEditingChunkId(null);
-    setEditingChunkText("");
     setOverviewLoading(true);
+    setEditingChunkId(null);
     try {
       const [detailResponse, chunksResponse] = await Promise.all([
         documentService.getDocumentDetails(doc.id),
@@ -434,56 +415,6 @@ export default function DocumentsPage() {
       setOverviewError(err.message || "Không thể tải nội dung chunks");
     } finally {
       setOverviewLoading(false);
-    }
-  };
-
-  const closeOverview = () => {
-    setOverviewDoc(null);
-    setOverviewError("");
-    setEditingChunkId(null);
-    setEditingChunkText("");
-  };
-
-  const startEditingChunk = (chunk: ChunkDTO) => {
-    setEditingChunkId(chunk.id);
-    setEditingChunkText(chunk.textContent || "");
-  };
-
-  const cancelEditingChunk = () => {
-    setEditingChunkId(null);
-    setEditingChunkText("");
-  };
-
-  const handleSaveChunkText = async (chunk: ChunkDTO) => {
-    if (!overviewDoc) return;
-
-    const nextText = editingChunkText.trim();
-    if (!nextText) {
-      Notify.failure("Nội dung chunk không được để trống.");
-      return;
-    }
-
-    if (nextText === (chunk.textContent || "").trim()) {
-      cancelEditingChunk();
-      return;
-    }
-
-    setSavingChunkId(chunk.id);
-    try {
-      const response = await documentService.updateDocumentChunk(overviewDoc.id, chunk.id, {
-        textContent: nextText,
-      });
-
-      if (response.data) {
-        setOverviewChunks((chunks) => chunks.map((item) => item.id === chunk.id ? response.data : item));
-      }
-
-      Notify.success("Đã cập nhật text chunk và embedding.");
-      cancelEditingChunk();
-    } catch (err: any) {
-      Notify.failure("Không thể cập nhật text chunk: " + (err.message || "Unknown error"));
-    } finally {
-      setSavingChunkId(null);
     }
   };
 
@@ -519,31 +450,33 @@ export default function DocumentsPage() {
   const [isShareLoading, setIsShareLoading] = useState(false);
   const [shareForm, setShareForm] = useState({ allowPreview: true, allowDownload: true, expiresAt: "" });
 
-  {/* Xử lý upload thật theo từng file; trạng thái lấy trực tiếp từ mutation/API. */}
   const processFilesUpload = async (files: FileList) => {
     if (files.length === 0) return;
     try {
       for (let i = 0; i < files.length; i++) {
-        await uploadMutation.mutateAsync(files[i]);
+        const uploadedDoc = await uploadMutation.mutateAsync(files[i]);
+        // Tự động gắn File vừa upload vào thư mục đang đứng hiện tại
+        if (uploadedDoc && (uploadedDoc as any).id) {
+          setFileFolderMap(prev => ({ ...prev, [(uploadedDoc as any).id]: currentFolderId }));
+        }
       }
-    } catch {
-      // Error handled by hook
+      Notify.success("Tải lên file thành công. Chờ chunking tự động!");
+    } catch (err: any) {
+      Notify.failure("Lỗi upload: " + (err.message || "Quá trình chunking file đang gặp lỗi xử lý định dạng. Đang fix!"));
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
   };
 
-  {/* Xử lý khi chọn file bằng cửa sổ File Explorer (Click) */}
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) await processFilesUpload(files);
   };
 
-  {/* 🌟 HÀM MỚI THÊM: Xử lý trích xuất danh sách file khi người dùng THẢ CHUỘT (Drop) */}
   const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDrag(false);
-    
+
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       await processFilesUpload(files);
@@ -585,9 +518,15 @@ export default function DocumentsPage() {
 
   const getStatusClass = (status: string) => statusBadgeStyles[status] || statusBadgeStyles.NONE;
 
+  // Lọc tập tin theo bộ lọc kết hợp cấu trúc thư mục phân cấp
   const filtered = useMemo(
     () => {
       let result = list.filter((x) => {
+        // Nếu có từ khóa tìm kiếm, bỏ qua bộ lọc thư mục để tìm kiếm global.
+        // Ngược lại, chỉ hiển thị file thuộc thư mục hiện tại.
+        const fileFolder = fileFolderMap[x.id] ?? null;
+        const matchFolder = q.trim() ? true : fileFolder === currentFolderId;
+
         const keyword = (q || "").toLowerCase();
         const matchSearch =
           (x.title || "").toLowerCase().includes(keyword) ||
@@ -597,7 +536,7 @@ export default function DocumentsPage() {
         const matchSubject = filterSubject === "all" || x.subjectId === Number(filterSubject);
         const matchVis = filterVisibility === "all" || x.visibility === filterVisibility;
         const matchStatus = filterStatus === "all" || x.processingStatus === filterStatus || x.marketStatus === filterStatus;
-        return matchSearch && matchType && matchSubject && matchVis && matchStatus;
+        return matchFolder && matchSearch && matchType && matchSubject && matchVis && matchStatus;
       });
 
       if (sortBy === "newest") {
@@ -609,7 +548,7 @@ export default function DocumentsPage() {
       }
       return result;
     },
-    [list, q, type, filterSubject, filterVisibility, filterStatus, sortBy],
+    [list, q, type, filterSubject, filterVisibility, filterStatus, sortBy, currentFolderId, fileFolderMap],
   );
 
   // ── Share Logic ──
@@ -731,395 +670,582 @@ export default function DocumentsPage() {
     if (shareInfo?.shareUrl) window.open(shareInfo.shareUrl, "_blank", "noopener,noreferrer");
   };
 
+  // Logic tạo Folder mới
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) {
+      Notify.failure("Tên thư mục không được trống.");
+      return;
+    }
+    const newFolder: FolderDTO = {
+      id: "folder_" + Date.now(),
+      name: newFolderName.trim(),
+      parentId: currentFolderId,
+      createdAt: new Date().toISOString()
+    };
+    setFolders(prev => [...prev, newFolder]);
+    setNewFolderName("");
+    setIsFolderModalOpen(false);
+    Notify.success("Tạo thư mục mới thành công.");
+  };
+
+  // Logic xóa Thư mục
+  const handleDeleteFolder = (folderId: string, folderName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Tránh kích hoạt sự kiện click vào folder
+    Confirm.show(
+      "Xóa thư mục",
+      `Bạn chắc chắn muốn xóa thư mục "${folderName}"? Tập tin bên trong sẽ nằm ngoài thư mục gốc.`,
+      "Xóa thư mục",
+      "Hủy",
+      () => {
+        setFolders(prev => prev.filter(f => f.id !== folderId));
+        // Giải phóng các file đang nằm trong folder bị xóa ra Root
+        setFileFolderMap(prev => {
+          const updated = { ...prev };
+          Object.keys(updated).forEach(fileId => {
+            if (updated[Number(fileId)] === folderId) {
+              updated[Number(fileId)] = null;
+            }
+          });
+          return updated;
+        });
+        Notify.success("Đã xóa thư mục.");
+      }
+    );
+  };
+
+  // Di chuyển File vào Thư mục lựa chọn
+  const handleMoveFile = (targetFolderId: string | null) => {
+    if (!moveFileDoc) return;
+    setFileFolderMap(prev => ({ ...prev, [moveFileDoc.id]: targetFolderId }));
+    setMoveFileDoc(null);
+    Notify.success("Đã di chuyển tập tin thành công.");
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Load Elegant Cursive & Calligraphy Font dynamically */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
-        .font-cursive {
-          font-family: 'Dancing Script', cursive !important;
-        }
-      `}} />
-
-      {/* Compact Title Header with View Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-pink-500 to-indigo-600 dark:from-cyan-400 dark:via-pink-400 dark:to-indigo-400 font-cursive tracking-wide pb-1 drop-shadow-sm">
-            Tài Liệu Của Bé
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Quản lý và ôn tập tài liệu học tập của bé</p>
+    <div className="space-y-4 text-left">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-black tracking-tight text-foreground md:text-3xl">Tài Liệu Của Bạn</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">Quản lý tài liệu học tập theo thư mục</p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <button 
-            onClick={() => setViewMode("grid")}
-            className={`p-2.5 rounded-xl border transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:bg-muted"}`}
-            title="Dạng thẻ"
+        <div className="flex w-full gap-2 sm:w-auto">
+          <button
+            onClick={() => !isUploading && inputRef.current?.click()}
+            disabled={isUploading}
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
           >
-            <Grid size={18} />
+            <Upload size={16} /> Tải lên
           </button>
-          <button 
-            onClick={() => setViewMode("list")}
-            className={`p-2.5 rounded-xl border transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:bg-muted"}`}
-            title="Dạng bảng"
+          <button
+            onClick={() => setIsFolderModalOpen(true)}
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-amber-600 sm:flex-none"
           >
-            <List size={18} />
+            <FolderPlus size={16} /> New Folder
           </button>
         </div>
       </div>
 
-      {/* QuickStats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 w-full relative z-10">
-         <div className="surface-card p-5 rounded-2xl flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
-            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:scale-110 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
-               <FileText size={24} strokeWidth={2.5} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tổng tài liệu</p>
-              <h4 className="text-2xl font-black text-foreground mt-0.5">{stats.totalDocs}</h4>
-            </div>
-         </div>
-         <div className="surface-card p-5 rounded-2xl flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
-            <div className="w-14 h-14 bg-teal-50 dark:bg-teal-500/10 rounded-xl border border-teal-100 dark:border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 group-hover:scale-110 group-hover:bg-teal-500 group-hover:text-white transition-all duration-300">
-               <Layers3 size={24} strokeWidth={2.5} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Dung lượng sử dụng</p>
-              <h4 className="text-2xl font-black text-foreground mt-0.5">{formatSize(stats.totalSize)}</h4>
-            </div>
-         </div>
-         <div className="surface-card p-5 rounded-2xl flex items-center gap-4 hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group">
-            <div className="w-14 h-14 bg-rose-50 dark:bg-rose-500/10 rounded-xl border border-rose-100 dark:border-rose-500/20 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0 group-hover:scale-110 group-hover:bg-rose-500 group-hover:text-white transition-all duration-300">
-               <Download size={24} strokeWidth={2.5} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tổng lượt tải</p>
-              <h4 className="text-2xl font-black text-foreground mt-0.5">{stats.totalDownloads}</h4>
-            </div>
-         </div>
+      <div className="surface-card grid grid-cols-3 divide-x divide-border/60 overflow-hidden rounded-xl border border-border/50">
+        <div className="flex min-w-0 items-center gap-2 px-3 py-3 sm:px-4">
+          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"><FileText size={16} /></div>
+          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tài liệu</p><p className="text-lg font-black leading-tight text-foreground">{stats.totalDocs}</p></div>
+        </div>
+        <div className="flex min-w-0 items-center gap-2 px-3 py-3 sm:px-4">
+          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400"><Layers3 size={16} /></div>
+          <div className="min-w-0"><p className="truncate text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Dung lượng</p><p className="truncate text-lg font-black leading-tight text-foreground">{formatSize(stats.totalSize)}</p></div>
+        </div>
+        <div className="flex min-w-0 items-center gap-2 px-3 py-3 sm:px-4">
+          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-500 dark:text-rose-400"><Download size={16} /></div>
+          <div className="min-w-0"><p className="truncate text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Lượt tải</p><p className="text-lg font-black leading-tight text-foreground">{stats.totalDownloads}</p></div>
+        </div>
       </div>
 
-      {/* Uploader (Khung kéo thả) */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDrag(true);
-        }}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
-
         onDrop={handleFileDrop}
         onClick={() => !isUploading && inputRef.current?.click()}
-        className={`surface-card border-2 border-dashed p-8 text-center cursor-pointer transition-all ${
-          drag ? "border-primary bg-primary/5 scale-[1.01]" : "border-border hover:border-primary/50"
-        } ${isUploading ? "opacity-50 pointer-events-none" : ""}`}
+        className={`surface-card flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 transition-all sm:px-5 ${drag ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"} ${isUploading ? "pointer-events-none opacity-50" : ""}`}
       >
         <input id="file-upload" ref={inputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
-        <div className="size-14 mx-auto mb-3 rounded-2xl bg-primary/10 text-primary grid place-items-center">
-          {isUploading ? (
-            <div className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Upload size={24} />
-          )}
+        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          {isUploading ? <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <Upload size={18} />}
         </div>
-        <div className="font-display text-lg font-semibold">
-          {isUploading ? t('pages.documents.uploading') : t('pages.documents.dragDrop')}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{isUploading ? t('pages.documents.uploading') : t('pages.documents.dragDrop')}</p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{t('pages.documents.maxSize')}</p>
         </div>
-        <div className="text-sm text-muted-foreground mt-1">
-          {t('pages.documents.maxSize')}
-        </div>
+        <span className="hidden text-xs font-semibold text-primary sm:block">Chọn tệp</span>
       </motion.div>
 
-      {/* Filter Toolbar */}
-      <div className="surface-card p-3 rounded-2xl flex flex-col lg:flex-row gap-3 items-center border border-border relative z-30">
-        <div className="flex-1 relative flex items-center w-full">
-          <Search className="absolute left-4 text-muted-foreground" size={16} />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t('pages.documents.search')}
-            className="w-full pl-10 pr-4 h-11 bg-muted/50 border border-transparent focus:border-primary focus:bg-card outline-none transition-all text-sm rounded-xl"
-          />
+      <div className="surface-card relative z-30 space-y-3 rounded-xl border border-border p-3">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex flex-1 items-center">
+            <Search className="absolute left-3 text-muted-foreground" size={16} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={t('pages.documents.search')}
+              className="h-10 w-full rounded-lg border border-transparent bg-muted/50 pl-9 pr-3 text-sm outline-none transition-all focus:border-primary focus:bg-card"
+            />
+          </div>
+          <div className="flex gap-2">
+            <CustomSelect
+              value={sortBy}
+              onChange={setSortBy}
+              className="min-w-0 flex-1 sm:w-[150px] sm:flex-none"
+              data={[
+                { label: t('pages.documents.sortNewest'), value: "newest" },
+                { label: t('pages.documents.sortOldest'), value: "oldest" },
+                { label: t("filters.sortAZ"), value: "az" }
+              ]}
+            />
+            <button
+              onClick={() => {
+                setIsFiltersOpen((open) => !open);
+                setIsSubjectDropdownOpen(false);
+              }}
+              className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-semibold transition-colors ${isFiltersOpen || activeAdvancedFilters ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              aria-expanded={isFiltersOpen}
+            >
+              <Settings2 size={16} /> Bộ lọc
+              {activeAdvancedFilters > 0 && <span className="grid size-4 place-items-center rounded-full bg-primary text-[10px] text-primary-foreground">{activeAdvancedFilters}</span>}
+            </button>
+          </div>
         </div>
-        
-        <div className="flex flex-wrap md:flex-nowrap gap-3 w-full lg:w-auto">
-          <CustomSelect
-            value={filterSubject}
-            onChange={setFilterSubject}
-            className="flex-1 md:flex-none w-full md:w-[170px]"
-            data={[
-              { label: t("filters.allSubjects"), value: "all" },
-              { label: "Môn học", options: subjectFilterOptions },
-            ]}
-          />
-          <CustomSelect
-            value={filterVisibility}
-            onChange={setFilterVisibility}
-            className="flex-1 md:flex-none w-full md:w-[170px]"
-            data={[
-              { label: t("filters.allVisibility"), value: "all" },
-              { label: t("filters.private"), value: "PRIVATE" },
-              { label: "Public link", value: "PUBLIC_LINK" },
-              { label: t("filters.marketplace"), value: "MARKETPLACE" }
-            ]}
-          />
-          <CustomSelect
-            value={filterStatus}
-            onChange={setFilterStatus}
-            className="flex-1 md:flex-none w-full md:w-[170px]"
-            data={[
-              { label: t("filters.allStatus"), value: "all" },
-              { label: "Chờ xử lý", value: "PENDING" },
-              { label: "Đang xử lý", value: "PROCESSING" },
-              { label: "Xử lý xong", value: "SUCCESS" },
-              { label: "Xử lý lỗi", value: "FAILED" },
-              { label: t("filters.approved"), value: "APPROVED" },
-              { label: t("filters.rejected"), value: "REJECTED" },
-            ]}
-          />
-          <CustomSelect
-            value={sortBy}
-            onChange={setSortBy}
-            className="flex-1 md:flex-none w-full md:w-[140px]"
-            data={[
-              { label: t('pages.documents.sortNewest'), value: "newest" },
-              { label: t('pages.documents.sortOldest'), value: "oldest" },
-              { label: t("filters.sortAZ"), value: "az" }
-            ]}
-          />
-        </div>
-      </div>
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5 mt-4">
-          {["all", "pdf", "docx", "pptx", "txt"].map((t) => {
-            const isActive = type === t;
-            return (
-              <button
-                key={t}
-                onClick={() => setType(t)}
-                className={`px-4 h-9 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-200 outline-none ${
-                  isActive 
-                    ? typeStyles[t]?.activeBtn 
-                    : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {t === "all" ? "Tất cả" : t}
-              </button>
-            );
+        <div className="flex gap-2 overflow-x-auto py-0.5 no-scrollbar">
+          {["all", "pdf", "docx", "pptx", "txt"].map((fileType) => {
+            const isActive = type === fileType;
+            return <button key={fileType} onClick={() => setType(fileType)} className={`h-8 shrink-0 rounded-full px-3 text-[11px] font-semibold uppercase tracking-wider transition-all ${isActive ? typeStyles[fileType]?.activeBtn : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"}`}>{fileType === "all" ? "Tất cả" : fileType}</button>;
           })}
         </div>
 
-      {/* Documents Render Container */}
-      <div className="w-full !overflow-visible">
-        {viewMode === "grid" ? (
-          isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={`skel-card-${i}`} className="surface-card p-5 rounded-2xl border border-border/40 relative h-[210px] animate-pulse">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="h-6 w-12 bg-muted rounded" />
-                    <div className="h-6 w-6 bg-muted rounded-full" />
+        <AnimatePresence initial={false}>
+          {isFiltersOpen && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="grid gap-2 overflow-visible border-t border-border/60 pt-3 md:grid-cols-3">
+              <div className="relative" ref={subjectDropdownRef}>
+                <button
+                  onClick={() => setIsSubjectDropdownOpen(!isSubjectDropdownOpen)}
+                  className="flex h-10 w-full items-center justify-between rounded-lg border border-transparent bg-muted/50 px-3 text-sm font-medium text-foreground transition-all hover:bg-muted"
+                >
+                  <span className="truncate">{filterSubject === "all" ? t("filters.allSubjects") : (subjectMap[Number(filterSubject)]?.code || filterSubject)}</span>
+                  <ChevronDown size={16} className={`text-muted-foreground transition-transform ${isSubjectDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence>
+                  {isSubjectDropdownOpen && (
+                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute left-0 right-0 z-50 mt-1.5 flex max-h-64 flex-col space-y-2 overflow-hidden rounded-xl border border-border bg-card p-2 shadow-2xl">
+                      <div className="relative flex shrink-0 items-center"><Search className="absolute left-3 text-muted-foreground" size={14} /><input type="text" value={subjectSearchQuery} onChange={(e) => setSubjectSearchQuery(e.target.value)} placeholder="Gõ tìm môn học..." className="h-8 w-full rounded-lg border border-border/60 bg-muted/40 pl-8 pr-3 text-xs outline-none transition-all focus:border-primary focus:bg-card" /></div>
+                      <div className="custom-scrollbar flex-1 space-y-0.5 overflow-y-auto text-left">
+                        <button onClick={() => { setFilterSubject("all"); setIsSubjectDropdownOpen(false); setSubjectSearchQuery(""); }} className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors ${filterSubject === "all" ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}>{t("filters.allSubjects")}</button>
+                        {filteredSubjectOptions.length === 0 ? <div className="p-3 text-center text-[11px] text-muted-foreground">Không tìm thấy môn học</div> : filteredSubjectOptions.map((opt) => <button key={opt.value} onClick={() => { setFilterSubject(opt.value); setIsSubjectDropdownOpen(false); setSubjectSearchQuery(""); }} className={`block w-full truncate rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors ${filterSubject === opt.value ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}>{opt.label}</button>)}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <CustomSelect value={filterVisibility} onChange={setFilterVisibility} className="w-full" data={[{ label: t("filters.allVisibility"), value: "all" }, { label: t("filters.private"), value: "PRIVATE" }, { label: "Public link", value: "PUBLIC_LINK" }, { label: t("filters.marketplace"), value: "MARKETPLACE" }]} />
+              <CustomSelect value={filterStatus} onChange={setFilterStatus} className="w-full" data={[{ label: t("filters.allStatus"), value: "all" }, { label: "Chờ xử lý", value: "PENDING" }, { label: "Đang xử lý", value: "PROCESSING" }, { label: "Xử lý xong", value: "SUCCESS" }, { label: "Xử lý lỗi", value: "FAILED" }, { label: t("filters.approved"), value: "APPROVED" }, { label: t("filters.rejected"), value: "REJECTED" }]} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* 🧭 GOOGLE DRIVE BREADCRUMBS NAVIGATION */}
+      <div className="flex items-center gap-1.5 overflow-x-auto rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-xs no-scrollbar">
+        <button
+          onClick={() => setCurrentFolderId(null)}
+          className={`flex items-center gap-1 font-bold transition-colors outline-none ${!currentFolderId ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <FolderOpen size={16} /> Drive của tôi
+        </button>
+        {breadcrumbs.map((crumb) => (
+          <div key={crumb.id} className="flex items-center gap-1.5 text-muted-foreground shrink-0">
+            <ChevronRight size={14} className="text-muted-foreground/60" />
+            <button
+              onClick={() => setCurrentFolderId(crumb.id)}
+              className="hover:text-foreground font-semibold max-w-[150px] truncate outline-none"
+            >
+              {crumb.name}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* 📂 KHU VỰC THƯ MỤC CHỨA CÁC ĐỐI TƯỢNG (GRID DISPLAY) */}
+      {currentFolders.length > 0 && (
+        <div className="mt-1 space-y-2 animate-fade-in">
+          <h3 className="pl-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Thư mục · {currentFolders.length}</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {currentFolders.map((folder) => (
+              <div
+                key={folder.id}
+                onClick={() => setCurrentFolderId(folder.id)}
+                className="surface-card group flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-border/50 p-3 transition-all hover:border-amber-500/40 hover:shadow-sm select-none"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 transition-all duration-300 group-hover:bg-amber-500 group-hover:text-white">
+                    <Folder size={16} fill="currentColor" fillOpacity={0.2} />
                   </div>
-                  <div className="h-5 w-4/5 bg-muted rounded mb-2" />
-                  <div className="h-4 w-1/4 bg-muted rounded mb-4" />
-                  <div className="flex gap-2">
-                    <div className="h-5 w-16 bg-muted rounded" />
-                    <div className="h-5 w-20 bg-muted rounded" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-bold truncate text-foreground" title={folder.name}>
+                      {folder.name}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <motion.div 
-              variants={{
-                hidden: { opacity: 0 },
-                show: {
-                  opacity: 1,
-                  transition: { staggerChildren: 0.05 }
-                }
-              }}
-              initial="hidden"
-              animate="show"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full"
-            >
-              {filtered.map((d) => (
-                <DocumentCard
-                  key={d.id}
-                  doc={d}
-                  subjectMap={subjectMap}
-                  getSubjectLabel={getSubjectLabel}
-                  documentTags={documentTags}
-                  reprocessingId={reprocessingId}
-                  processingStatusLabels={processingStatusLabels}
-                  getStatusClass={getStatusClass}
-                  chunkCounts={chunkCounts}
-                  openOverview={openOverview}
-                  openShareModal={openShareModal}
-                  handleDownload={handleDownload}
-                  downloadingId={downloadingId}
-                  handleEdit={handleEdit}
-                  openTagModal={openTagModal}
-                  handleReprocess={handleReprocess}
-                  handleDeleteChunks={handleDeleteChunks}
-                  handlePublish={handlePublish}
-                  handleDeleteDoc={handleDeleteDoc}
-                  formatSize={formatSize}
-                  formatDate={formatDate}
-                  t={t}
-                />
-              ))}
-            </motion.div>
-          )
-        ) : (
-          <div className="surface-card !overflow-visible border border-border/40 shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground tracking-wider border-b border-border/50">
-                <tr>
-                  <th className="text-left px-5 py-3.5">{t('pages.documents.table.document')}</th>
-                  <th className="text-left px-5 py-3.5 hidden md:table-cell">{t('pages.documents.table.subject')}</th>
-                  <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.tags')}</th>
-                  <th className="text-left px-5 py-3.5 hidden sm:table-cell">{t('pages.documents.table.size')}</th>
-                  <th className="text-left px-5 py-3.5 hidden lg:table-cell">{t('pages.documents.table.downloads')}</th>
-                  <th className="px-5 py-3.5" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`skel-${i}`}>
-                      <td className="px-5 py-3 relative overflow-hidden">
-                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
-                        <div className="flex items-center gap-3">
-                          <div className="size-9 rounded-xl bg-muted" />
-                          <div>
-                            <div className="h-4 w-32 bg-muted rounded mb-1" />
-                            <div className="h-3 w-20 bg-muted/50 rounded" />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 hidden md:table-cell"><div className="h-4 w-16 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-12 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 hidden lg:table-cell"><div className="h-4 w-6 bg-muted rounded" /></td>
-                      <td className="px-5 py-3 text-right"><div className="h-8 w-8 bg-muted rounded-lg inline-block" /></td>
-                    </tr>
-                  ))
-                ) : filtered.map((d, i) => (
-                  <motion.tr
-                    key={d.id}
-                    {...motionFadeUp(i)}
-                    className="hover:bg-muted/30 transition-colors group"
-                  >
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`size-9 rounded-xl grid place-items-center text-[10px] font-extrabold uppercase border transition-colors duration-300 ${
-                          typeStyles[d.fileType.toLowerCase()]?.badge || "bg-muted text-muted-foreground border-transparent"
-                        }`}>
-                          {d.fileType}
-                        </div>
-                        <div className="min-w-0">
-                          <button onClick={() => openOverview(d)} className="font-medium truncate group-hover:text-primary cursor-pointer transition-colors block max-w-full text-left" title="Xem overview tài liệu">{d.title}</button>
-                          <div className="text-xs text-muted-foreground mt-0.5">{formatDate(d.createdAt)}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 hidden md:table-cell">
-                      {d.subjectId ? (
-                        <span className="text-xs px-2.5 py-1 rounded-lg bg-muted/80 border border-border/30 font-medium text-muted-foreground">{getSubjectLabel(d.subjectId)}</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground font-mono">N/A</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 hidden lg:table-cell">
-                      <div className="flex gap-1 flex-wrap">
-                        {(documentTags[d.id] ?? []).map((tag) => (
-                          <span key={tag.id} className="inline-flex text-[10px] px-2 py-0.5 rounded-md font-medium border" style={{ color: tag.color, borderColor: `${tag.color}55`, backgroundColor: `${tag.color}14` }}>
-                            {tag.name}
-                          </span>
-                        ))}
-                        <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(reprocessingId === d.id ? "PROCESSING" : d.processingStatus)}`}>
-                          {(d.processingStatus === "PROCESSING" || d.processingStatus === "PENDING" || reprocessingId === d.id) && <Loader2 size={10} className="animate-spin" />}
-                          {processingStatusLabels[reprocessingId === d.id ? "PROCESSING" : d.processingStatus]}
-                        </span>
-                        {d.marketStatus !== "NONE" && (
-                          <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.marketStatus)}`}>
-                            {d.marketStatus}
-                          </span>
-                        )}
-                      </div>
-                      {(d.processingStatus === "PENDING" || d.processingStatus === "PROCESSING" || reprocessingId === d.id) && (
-                        <div className="mt-2 h-1 w-24 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
-                        </div>
-                      )}
-                      {d.processingStatus === "SUCCESS" && (
-                        <button onClick={() => openOverview(d)} className="mt-1.5 text-[10px] text-primary font-semibold hover:underline">
-                          {chunkCounts[d.id] !== undefined ? `${chunkCounts[d.id]} chunks · ` : ""}Xem overview
-                        </button>
-                      )}
-                      {d.processingStatus === "FAILED" && <div className="mt-1 text-[10px] text-destructive">Xử lý thất bại · Có thể chạy lại</div>}
-                    </td>
-                    <td className="px-5 py-3 hidden sm:table-cell text-muted-foreground font-medium">{formatSize(d.fileSize)}</td>
-                    <td className="px-5 py-3 hidden lg:table-cell text-muted-foreground font-medium">{d.downloadCount}</td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button onClick={() => openShareModal(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-primary hover:text-primary transition-colors outline-none" title="Chia sẻ">
-                          <Share2 size={14} />
-                        </button>
-                        <button onClick={() => openOverview(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-primary transition-colors outline-none" title="Xem overview chunks">
-                          <Eye size={14} />
-                        </button>
-                        <button onClick={() => handleDownload(d)} disabled={downloadingId === d.id} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none disabled:opacity-50" title="Tải xuống">
-                          {downloadingId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                        </button>
-                        <div className="relative group/menu">
-                          <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
-                            <MoreVertical size={14} />
-                          </button>
-                          <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => handleEdit(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                              <FileText size={14} /> {t('pages.documents.table.editDesc')}
-                            </button>
-                            {d.processingStatus === "SUCCESS" && (
-                              <button onClick={() => openOverview(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                                <Pencil size={14} /> Sửa text AI
-                              </button>
-                            )}
-                            <button onClick={() => openTagModal(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
-                              <Tag size={14} /> {t('pages.documents.table.addTag')}
-                            </button>
-                            <button onClick={() => handleReprocess(d)} disabled={reprocessingId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
-                              <RefreshCw size={14} className={reprocessingId === d.id ? "animate-spin" : ""} /> Xử lý AI chunks
-                            </button>
-                            <button onClick={() => handleDeleteChunks(d)} disabled={deletingChunksId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
-                              <Trash2 size={14} /> Xóa AI chunks
-                            </button>
-                            <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
-                              <Globe size={14} /> {t('pages.documents.table.publish')}
-                            </button>
-                            <button onClick={() => handleDeleteDoc(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
-                              <Trash2 size={14} /> Xóa tài liệu
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
+                <button
+                  onClick={(e) => handleDeleteFolder(folder.id, folder.name, e)}
+                  className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-70 transition-all hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                  title="Xóa thư mục"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
           </div>
-        )}
-        
+        </div>
+      )}
+
+      {/* Documents Render Container - Hiển thị dạng Danh sách/Bảng */}
+      <div className="mt-4 w-full space-y-2 !overflow-visible">
+        <h3 className="pl-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Tập tin tài liệu · {filtered.length}</h3>
+        <div className="surface-card !overflow-visible border border-border/40 shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border/50 bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2.5 text-left sm:px-4">{t('pages.documents.table.document')}</th>
+                <th className="hidden px-3 py-2.5 text-left md:table-cell sm:px-4">{t('pages.documents.table.subject')}</th>
+                <th className="hidden px-3 py-2.5 text-left lg:table-cell sm:px-4">{t('pages.documents.table.tags')}</th>
+                <th className="hidden px-3 py-2.5 text-left sm:table-cell sm:px-4">{t('pages.documents.table.size')}</th>
+                <th className="hidden px-3 py-2.5 text-left lg:table-cell sm:px-4">{t('pages.documents.table.downloads')}</th>
+                <th className="px-3 py-2.5 sm:px-4" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skel-${i}`}>
+                    <td className="relative overflow-hidden px-3 py-2.5 sm:px-4">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-xl bg-muted" />
+                        <div>
+                          <div className="h-4 w-32 bg-muted rounded mb-1" />
+                          <div className="h-3 w-20 bg-muted/50 rounded" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 sm:px-4 hidden md:table-cell"><div className="h-4 w-16 bg-muted rounded" /></td>
+                    <td className="px-3 py-2.5 sm:px-4 hidden lg:table-cell"><div className="h-4 w-12 bg-muted rounded" /></td>
+                    <td className="px-3 py-2.5 sm:px-4 hidden sm:table-cell"><div className="h-4 w-10 bg-muted rounded" /></td>
+                    <td className="px-3 py-2.5 sm:px-4 hidden lg:table-cell"><div className="h-4 w-6 bg-muted rounded" /></td>
+                    <td className="px-3 py-2.5 sm:px-4 text-right"><div className="h-8 w-8 bg-muted rounded-lg inline-block" /></td>
+                  </tr>
+                ))
+              ) : filtered.map((d, i) => (
+                <motion.tr
+                  key={d.id}
+                  {...motionFadeUp(i)}
+                  className="hover:bg-muted/30 hover:z-40 hover:relative transition-colors group"
+                >
+                  <td className="px-3 py-2.5 sm:px-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`grid size-8 place-items-center rounded-lg border text-[9px] font-extrabold uppercase transition-colors duration-300 ${typeStyles[d.fileType.toLowerCase()]?.badge || "bg-muted text-muted-foreground border-transparent"
+                        }`}>
+                        {d.fileType}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <button
+                          onClick={() => openOverview(d)}
+                          className="font-bold text-xs sm:text-sm truncate group-hover:text-primary cursor-pointer transition-colors block max-w-[200px] sm:max-w-[350px] md:max-w-[450px] text-left outline-none"
+                          title={d.title}
+                        >
+                          {d.title}
+                        </button>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          <span>{formatDate(d.createdAt)}</span>
+                          {q.trim() && fileFolderMap[d.id] && (
+                            <span className="inline-flex items-center gap-0.5 bg-amber-500/10 text-amber-600 px-1.5 py-0.2 rounded font-medium text-[10px]">
+                              <Folder size={10} fill="currentColor" fillOpacity={0.2} />
+                              {folders.find(f => f.id === fileFolderMap[d.id])?.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 sm:px-4 hidden md:table-cell">
+                    {d.subjectId ? (
+                      <span className="text-xs px-2.5 py-1 rounded-lg bg-muted/80 border border-border/30 font-medium text-muted-foreground">{getSubjectLabel(d.subjectId)}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground font-mono">N/A</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 sm:px-4 hidden lg:table-cell">
+                    <div className="flex gap-1 flex-wrap">
+                      {(documentTags[d.id] ?? []).map((tag) => (
+                        <span key={tag.id} className="inline-flex text-[10px] px-2 py-0.5 rounded-md font-medium border" style={{ color: tag.color, borderColor: `${tag.color}55`, backgroundColor: `${tag.color}14` }}>
+                          {tag.name}
+                        </span>
+                      ))}
+                      <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(reprocessingId === d.id ? "PROCESSING" : d.processingStatus)}`}>
+                        {(d.processingStatus === "PROCESSING" || d.processingStatus === "PENDING" || reprocessingId === d.id) && <Loader2 size={10} className="animate-spin" />}
+                        {processingStatusLabels[reprocessingId === d.id ? "PROCESSING" : d.processingStatus]}
+                      </span>
+                      {d.marketStatus !== "NONE" && (
+                        <span className={`inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md font-medium border ${getStatusClass(d.marketStatus)}`}>
+                          {d.marketStatus}
+                        </span>
+                      )}
+                    </div>
+                    {(d.processingStatus === "PENDING" || d.processingStatus === "PROCESSING" || reprocessingId === d.id) && (
+                      <div className="mt-2 h-1 w-24 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
+                      </div>
+                    )}
+                    {d.processingStatus === "SUCCESS" && (
+                      <button onClick={() => openOverview(d)} className="mt-1.5 text-[10px] text-primary font-semibold hover:underline outline-none">
+                        {chunkCounts[d.id] !== undefined ? `${chunkCounts[d.id]} chunks · ` : ""}Xem overview
+                      </button>
+                    )}
+                    {d.processingStatus === "FAILED" && <div className="mt-1 text-[10px] text-destructive">Xử lý thất bại · Có thể chạy lại</div>}
+                  </td>
+                  <td className="px-3 py-2.5 sm:px-4 hidden sm:table-cell text-muted-foreground font-medium">{formatSize(d.fileSize)}</td>
+                  <td className="px-3 py-2.5 sm:px-4 hidden lg:table-cell text-muted-foreground font-medium">{d.downloadCount}</td>
+                  <td className="px-3 py-2.5 sm:px-4 text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <button onClick={() => openShareModal(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-primary hover:text-primary transition-colors outline-none" title="Chia sẻ">
+                        <Share2 size={14} />
+                      </button>
+                      <button onClick={() => openOverview(d)} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-primary transition-colors outline-none" title="Xem overview chunks">
+                        <Eye size={14} />
+                      </button>
+                      <button onClick={() => handleDownload(d)} disabled={downloadingId === d.id} className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none disabled:opacity-50" title="Tải xuống">
+                        {downloadingId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      </button>
+                      <div className="relative group/menu">
+                        <button className="size-8 rounded-lg hover:bg-muted grid place-items-center text-muted-foreground hover:text-foreground transition-colors outline-none">
+                          <MoreVertical size={14} />
+                        </button>
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border shadow-lg rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => setMoveFileDoc(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                            <Move size={14} className="text-amber-500" /> Di chuyển thư mục
+                          </button>
+                          <button onClick={() => handleEdit(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                            <FileText size={14} /> {t('pages.documents.table.editDesc')}
+                          </button>
+                          <button onClick={() => openTagModal(d)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50">
+                            <Tag size={14} /> {t('pages.documents.table.addTag')}
+                          </button>
+                          <button onClick={() => handleReprocess(d)} disabled={reprocessingId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
+                            <RefreshCw size={14} className={reprocessingId === d.id ? "animate-spin" : ""} /> Xử lý AI chunks
+                          </button>
+                          <button onClick={() => handleDeleteChunks(d)} disabled={deletingChunksId === d.id} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm hover:bg-muted/50 disabled:opacity-60">
+                            <Trash2 size={14} /> Xóa AI chunks
+                          </button>
+                          <button onClick={() => handlePublish(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
+                            <Globe size={14} /> {t('pages.documents.table.publish')}
+                          </button>
+                          <button onClick={() => handleDeleteDoc(d.id)} className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 border-t border-border/50">
+                            <Trash2 size={14} /> Xóa tài liệu
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
         {/* Empty State */}
-        {filtered.length === 0 && (
-          <div className="py-16 text-center text-muted-foreground animate-fade-in surface-card border border-border/40 mt-6 rounded-2xl">
-            <FileText size={36} className="mx-auto mb-3 opacity-30 text-primary" />
-            <div className="font-medium">Không có tài liệu khớp tìm kiếm</div>
-            <div className="text-xs opacity-70 mt-0.5">Vui lòng thử lại với từ khóa hoặc bộ lọc khác.</div>
+        {filtered.length === 0 && currentFolders.length === 0 && (
+          <div className="surface-card mt-4 animate-fade-in rounded-xl border border-border/40 py-11 text-center text-muted-foreground">
+            <FolderOpen size={36} className="mx-auto mb-3 opacity-30 text-amber-500" />
+            <div className="font-medium">Thư mục trống hoặc dữ liệu không khớp</div>
+            <div className="text-xs opacity-70 mt-0.5">Vui lòng tải tệp tin lên hoặc tạo thư mục con tại đây.</div>
           </div>
         )}
       </div>
+
+      {/* 🚀 CREATE FOLDER MODAL */}
+      <AnimatePresence>
+        {isFolderModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsFolderModalOpen(false)} />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative surface-card w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-border/50">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-lg flex items-center gap-2 text-foreground"><FolderPlus size={20} className="text-amber-500" /> Thư mục mới</h3>
+                <button onClick={() => setIsFolderModalOpen(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+              </div>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Nhập tên thư mục..."
+                className="w-full h-11 rounded-xl bg-muted/60 border border-border px-4 outline-none focus:border-primary text-sm font-medium"
+                onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
+                autoFocus
+              />
+              <div className="mt-5 flex justify-end gap-2">
+                <button onClick={() => setIsFolderModalOpen(false)} className="h-10 px-4 rounded-xl border border-border text-xs font-bold hover:bg-muted">Hủy</button>
+                <button onClick={handleCreateFolder} className="h-10 px-5 rounded-xl bg-amber-500 text-white text-xs font-bold hover:brightness-110">Tạo mới</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 🚀 MOVE FILE MODAL (DI CHUYỂN THƯ MỤC - AN TOÀN CHỐNG CRASH) */}
+      <AnimatePresence>
+        {moveFileDoc && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMoveFileDoc(null)} />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative surface-card w-full max-w-md rounded-2xl p-6 shadow-2xl border border-border/50 flex flex-col max-h-[80vh]">
+              <div className="flex items-center justify-between mb-3 shrink-0">
+                <h3 className="font-bold text-lg flex items-center gap-2"><Move size={18} className="text-primary" /> Di chuyển tập tin</h3>
+                <button onClick={() => setMoveFileDoc(null)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+              </div>
+              <p className="text-xs text-muted-foreground truncate mb-4 shrink-0 bg-muted/50 p-2.5 rounded-xl border border-border/40">Tập tin: <span className="font-semibold text-foreground">{moveFileDoc?.title}</span></p>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar border border-border/60 rounded-xl divide-y divide-border/40 max-h-60 bg-muted/20">
+                {/* Lựa chọn đưa về gốc */}
+                <button
+                  onClick={() => handleMoveFile(null)}
+                  className={`w-full text-left px-4 py-3 text-sm font-medium flex items-center gap-3 hover:bg-primary/5 transition-colors ${moveFileDoc && fileFolderMap?.[moveFileDoc.id] === null ? "text-primary bg-primary/5 font-semibold" : "text-foreground"
+                    }`}
+                >
+                  <FolderOpen size={16} className="text-muted-foreground shrink-0" />
+                  <span>Drive của tôi (Thư mục gốc)</span>
+                </button>
+
+                {/* Xử lý an toàn khi folders chưa tải xong hoặc moveFileDoc bị null */}
+                {(() => {
+                  const safeFolders = Array.isArray(folders) ? folders : [];
+
+                  if (safeFolders.length === 0 && !folders) {
+                    return (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        Đang tải danh sách thư mục...
+                      </div>
+                    );
+                  }
+
+                  const folderMap = new Map<string | null, typeof safeFolders>();
+                  const isMovingFolder = Boolean(moveFileDoc && safeFolders.some(f => f.id === moveFileDoc.id));
+
+                  const getDescendantFolderIds = (folderId: string): Set<string> => {
+                    const descendants = new Set<string>();
+                    const queue = [folderId];
+                    while (queue.length > 0) {
+                      const currentId = queue.shift()!;
+                      safeFolders.forEach(f => {
+                        if (f.parentId === currentId) {
+                          descendants.add(f.id);
+                          queue.push(f.id);
+                        }
+                      });
+                    }
+                    return descendants;
+                  };
+
+                  const invalidTargetIds = new Set<string>();
+                  if (isMovingFolder && moveFileDoc) {
+                    invalidTargetIds.add(moveFileDoc.id);
+                    getDescendantFolderIds(moveFileDoc.id).forEach(id => invalidTargetIds.add(id));
+                  }
+
+                  safeFolders.forEach(folder => {
+                    const pid = folder.parentId ?? null;
+                    const effectivePid = (pid !== null && !safeFolders.some(f => f.id === pid)) ? null : pid;
+
+                    if (!folderMap.has(effectivePid)) {
+                      folderMap.set(effectivePid, []);
+                    }
+                    folderMap.get(effectivePid)!.push(folder);
+                  });
+
+                  const flattenTree = (parentId: string | null = null, depth = 0): Array<{ folder: typeof safeFolders[0], depth: number }> => {
+                    let result: Array<{ folder: typeof safeFolders[0], depth: number }> = [];
+                    const children = folderMap.get(parentId) || [];
+
+                    children.forEach(child => {
+                      result.push({ folder: child, depth });
+                      result = result.concat(flattenTree(child.id, depth + 1));
+                    });
+
+                    return result;
+                  };
+
+                  const orderedFolders = flattenTree(null);
+
+                  if (orderedFolders.length === 0) {
+                    return (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        Không có thư mục nào khác.
+                      </div>
+                    );
+                  }
+
+                  return orderedFolders.map(({ folder, depth }) => {
+                    const isSelected = Boolean(moveFileDoc && fileFolderMap?.[moveFileDoc.id] === folder.id);
+                    const isDisabled = invalidTargetIds.has(folder.id);
+
+                    return (
+                      <button
+                        key={folder.id}
+                        disabled={isDisabled}
+                        onClick={() => !isDisabled && handleMoveFile(folder.id)}
+                        className={`w-full text-left py-2.5 pr-4 text-sm flex items-center justify-between transition-colors ${isDisabled
+                          ? "opacity-40 cursor-not-allowed bg-muted/10"
+                          : isSelected
+                            ? "text-primary bg-primary/5 font-semibold"
+                            : "text-foreground font-normal hover:bg-primary/5"
+                          }`}
+                        style={{ paddingLeft: `${16 + depth * 22}px` }}
+                      >
+                        <div className="flex items-center gap-2.5 truncate relative">
+                          {depth > 0 && (
+                            <span className="text-muted-foreground/40 font-mono text-xs select-none shrink-0 -ml-3.5 mr-1">
+                              {depth === 1 ? "└─" : "└──"}
+                            </span>
+                          )}
+
+                          <Folder
+                            size={16}
+                            className={depth === 0 ? "text-amber-500 shrink-0" : "text-amber-400 shrink-0"}
+                            fill="currentColor"
+                            fillOpacity={depth === 0 ? 0.2 : 0.08}
+                          />
+
+                          <span className="truncate">{folder.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isDisabled && (
+                            <span className="text-[10px] text-destructive bg-destructive/10 px-1.5 py-0.5 rounded border border-destructive/20">
+                              Không thể chọn
+                            </span>
+                          )}
+
+                          {depth > 0 && !isDisabled && (
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/40">
+                              Cấp {depth + 1}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Share Modal */}
       <AnimatePresence>
@@ -1138,7 +1264,7 @@ export default function DocumentsPage() {
               <div className="mb-6 p-3 bg-muted/30 rounded-xl border border-border/50 flex items-center gap-3">
                 <FileText size={20} className="text-muted-foreground shrink-0" />
                 <div className="min-w-0">
-                  <div className="font-medium truncate text-sm">{shareModalDoc.title}</div>
+                  <div className="font-bold truncate text-sm">{shareModalDoc.title}</div>
                   <div className="text-[11px] text-muted-foreground">{formatSize(shareModalDoc.fileSize)} • {shareModalDoc.fileType.toUpperCase()}</div>
                 </div>
               </div>
@@ -1146,7 +1272,7 @@ export default function DocumentsPage() {
               {isShareLoading ? (
                 <div className="py-10 flex flex-col items-center justify-center text-muted-foreground">
                   <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-                  <span className="text-xs font-medium font-mono uppercase tracking-widest">Đang tải cấu hình...</span>
+                  <span className="text-xs font-mono uppercase tracking-widest">Đang tải cấu hình...</span>
                 </div>
               ) : shareInfo ? (
                 <div className="space-y-5 animate-fade-in text-left">
@@ -1226,11 +1352,11 @@ export default function DocumentsPage() {
         )}
       </AnimatePresence>
 
-      {/* DOCUMENT CHUNKS OVERVIEW */}
+      {/* DOCUMENT CHUNKS OVERVIEW MODAL */}
       <AnimatePresence>
         {overviewDoc && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={closeOverview} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={() => setOverviewDoc(null)} />
             <motion.div initial={{ opacity: 0, scale: 0.97, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: 10 }} className="relative surface-card w-full max-w-5xl max-h-[90vh] rounded-3xl border border-border shadow-2xl flex flex-col overflow-hidden">
               <header className="p-5 border-b border-border/60 flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
@@ -1246,7 +1372,7 @@ export default function DocumentsPage() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => handleDownload(overviewDoc)} disabled={downloadingId === overviewDoc.id} className="h-9 px-3 rounded-xl border border-border text-xs font-semibold flex items-center gap-1.5 hover:border-primary disabled:opacity-50">{downloadingId === overviewDoc.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}Tải file</button>
-                  <button onClick={closeOverview} className="size-9 rounded-xl hover:bg-muted grid place-items-center"><X size={18} /></button>
+                  <button onClick={() => setOverviewDoc(null)} className="size-9 rounded-xl hover:bg-muted grid place-items-center"><X size={18} /></button>
                 </div>
               </header>
 
@@ -1268,71 +1394,61 @@ export default function DocumentsPage() {
                       <div className="rounded-2xl border border-border/60 p-4"><div className="text-[10px] uppercase text-muted-foreground font-bold">Ký tự</div><div className="text-2xl font-bold mt-1">{overviewChunks.reduce((sum, chunk) => sum + chunk.textContent.length, 0).toLocaleString()}</div></div>
                     </div>
                     {overviewDoc.description && <div className="rounded-2xl bg-muted/30 border border-border/50 p-4 mb-5"><div className="text-[10px] uppercase text-muted-foreground font-bold mb-1">Mô tả</div><p className="text-sm leading-6">{overviewDoc.description}</p></div>}
+
                     <div className="space-y-3">
-                      {overviewChunks.map((chunk) => {
-                        const isEditingChunk = editingChunkId === chunk.id;
-                        const isSavingChunk = savingChunkId === chunk.id;
-                        return (
-                          <article key={chunk.id} className={`rounded-2xl border p-4 transition-colors ${isEditingChunk ? "border-primary/50 bg-primary/5" : "border-border/60 hover:border-primary/30"}`}>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                              <div className="text-xs font-bold text-primary">Chunk #{chunk.chunkIndex + 1}</div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="text-[10px] text-muted-foreground">
-                                  {chunk.sourcePage ? `Trang ${chunk.sourcePage}` : "Không rõ trang"}{chunk.sourceSection ? ` · ${chunk.sourceSection}` : ""} · {chunk.tokenEstimate || 0} tokens
-                                </div>
-                                {!isEditingChunk ? (
-                                  <button
-                                    onClick={() => startEditingChunk(chunk)}
-                                    className="h-8 px-3 rounded-lg border border-border text-[11px] font-bold text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center gap-1.5 transition-colors"
-                                    title="Sửa text đã chunking"
-                                  >
-                                    <Pencil size={13} /> Sửa text
-                                  </button>
-                                ) : (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => handleSaveChunkText(chunk)}
-                                      disabled={isSavingChunk || !editingChunkText.trim()}
-                                      className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:brightness-110 disabled:opacity-60 flex items-center gap-1.5 transition-all"
-                                    >
-                                      {isSavingChunk ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Lưu
-                                    </button>
-                                    <button
-                                      onClick={cancelEditingChunk}
-                                      disabled={isSavingChunk}
-                                      className="h-8 px-3 rounded-lg border border-border text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-60 flex items-center gap-1.5 transition-colors"
-                                    >
-                                      <X size={13} /> Hủy
-                                    </button>
-                                  </div>
-                                )}
+                      {overviewChunks.map((chunk) => (
+                        <article key={chunk.id} className="rounded-2xl border border-border/60 p-4 hover:border-primary/30 transition-colors bg-card text-left">
+                          <div className="flex items-center justify-between gap-3 mb-2">
+                            <div className="text-xs font-bold text-primary">Chunk #{chunk.chunkIndex + 1}</div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] text-muted-foreground">
+                                {chunk.sourcePage ? `Trang ${chunk.sourcePage}` : "Không rõ trang"}{chunk.sourceSection ? ` · ${chunk.sourceSection}` : ""} · {chunk.tokenEstimate || 0} tokens
+                              </span>
+
+                              {editingChunkId !== chunk.id && (
+                                <button
+                                  onClick={() => {
+                                    setEditingChunkId(chunk.id);
+                                    setEditingChunkText(chunk.textContent);
+                                  }}
+                                  className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1 font-semibold"
+                                  title="Chỉnh sửa nội dung chunk này"
+                                >
+                                  <Edit3 size={12} /> Sửa
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {editingChunkId === chunk.id ? (
+                            <div className="space-y-2 mt-2">
+                              <textarea
+                                value={editingChunkText}
+                                onChange={(e) => setEditingChunkText(e.target.value)}
+                                className="w-full min-h-[120px] p-3 text-sm border border-primary/50 focus:border-primary rounded-xl bg-muted/30 outline-none resize-y leading-6 text-foreground"
+                              />
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => setEditingChunkId(null)}
+                                  className="h-8 px-3 text-xs font-bold border border-border rounded-lg bg-card text-muted-foreground hover:bg-muted"
+                                >
+                                  Hủy
+                                </button>
+                                <button
+                                  onClick={() => handleSaveChunkText(chunk.id)}
+                                  disabled={isSavingChunkId === chunk.id}
+                                  className="h-8 px-3 text-xs font-bold bg-primary text-primary-foreground rounded-lg hover:brightness-110 disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {isSavingChunkId === chunk.id && <Loader2 size={12} className="animate-spin" />}
+                                  Lưu lại
+                                </button>
                               </div>
                             </div>
-                            {isEditingChunk ? (
-                              <div className="space-y-2">
-                                <textarea
-                                  value={editingChunkText}
-                                  onChange={(event) => setEditingChunkText(event.target.value)}
-                                  onKeyDown={(event) => {
-                                    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-                                      event.preventDefault();
-                                      handleSaveChunkText(chunk);
-                                    }
-                                  }}
-                                  disabled={isSavingChunk}
-                                  className="w-full min-h-[180px] rounded-xl bg-card border border-border px-4 py-3 text-sm leading-7 outline-none resize-y focus:border-primary disabled:opacity-60"
-                                  placeholder="Nội dung chunk đã trích xuất"
-                                />
-                                <div className="text-[10px] text-muted-foreground font-medium">
-                                  {editingChunkText.trim().length.toLocaleString()} ký tự sau khi lưu
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-sm leading-7 whitespace-pre-wrap text-foreground/90">{chunk.textContent}</p>
-                            )}
-                          </article>
-                        );
-                      })}
+                          ) : (
+                            <p className="text-sm leading-7 whitespace-pre-wrap text-foreground/90 break-words">{chunk.textContent}</p>
+                          )}
+                        </article>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1435,6 +1551,7 @@ export default function DocumentsPage() {
           </div>
         )}
       </AnimatePresence>
+
       {/* TAG MANAGEMENT MODAL */}
       <AnimatePresence>
         {tagModalDoc && (
@@ -1468,19 +1585,15 @@ export default function DocumentsPage() {
           </div>
         )}
       </AnimatePresence>
+
       {/* PUBLISH TO COMMUNITY MODAL */}
-      <PublishModal 
+      <PublishModal
         isOpen={!!publishModalDoc}
         onClose={() => setPublishModalDoc(null)}
         document={publishModalDoc}
         subjects={subjects}
         onPublished={() => refetch()}
       />
-
     </div>
   );
 }
-
-
-
-
