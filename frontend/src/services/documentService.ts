@@ -68,8 +68,8 @@ export interface CreateDocumentRequest {
 }
 
 export interface UpdateDocumentRequest {
+  title: string;
   subjectId?: number | null;
-  title?: string;
   description?: string | null;
   visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
 }

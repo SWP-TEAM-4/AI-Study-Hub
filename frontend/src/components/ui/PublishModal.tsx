@@ -64,6 +64,7 @@ export default function PublishModal({ isOpen, onClose, document: targetDocument
       const normalizedDescription = description.trim();
       if (targetDocument.subjectId !== Number(subjectId) || (targetDocument.description || "") !== normalizedDescription) {
         await documentService.updateDocument(targetDocument.id, {
+          title: targetDocument.title,
           subjectId: Number(subjectId),
           description: normalizedDescription,
         });
