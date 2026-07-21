@@ -1,6 +1,7 @@
 "use client";
 
 import { db } from "./mockDatabase";
+import { safeParseJson } from "../utils/safeParseJson";
 
 const LATENCY = 400; // ms
 
@@ -9,7 +10,7 @@ export async function mockRequest<T>(endpoint: string, options: RequestInit = {}
         setTimeout(() => {
             try {
                 const method = options.method || "GET";
-                const body = options.body ? JSON.parse(options.body as string) : null;
+                const body = safeParseJson<any>(options.body as string, null);
 
                 // ─── ROUTING USER SCOPE ──────────────────────────────────────────────
                 if (endpoint.startsWith("/admin/users")) {

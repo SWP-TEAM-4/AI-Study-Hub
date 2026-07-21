@@ -1,4 +1,6 @@
 import { Notify } from "notiflix";
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
 import { ApiResponse, PaginatedResponse } from "./types";
 
 export interface NotebookDTO {
@@ -24,7 +26,7 @@ type BackendNotebookResponse = {
 };
 
 async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
 
   if (token) {
@@ -40,23 +42,15 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
   const text = await response.text();
   let result: any = {};
 
-  try {
-    result = text ? JSON.parse(text) : {};
-  } catch {
-    throw {
-      status: response.status,
-      message: response.ok ? "Backend trả về JSON không hợp lệ" : (text || "Lỗi giao tiếp API Notebook"),
-      errorCode: "INVALID_RESPONSE",
-    };
-  }
+  result = safeParseJson<any>(text, {});
 
   if (response.status === 401) {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
-      window.location.href = "/";
-    }
+    safeLocalStorage.removeItem("auth_token");
+      safeLocalStorage.removeItem("auth_user");
+      safeLocalStorage.removeItem("auth-storage");
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     throw { status: 401, message: "Phien dang nhap da het han, vui long dang nhap lai." };
   }
 
@@ -73,16 +67,12 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
 
 function getUserId(): number {
   try {
-    const userStr = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
-    if (userStr && userStr !== "undefined") {
-      const user = JSON.parse(userStr);
+    const user = safeLocalStorage.getJSON<any>("auth_user", null);
       const userId = Number(user.userId ?? user.id);
       if (Number.isFinite(userId) && userId > 0) return userId;
     }
 
-    const persistedAuth = typeof window !== "undefined" ? localStorage.getItem("auth-storage") : null;
-    if (persistedAuth && persistedAuth !== "undefined") {
-      const parsed = JSON.parse(persistedAuth);
+    const parsed = safeLocalStorage.getJSON<any>("auth-storage", null);
       const user = parsed?.state?.user;
       const userId = Number(user?.userId ?? user?.id);
       if (Number.isFinite(userId) && userId > 0) return userId;
@@ -91,10 +81,10 @@ function getUserId(): number {
     console.error("Error parsing auth_user in getUserId:", e);
   }
 
+  safeLocalStorage.removeItem("auth_token");
+  safeLocalStorage.removeItem("auth_user");
+  safeLocalStorage.removeItem("auth-storage");
   if (typeof window !== "undefined") {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
-    localStorage.removeItem("auth-storage");
     Notify.failure("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
     setTimeout(() => { window.location.href = "/"; }, 800);
   }

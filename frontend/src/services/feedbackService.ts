@@ -1,6 +1,8 @@
 "use client";
 
 import { ApiResponse, PaginatedResponse } from "./types";
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
 
 export interface FeedbackDTO {
   id: number;
@@ -15,7 +17,7 @@ export interface FeedbackDTO {
 const BASE_URL = "/api";
 
 async function feedbackRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
   if (token) {
     const cleanToken = token.replace(/['"]+/g, "");
@@ -27,18 +29,14 @@ async function feedbackRequest<T>(endpoint: string, options: RequestInit = {}): 
   const text = await response.text();
   let result: any = {};
   if (text && text.trim().length > 0) {
-    try {
-      result = JSON.parse(text);
-    } catch {
-      result = { message: text.substring(0, 200) };
-    }
+    result = safeParseJson<any>(text, { message: text.substring(0, 200) });
   }
 
   if (response.status === 401) {
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };

@@ -1,4 +1,6 @@
 import { ApiResponse, PaginatedResponse } from "./types";
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
 
 export interface AdminContentDTO {
   targetType: "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK";
@@ -50,14 +52,14 @@ export interface ReviewPolicyDTO {
 const BASE_URL = "/api";
 
 async function marketRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem("auth_token");
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
   if (token) headers.set("Authorization", `Bearer ${token.replace(/['\"]+/g, "")}`);
   const method = (options.method || "GET").toUpperCase();
   if (!headers.has("Content-Type") && method !== "GET" && method !== "DELETE") headers.set("Content-Type", "application/json");
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  const result = safeParseJson<any>(text, {});
   if (!response.ok) throw { status: response.status, message: result.message || "Lỗi giao tiếp API Marketplace", errorCode: result.errorCode };
   return result;
 }

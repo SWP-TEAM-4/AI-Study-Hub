@@ -10,6 +10,7 @@ import { authService, type AuthUser, type OAuthProvider } from "../../services/a
 import { academicService } from "../../services/academicService";
 import { cn } from "../../lib/utils";
 import type { UserDTO } from "../../services/userService";
+import { safeLocalStorage, safeSessionStorage } from "../../utils/safeStorage";
 
 // 1. IMPORT CÁC COMPONENT LIÊN QUAN
 import './LoginPanel.css';
@@ -67,7 +68,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   const location = useLocation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset">(() => {
-    return (localStorage.getItem("loginPanelMode") as "login" | "signup" | "forgot" | "reset") || "login";
+    return (safeLocalStorage.getItem("loginPanelMode") as "login" | "signup" | "forgot" | "reset") || "login";
   });
 
   const [showCombo, setShowCombo] = useState(false);
@@ -109,20 +110,20 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
       const error = params.get("error");
       const code = params.get("code")?.trim();
       const returnedState = params.get("state")?.trim();
-      const expectedState = sessionStorage.getItem(`oauth_state_${provider}`);
+      const expectedState = safeSessionStorage.getItem(`oauth_state_${provider}`);
 
       oauthHandledRef.current = true;
 
       if (error) {
         Notify.failure(`Kết nối ${provider} bị hủy hoặc thất bại.`);
-        sessionStorage.removeItem(`oauth_state_${provider}`);
+        safeSessionStorage.removeItem(`oauth_state_${provider}`);
         navigate("/login", { replace: true });
         return;
       }
 
       if (!code || !expectedState || expectedState !== returnedState) {
         Notify.failure("Phiên đăng nhập OAuth không hợp lệ. Vui lòng thử lại.");
-        sessionStorage.removeItem(`oauth_state_${provider}`);
+        safeSessionStorage.removeItem(`oauth_state_${provider}`);
         navigate("/login", { replace: true });
         return;
       }
@@ -141,7 +142,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
           navigate("/login", { replace: true });
         })
         .finally(() => {
-          sessionStorage.removeItem(`oauth_state_${provider}`);
+          safeSessionStorage.removeItem(`oauth_state_${provider}`);
           setLoading(false);
         });
       return;
@@ -181,7 +182,7 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
 
     try {
       const response = await authService.getOAuthAuthorizeUrl(provider, getOAuthRedirectUri(provider));
-      sessionStorage.setItem(`oauth_state_${provider}`, response.data.state);
+      safeSessionStorage.setItem(`oauth_state_${provider}`, response.data.state);
       window.location.href = response.data.authorizationUrl;
     } catch (err: any) {
       Notify.failure(err.message || `Không thể khởi tạo đăng nhập ${provider}.`);
@@ -360,23 +361,16 @@ export default function LoginPanel({ onLoginSuccess, onClose }: LoginPanelProps)
   });
 
   const readStoredUser = (): AuthUser | null => {
-    const userStr = localStorage.getItem("auth_user");
-    if (!userStr || userStr === "undefined") return null;
-    try {
-      return JSON.parse(userStr) as AuthUser;
-    } catch (e) {
-      console.error("Error parsing user from localStorage", e);
-      return null;
-    }
+    return safeLocalStorage.getJSON<AuthUser>("auth_user", null as any) ?? null;
   };
 
   const handleFinishCombo = (updatedProfile?: UserDTO) => {
-    const token = localStorage.getItem("auth_token") || "";
+    const token = safeLocalStorage.getItem("auth_token") || "";
     const storedUser = readStoredUser();
     const user = updatedProfile ? toAuthUser(updatedProfile, storedUser ?? onboardingUser) : (storedUser ?? onboardingUser);
 
     if (user) {
-      localStorage.setItem("auth_user", JSON.stringify(user));
+      safeLocalStorage.setJSON("auth_user", user);
     }
 
     onLoginSuccess(token, user as AuthUser);
