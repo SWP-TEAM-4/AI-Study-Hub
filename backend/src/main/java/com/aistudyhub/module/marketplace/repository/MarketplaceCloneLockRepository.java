@@ -10,36 +10,36 @@ import com.aistudyhub.entity.Quiz;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
-import jakarta.persistence.PersistenceContext;
+import lombok.RequiredArgsConstructor;
 
 @Repository
+@RequiredArgsConstructor
 public class MarketplaceCloneLockRepository {
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final EntityManager entityManager;
 
-    public Optional<Document> findDocumentByIdForUpdate(Long id) {
-        return entityManager
-                .createQuery("SELECT d FROM Document d WHERE d.id = :id", Document.class)
-                .setParameter("id", id)
+    public Optional<Document> findDocumentByIdForUpdate(Long documentId) {
+        return entityManager.createQuery(
+                        "SELECT d FROM Document d WHERE d.id = :documentId", Document.class)
+                .setParameter("documentId", documentId)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultStream()
                 .findFirst();
     }
 
-    public Optional<Quiz> findQuizByIdForUpdate(Long id) {
-        return entityManager
-                .createQuery("SELECT q FROM Quiz q WHERE q.id = :id", Quiz.class)
-                .setParameter("id", id)
+    public Optional<Quiz> findQuizByIdForUpdate(Long quizId) {
+        return entityManager.createQuery(
+                        "SELECT q FROM Quiz q WHERE q.id = :quizId", Quiz.class)
+                .setParameter("quizId", quizId)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultStream()
                 .findFirst();
     }
 
-    public Optional<FlashcardDeck> findFlashcardDeckByIdForUpdate(Long id) {
-        return entityManager
-                .createQuery("SELECT f FROM FlashcardDeck f WHERE f.id = :id", FlashcardDeck.class)
-                .setParameter("id", id)
+    public Optional<FlashcardDeck> findFlashcardDeckByIdForUpdate(Long deckId) {
+        return entityManager.createQuery(
+                        "SELECT d FROM FlashcardDeck d WHERE d.id = :deckId", FlashcardDeck.class)
+                .setParameter("deckId", deckId)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultStream()
                 .findFirst();

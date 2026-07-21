@@ -174,6 +174,12 @@ public class QuizService {
             throw new AppException(ErrorCode.QUIZ_ACCESS_DENIED);
         }
 
+        String requestedTitle = request.getTitle().trim();
+        if (quiz.getClonedFrom() != null && !quiz.getTitle().equals(requestedTitle)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "The title of a cloned quiz cannot be changed.");
+        }
+
         Notebook notebook = null;
         if (request.getNotebookId() != null) {
             notebook = notebookRepository.findById(request.getNotebookId())
@@ -196,7 +202,7 @@ public class QuizService {
                     .orElseThrow(() -> new AppException(ErrorCode.SEMESTER_NOT_FOUND));
         }
 
-        quiz.setTitle(request.getTitle().trim());
+        quiz.setTitle(requestedTitle);
         quiz.setDescription(request.getDescription());
         quiz.setNotebook(notebook);
         quiz.setSubject(subject);

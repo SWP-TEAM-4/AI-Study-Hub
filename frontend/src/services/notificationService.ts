@@ -1,5 +1,8 @@
 "use client";
 
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
+
 // ─── INTERFACES & DTOS ────────────────────────────────────────────────────────
 
 export interface NotificationDTO {
@@ -23,7 +26,7 @@ const BASE_URL = "/api";
 
 // Helper gửi request đính kèm Bearer Token
 async function notifRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
   if (token) {
     const cleanToken = token.replace(/['"]+/g, '');
@@ -34,13 +37,13 @@ async function notifRequest<T>(endpoint: string, options: RequestInit = {}): Pro
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  const result = safeParseJson<any>(text, {});
 
   if (response.status === 401) {
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };

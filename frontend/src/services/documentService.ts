@@ -1,4 +1,6 @@
 import { ApiResponse, PaginatedResponse } from "./types";
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
 
 // ─── DTOs ────────────────────────────────────────────────────────────────────
 
@@ -187,7 +189,7 @@ export type DocumentSearchFilters = {
 const BASE_URL = "/api";
 
 async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
   if (token) {
     const cleanToken = token.replace(/['\"]+/g, "");
@@ -206,7 +208,7 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   const text = await response.text();
   let result: any = {};
   try {
-    result = text ? JSON.parse(text) : {};
+    result = safeParseJson(text, {});
   } catch {
     if (!response.ok) {
       throw { status: response.status, message: text || "Backend trả về dữ liệu không hợp lệ", errorCode: "INVALID_RESPONSE" };
@@ -215,10 +217,10 @@ async function docRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   }
 
   if (response.status === 401) {
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
@@ -346,7 +348,8 @@ async function createDownload(
   if (contentType === "application/json" || contentType === "text/html") {
     const body = new TextDecoder().decode(buffer);
     let message = "Backend không trả về dữ liệu file hợp lệ";
-    try { message = JSON.parse(body).message || message; } catch { /* Keep the safe message. */ }
+    const parsed = safeParseJson<any>(body, {});
+    if (parsed?.message) message = parsed.message || message;
     throw { status: response.status, message, errorCode: "INVALID_DOCUMENT_FILE" };
   }
 
@@ -528,13 +531,12 @@ export const documentService = {
   },
 
   async downloadDocument(id: number, fallbackTitle?: string, fallbackFileType?: string): Promise<{ blobUrl: string; fileName: string }> {
-    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const token = safeLocalStorage.getItem("auth_token");
     const headers = new Headers();
     if (token) headers.set("Authorization", `Bearer ${token.replace(/['\\"]+/g, "")}`);
     const response = await fetch(`${BASE_URL}/documents/${id}/download`, { method: "GET", headers });
     if (!response.ok) {
-      let result: any = {};
-      try { result = JSON.parse(await response.text()); } catch { /* binary/empty error */ }
+      const result: any = safeParseJson(await response.text(), {});
       throw { status: response.status, message: result.message || "Không thể tải tài liệu", errorCode: result.errorCode || "DOCUMENT_DOWNLOAD_ERROR" };
     }
     const download = await createDownload(response, fallbackTitle, fallbackFileType);
@@ -660,13 +662,9 @@ export const documentService = {
     if (!response.ok) {
       let message = "Không thể tải tài liệu chia sẻ";
       let errorCode = "SHARED_DOCUMENT_DOWNLOAD_ERROR";
-      try {
-        const result = JSON.parse(await response.text());
-        message = result.message || message;
-        errorCode = result.errorCode || errorCode;
-      } catch {
-        // Ignore parsing errors for binary/empty responses.
-      }
+      const result = safeParseJson<any>(await response.text(), {});
+      message = result.message || message;
+      errorCode = result.errorCode || errorCode;
       throw {
         status: response.status,
         message,

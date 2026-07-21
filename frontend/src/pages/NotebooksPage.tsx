@@ -361,63 +361,6 @@ const NotebookCard = ({ nb, index, getSubjectLabel, onEdit, onDelete, onClick }:
   )
 }
 
-const AnimatedSelect = ({ value, onChange, options, placeholder }: { value: string, onChange: (v: string) => void, options: {label: string, value: string}[], placeholder: string }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = options.find(o => o.value === value);
-
-  return (
-    <div className="relative w-full sm:w-[200px] z-30">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-11 px-4 pr-8 bg-white border-2 border-[#1E293B] rounded-lg text-sm font-bold text-[#1E293B] flex items-center justify-between shadow-inner focus:outline-none transition-all cursor-pointer"
-      >
-        <span>{selectedOption ? selectedOption.label : placeholder}</span>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
-           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </motion.div>
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* Backdrop to close dropdown */}
-            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            
-            <motion.ul
-              initial={{ opacity: 0, y: -8, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.96 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="absolute left-0 right-0 mt-2 bg-white border-2 border-[#1E293B] rounded-lg shadow-[4px_4px_0px_#1E293B] overflow-hidden z-50 py-1"
-            >
-              {options.map(option => (
-                <li key={option.value}>
-                  <button
-                    onClick={() => {
-                      onChange(option.value);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-2.5 text-sm font-bold transition-colors flex items-center justify-between cursor-pointer ${
-                      value === option.value 
-                        ? 'bg-[#FFD166] text-[#1E293B]' 
-                        : 'text-[#1E293B] hover:bg-[#FFF9F0]'
-                    }`}
-                  >
-                    {option.label}
-                    {value === option.value && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#EF233C]" />
-                    )}
-                  </button>
-                </li>
-              ))}
-            </motion.ul>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
 export default function NotebooksPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
@@ -449,11 +392,17 @@ export default function NotebooksPage() {
     { label: "Từ A - Z", value: "az" }
   ];
 
-  useEffect(() => {
-    if (subjectOptions.length > 0 && !subjectOptions.some((subject) => subject.value === newSubjectId)) {
-      setNewSubjectId(subjectOptions[0].value);
-    }
-  }, [newSubjectId, subjectOptions]);
+const createSubjectOptions = useMemo(
+  () => subjects.map((subject) => ({ label: subject.code, value: String(subject.id) })),
+  [subjects],
+);
+
+useEffect(() => {
+  if (createSubjectOptions.length === 0) return;
+  if (!newSubjectId || !createSubjectOptions.some((subject) => subject.value === newSubjectId)) {
+    setNewSubjectId(createSubjectOptions[0].value);
+  }
+}, [newSubjectId, createSubjectOptions]);
 
   const getSubjectLabel = (subjectId: number) => {
     const subject = subjectMap[subjectId];
@@ -601,36 +550,30 @@ export default function NotebooksPage() {
                   </div>
 
                   {/* Subject Select */}
-                  <div className="w-full sm:w-[200px] z-[60]">
-                    <AnimatedSelect
+                  <div className="w-full sm:w-[200px]">
+                    <CustomSelect
                       value={activeSubjectTab}
                       onChange={setActiveSubjectTab}
-                      options={subjectOptions}
+                      data={subjectOptions}
                       placeholder="Môn học: Tất cả"
+                      allowEmpty
+                      emptyOptionLabel="Môn học: Tất cả"
                     />
                   </div>
 
                   {/* Sort Select */}
-                  <div className="w-full sm:w-[180px] z-[50]">
-                    <AnimatedSelect
+                  <div className="w-full sm:w-[180px]">
+                    <CustomSelect
                       value={sortBy}
                       onChange={setSortBy}
-                      options={sortOptions}
+                      data={sortOptions}
                       placeholder="Sắp xếp"
                     />
                   </div>
                 </div>
 
-                {/* Right side buttons */}
-                <div className="flex items-center w-full xl:w-auto justify-end gap-3 pt-1 xl:pt-0">
-                  <ShimmerButton 
-                    onClick={() => setIsModalOpen(true)} 
-                    className="h-9 px-5 bg-[#EF233C] border-2 border-[#1E293B] text-white text-xs font-bold rounded-lg shadow-[2px_2px_0px_#1E293B] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-[1px_1px_0px_#1E293B] transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <Plus size={14} /> Tạo mới
-                  </ShimmerButton>
-
-                  {/* Close button that rolls it back */}
+                {/* Close button that rolls it back */}
+                <div className="flex items-center pt-1 xl:pt-0">
                   <button
                     onClick={() => setIsDrawerOpen(false)}
                     className="w-8 h-8 bg-white hover:bg-slate-100 border-2 border-[#1E293B] rounded-lg flex items-center justify-center shadow-[1px_1px_0px_#1E293B] text-[#1E293B] transition-transform hover:rotate-90 active:scale-95"
@@ -726,7 +669,7 @@ export default function NotebooksPage() {
       {/* Create Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -760,12 +703,12 @@ export default function NotebooksPage() {
                     className="w-full h-11 px-4 bg-slate-50 focus:bg-white border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl outline-none text-sm font-bold text-slate-800 placeholder:text-slate-400 transition-all shadow-inner"
                   />
                 </div>
-                <div className="relative z-[70]">
+                <div>
                   <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">Môn học</label>
-                  <AnimatedSelect 
+                  <CustomSelect
                     value={newSubjectId}
                     onChange={setNewSubjectId}
-                    options={subjects.map((subject) => ({ label: subject.code, value: String(subject.id) }))}
+                    data={createSubjectOptions}
                     placeholder="Chọn môn học..."
                   />
                 </div>
@@ -794,7 +737,7 @@ export default function NotebooksPage() {
       {/* Edit Modal */}
       <AnimatePresence>
         {editModal.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -828,12 +771,12 @@ export default function NotebooksPage() {
                     className="w-full h-11 px-4 bg-slate-50 focus:bg-white border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl outline-none text-sm font-bold text-slate-800 placeholder:text-slate-400 transition-all shadow-inner"
                   />
                 </div>
-                <div className="relative z-[70]">
+                <div>
                   <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">Môn học</label>
-                  <AnimatedSelect 
+                  <CustomSelect
                     value={editModal.subjectId}
                     onChange={(val) => setEditModal(prev => ({ ...prev, subjectId: val }))}
-                    options={subjects.map((subject) => ({ label: subject.code, value: String(subject.id) }))}
+                    data={createSubjectOptions}
                     placeholder="Chọn môn học..."
                   />
                 </div>

@@ -110,11 +110,7 @@ export default function DocumentsPage() {
 
   // 📂 STATES QUẢN LÝ THƯ MỤC CHUYÊN SÂU
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [folders, setFolders] = useState<FolderDTO[]>([
-    { id: "folder_1", name: "Toán Đại Số Lớp 10", parentId: null, createdAt: new Date().toISOString() },
-    { id: "folder_2", name: "Ngữ Văn Tổng Hợp", parentId: null, createdAt: new Date().toISOString() },
-    { id: "folder_3", name: "Đề Thi Thử Học Kỳ I", parentId: "folder_1", createdAt: new Date().toISOString() },
-  ]);
+  const [folders, setFolders] = useState<FolderDTO[]>([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [moveFileDoc, setMoveFileDoc] = useState<DocumentDTO | null>(null);

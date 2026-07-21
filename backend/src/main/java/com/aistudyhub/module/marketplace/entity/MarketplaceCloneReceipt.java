@@ -28,14 +28,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "marketplace_clone_receipts",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_marketplace_clone_receipts_user_target_source",
-                columnNames = { "user_id", "target_type", "source_id" }),
-        indexes = {
-                @Index(name = "idx_marketplace_clone_receipts_user", columnList = "user_id"),
-                @Index(name = "idx_marketplace_clone_receipts_target", columnList = "target_type, source_id")
-        })
+@Table(name = "marketplace_clone_receipts", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_marketplace_clone_user_source",
+                columnNames = { "user_id", "target_type", "source_id" })
+}, indexes = {
+        @Index(name = "idx_marketplace_clone_receipt_resource", columnList = "target_type, cloned_resource_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -47,12 +45,12 @@ public class MarketplaceCloneReceipt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "target_type", nullable = false, length = 40)
+    @Column(name = "target_type", nullable = false, length = 30)
     private MarketplaceCloneTargetType targetType;
 
     @Column(name = "source_id", nullable = false)
@@ -62,10 +60,10 @@ public class MarketplaceCloneReceipt {
     private Long clonedResourceId;
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 }

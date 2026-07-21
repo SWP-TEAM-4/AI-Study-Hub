@@ -47,6 +47,8 @@ public class MarketplaceItemResponse {
     // Marketplace)
     private MarketStatus marketStatus;
     private Visibility visibility;
+    private String fileUrl;
+    private String fileType;
     private LocalDateTime createdAt;
     private Long clonedFromId;
 }

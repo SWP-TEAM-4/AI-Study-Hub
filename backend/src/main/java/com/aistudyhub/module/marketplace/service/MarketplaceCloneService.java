@@ -46,7 +46,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service xu ly clone tai nguyen tu Marketplace ve khong gian ca nhan.
+ * Service xử lý các nghiệp vụ clone tài nguyên từ Marketplace về không gian cá nhân.
  */
 @RequiredArgsConstructor
 @Slf4j

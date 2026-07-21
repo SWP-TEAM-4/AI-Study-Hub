@@ -78,6 +78,7 @@ const adminNav = [
 
 import { MobileBottomNav } from "./MobileBottomNav";
 import { MobileHeader } from "./MobileHeader";
+import { safeLocalStorage } from "../../utils/safeStorage";
 
 // ── Colors ──────────────────────────
 const colors = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#d946ef", "#f43f5e"];
@@ -121,20 +122,6 @@ const NavItem = ({ active, icon: Icon, label, onClick, pathOrId }: { active: boo
       >
         {label}
       </span>
-      {active && (
-        <motion.div
-          layoutId="chameleon-nav"
-          className="absolute -right-3 top-1/2 -translate-y-[45%] z-20 pointer-events-none hidden lg:block lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-200 drop-shadow-md"
-          transition={{ type: "spring", stiffness: 400, damping: 35, mass: 0.8 }}
-        >
-          <img 
-            src="/images/chameleon.png" 
-            alt="Chameleon Mascot" 
-            className="w-[44px] h-auto origin-bottom" 
-            style={{ transform: 'scaleX(-1)' }} 
-          />
-        </motion.div>
-      )}
     </button>
   );
 };
@@ -147,7 +134,7 @@ export function AppShell() {
 
   const [isSplineReady, setIsSplineReady] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [displayInitials, setDisplayInitials] = useState("AK");
+  const [displayInitials, setDisplayInitials] = useState("");
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   // Lấy user info từ zustand store
@@ -169,7 +156,7 @@ export function AppShell() {
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("theme") === "dark" || (!localStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      return safeLocalStorage.getItem("theme") === "dark" || (!safeLocalStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
     }
     return false;
   });
@@ -186,7 +173,7 @@ export function AppShell() {
   const toggleDarkMode = () => {
     setIsDarkMode((prev: boolean) => {
       const nextTheme = !prev;
-      localStorage.setItem("theme", nextTheme ? "dark" : "light");
+      safeLocalStorage.setItem("theme", nextTheme ? "dark" : "light");
       return nextTheme;
     });
   };
@@ -215,19 +202,22 @@ export function AppShell() {
     setIsMobileMenuOpen(false); // Close mobile drawer when navigating
   };
 
-  const syncProfileData = () => {
-    if (typeof window !== "undefined") {
-      const savedAvatar = localStorage.getItem("userAvatarUrl");
-      const savedName = localStorage.getItem("userFullName");
-      if (savedAvatar) setAvatarUrl(savedAvatar);
-      if (savedName) {
-        const words = savedName.trim().split(" ");
-        const initials = words.length >= 2
-          ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
-          : words[0].slice(0, 2).toUpperCase();
-        setDisplayInitials(initials);
-      }
-    }
+  const computeInitials = (name: string): string => {
+    if (!name) return "";
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return "";
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  };
+
+  const syncProfileData = (fallbackName?: string | null, fallbackAvatar?: string | null) => {
+    if (typeof window === "undefined") return;
+    const savedAvatar = safeLocalStorage.getItem("userAvatarUrl");
+    const savedName = safeLocalStorage.getItem("userFullName");
+    const finalAvatar = savedAvatar || fallbackAvatar || null;
+    const finalName = savedName || fallbackName || "";
+    setAvatarUrl(finalAvatar);
+    setDisplayInitials(computeInitials(finalName));
   };
 
   useEffect(() => {
@@ -236,6 +226,11 @@ export function AppShell() {
     window.addEventListener("profile-updated", handleProfileUpdate);
     return () => window.removeEventListener("profile-updated", handleProfileUpdate);
   }, []);
+
+  // 🌟 Sync avatar & initials khi authUser đổi (login mới / refresh / profile update từ zustand)
+  useEffect(() => {
+    syncProfileData(authUser?.fullName, authUser?.avatarUrl);
+  }, [authUser?.fullName, authUser?.avatarUrl]);
 
   // 🌟 Dynamic Document Title
   useEffect(() => {
@@ -570,7 +565,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main id="main-scroll-container" className="flex-1 lg:pl-[104px] px-4 md:px-6 lg:pr-8 pt-[72px] lg:pt-[88px] pb-24 lg:pb-8 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar relative z-0">
+        <main id="main-scroll-container" className="flex-1 lg:pl-[104px] px-4 md:px-6 lg:pr-8 pt-[72px] lg:pt-[88px] pb-24 lg:pb-8 min-w-0 overflow-x-hidden overflow-y-auto custom-scrollbar">
           {/* Background Gradient Orbs */}
           <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
             {/* Light mode orbs — warm forest green */}

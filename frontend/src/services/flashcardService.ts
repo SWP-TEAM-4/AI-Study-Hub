@@ -1,8 +1,10 @@
 import { ApiResponse, PaginatedResponse } from "./types";
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
 
 const BASE_URL = "/api";
 
-type Visibility = "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+type Visibility = "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
 type MarketStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 
 export interface FlashcardDTO {
@@ -74,7 +76,7 @@ function toQuery(params: Record<string, string | number | undefined | null>) {
 }
 
 async function flashcardRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
 
   if (token) {
@@ -88,13 +90,22 @@ async function flashcardRequest<T>(endpoint: string, options: RequestInit = {}):
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  try {
+    result = safeParseJson(text, {});
+  } catch {
+    throw {
+      status: response.status,
+      message: response.ok ? "Backend trả về JSON không hợp lệ" : (text || "Lỗi giao tiếp API Flashcard"),
+      errorCode: "INVALID_RESPONSE",
+    };
+  }
 
   if (response.status === 401) {
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };

@@ -3,7 +3,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
-  MapPin,
   Award,
   Flame,
   BookMarked,
@@ -38,6 +37,7 @@ import { academicService, ComboDTO, SemesterDTO } from "../services/academicServ
 import { reputationService, type AiQuotaStatusDTO, type ReputationEventDTO } from "../services/reputationService";
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { useAuthStore } from "../store/useAuthStore";
+import { safeLocalStorage } from "../utils/safeStorage";
 
 // ───  1. GLOBAL STATIC CONFIGURATIONS ───────────────────────────────────────
 
@@ -48,6 +48,9 @@ const emptyStats = {
   flashcardDecks: 0,
 };
 
+/**
+ * Tính initials an toàn từ fullName. Trả về "" nếu rỗng/null/undefined.
+ */
 function computeInitials(fullName?: string | null): string {
   if (!fullName) return "";
   const words = fullName.trim().split(/\s+/).filter(Boolean);
@@ -56,11 +59,15 @@ function computeInitials(fullName?: string | null): string {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
+/**
+ * Hook thu gọn / mở rộng có nhớ trạng thái vào localStorage.
+ * `defaultOpen` chỉ áp dụng cho lần đầu; các lần sau user tự chọn sẽ được ghi nhớ.
+ */
 function usePersistentDisclosure(key: string, defaultOpen: boolean) {
   const [isOpen, setIsOpen] = useState(() => {
     if (typeof window === "undefined") return defaultOpen;
     try {
-      const stored = localStorage.getItem(key);
+      const stored = safeLocalStorage.getItem(key);
       return stored === null ? defaultOpen : stored === "1";
     } catch {
       return defaultOpen;
@@ -70,9 +77,9 @@ function usePersistentDisclosure(key: string, defaultOpen: boolean) {
   const setOpen = (value: boolean) => {
     setIsOpen(value);
     try {
-      localStorage.setItem(key, value ? "1" : "0");
+      safeLocalStorage.setItem(key, value ? "1" : "0");
     } catch {
-      // Ignore storage privacy/quota errors.
+      /* ignore quota / privacy errors */
     }
   };
 
@@ -80,9 +87,13 @@ function usePersistentDisclosure(key: string, defaultOpen: boolean) {
   return { isOpen, setOpen, toggle } as const;
 }
 
+/**
+ * Tính streak (số ngày hoạt động liên tiếp) từ danh sách ActivityLogDTO.
+ * Logic: nhóm log theo ngày (YYYY-MM-DD, local timezone) → duyệt từ hôm nay
+ * lùi về, đếm số ngày liên tiếp có activity. Nếu hôm nay chưa có → bắt đầu từ hôm qua.
+ */
 function computeStreakFromLogs(logs: { createdAt: string }[]): number {
   if (!logs || logs.length === 0) return 0;
-
   const toDayKey = (ts: string | Date): string => {
     const d = typeof ts === "string" ? new Date(ts) : ts;
     const y = d.getFullYear();
@@ -90,13 +101,15 @@ function computeStreakFromLogs(logs: { createdAt: string }[]): number {
     const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
   };
+  const uniqueDays = new Set(logs.map((l) => toDayKey(l.createdAt)));
 
-  const uniqueDays = new Set(logs.map((log) => toDayKey(log.createdAt)));
   const today = new Date();
+  const todayKey = toDayKey(today);
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
 
-  let cursor = uniqueDays.has(toDayKey(today)) ? today : yesterday;
+  // Nếu user chưa hoạt động hôm nay, streak đo từ hôm qua trở về
+  let cursor = uniqueDays.has(todayKey) ? today : yesterday;
   let streak = 0;
   while (uniqueDays.has(toDayKey(cursor))) {
     streak++;
@@ -158,6 +171,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
   const [fbContent, setFbContent] = useState("");
   const [isFbSubmitting, setFbSubmitting] = useState(false);
 
+  // 📦 Trạng thái thu gọn/mở rộng các card dài — nhớ qua các lần tải trang
   const testHistoryDisclosure = usePersistentDisclosure("profile.testHistory.open", true);
   const activityLogDisclosure = usePersistentDisclosure("profile.activityLogs.open", true);
   const myRolesDisclosure = usePersistentDisclosure("profile.myRoles.open", true);
@@ -303,7 +317,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
         setUserInfo(updateRes.data || null);
         if (updateRes.data && typeof window !== "undefined") {
           const { id, email, fullName, avatarUrl, role, reputationPoints, createdAt } = updateRes.data;
-          localStorage.setItem("auth_user", JSON.stringify({ userId: id, email, fullName, avatarUrl, role, reputationPoints, createdAt }));
+          safeLocalStorage.setJSON("auth_user", { userId: id, email, fullName, avatarUrl, role, reputationPoints, createdAt });
         }
         Notify.success("Cập nhật tài khoản thành công!");
         setOldPasswordInput(""); setNewPasswordInput(""); setConfirmPasswordInput("");
@@ -392,6 +406,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
     { label: "Bộ flashcard", value: stats.flashcardDecks, icon: BookMarked },
   ];
 
+  // 🔥 Streak học tập thật, tính từ nhật ký hoạt động (createdAt)
   const learningStreak = computeStreakFromLogs(activityLogs);
 
   const aiUsageCards = [
@@ -460,7 +475,6 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
             </div>
             <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-4 font-medium">
               <span className="inline-flex items-center gap-1"><Mail size={13} className="text-primary/70" /> {userInfo.email}</span>
-              <span className="inline-flex items-center gap-1"><MapPin size={13} className="text-coral/70" /> FPT University HCM</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-coral/10 text-coral text-xs font-semibold border border-coral/10"><Flame size={12} fill="currentColor" /> Chuỗi học tập {learningStreak} ngày</div>
@@ -950,7 +964,7 @@ export default function ProfilePage({ onLogout }: ProfilePageProps) {
                       <label className="text-xs font-semibold text-muted-foreground">Ảnh đại diện tài khoản:</label>
                       <div className="flex gap-4 items-center">
                         <div onClick={() => fileInputRef.current?.click()} className="size-20 rounded-2xl bg-ink text-cream text-2xl font-bold grid place-items-center cursor-pointer overflow-hidden relative border border-border/40 shadow-inner group shrink-0">
-                          {editAvatarUrl ? <img src={editAvatarUrl} alt="Preview" className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" /> : userInfo.fullName.slice(0, 2).toUpperCase()}
+                          {editAvatarUrl ? <img src={editAvatarUrl} alt="Preview" className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" /> : (computeInitials(userInfo.fullName) || "U")}
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white gap-1 transition-all duration-200"><Camera size={16} /><span className="text-[9px] font-bold uppercase tracking-wider">Thay ảnh</span></div>
                         </div>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />

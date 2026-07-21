@@ -1,5 +1,8 @@
 "use client";
 
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
+
 // ─── 1. SYSTEM INTERFACES & DTOS (MAPPED FROM ERD & CONTRACT) ─────────────────
 
 /**
@@ -82,9 +85,9 @@ export async function authRequest<T>(endpoint: string, bodyPayload: any): Promis
       body: JSON.stringify(bodyPayload),
     });
 
-    // 🚀 BIỆN PHÁP AN TOÀN: Đọc dưới dạng văn bản trước để tránh lỗi "Unexpected end of JSON" nếu phản hồi rỗng
+    // 🚀 BIỆN PHÁP AN TOÀN: Đọc dưới dạng văn bản trước, dùng safeParseJson để tránh "Unexpected end of JSON" nếu phản hồi rỗng / proxy trả HTML khi server down
     const textData = await response.text();
-    const result = textData ? JSON.parse(textData) : {};
+    const result = safeParseJson<any>(textData, {});
 
     if (!response.ok) {
       throw {
@@ -119,7 +122,7 @@ async function authGet<T>(endpoint: string): Promise<T> {
     });
 
     const textData = await response.text();
-    const result = textData ? JSON.parse(textData) : {};
+    const result = safeParseJson<any>(textData, {});
 
     if (!response.ok) {
       throw {
@@ -145,9 +148,14 @@ async function authGet<T>(endpoint: string): Promise<T> {
 
 function persistAuthSession(data: LoginResponseData) {
   if (typeof window === "undefined") return;
-  localStorage.setItem("auth_token", data.accessToken);
+  // Guard: Private Mode / quota đầy có thể throw — không để crash login.
+  const tokenOk = safeLocalStorage.setItem("auth_token", data.accessToken);
   const { accessToken, tokenType, ...userInfo } = data;
-  localStorage.setItem("auth_user", JSON.stringify(userInfo));
+  const userOk = safeLocalStorage.setItem("auth_user", JSON.stringify(userInfo));
+  if (!tokenOk || !userOk) {
+    // Không throw — chỉ log. Backend request vẫn chạy được trong session hiện tại.
+    console.warn("Không thể lưu auth_token/auth_user vào localStorage (Private Mode hoặc quota đầy).");
+  }
 }
 
 // ─── 3. INTERACTION AUTHENTICATION METHODS ─────────────────────────────────────
@@ -239,10 +247,8 @@ export const authService = {
    * 🚪 METHOD BỔ TRỢ: Đăng xuất và dọn sạch dấu vết bộ nhớ tạm
    */
   logout() {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("loginPanelMode");
-    }
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("loginPanelMode");
   }
 };

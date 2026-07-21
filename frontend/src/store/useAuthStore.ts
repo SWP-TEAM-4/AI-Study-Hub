@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { safeLocalStorage } from "../utils/safeStorage";
 
 /**
  * Thông tin user được lưu trong store.
@@ -47,12 +48,10 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoggedIn: true, token, user }),
 
       logout: () => {
-        // Xóa cả localStorage thủ công để đồng bộ
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("auth_user");
-          localStorage.removeItem("loginPanelMode");
-        }
+        // Xóa cả localStorage thủ công để đồng bộ (an toàn với Private Mode / quota đầy)
+        safeLocalStorage.removeItem("auth_token");
+        safeLocalStorage.removeItem("auth_user");
+        safeLocalStorage.removeItem("loginPanelMode");
         set({ isLoggedIn: false, token: null, user: null });
       },
 
@@ -61,7 +60,16 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "auth-storage", // key trong localStorage
-      storage: createJSONStorage(() => localStorage),
+      // zustand's createJSONStorage cần raw storage; wrap với safeLocalStorage để bắt SecurityError
+      storage: createJSONStorage(() => ({
+        getItem: (key) => safeLocalStorage.getItem(key),
+        setItem: (key, value) => {
+          safeLocalStorage.setItem(key, value);
+        },
+        removeItem: (key) => {
+          safeLocalStorage.removeItem(key);
+        },
+      })),
     }
   )
 );

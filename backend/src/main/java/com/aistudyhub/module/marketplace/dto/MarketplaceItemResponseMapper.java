@@ -45,6 +45,8 @@ public final class MarketplaceItemResponseMapper {
                 .communityRatingAvg(doc.getCommunityRatingAvg())
                 .marketStatus(doc.getMarketStatus())
                 .visibility(doc.getVisibility())
+                .fileUrl(doc.getFileUrl())
+                .fileType(doc.getFileType())
                 .createdAt(doc.getCreatedAt())
                 .clonedFromId(doc.getClonedFrom() != null ? doc.getClonedFrom().getId() : null)
                 .build();

@@ -83,6 +83,10 @@ public class DocumentServiceImpl implements DocumentService {
         public DocumentResponse updateDocument(Long id, Long userId, UpdateDocumentRequest request) {
                 Document document = documentRepository.findByIdAndUserId(id, userId)
                                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_ACCESS_DENIED));
+                if (document.getClonedFrom() != null && !document.getTitle().equals(request.getTitle())) {
+                        throw new AppException(ErrorCode.VALIDATION_ERROR,
+                                        "The title of a cloned document cannot be changed.");
+                }
                 Subject subject = null;
                 if (request.getSubjectId() != null) {
                         subject = subjectRepository.findById(request.getSubjectId())

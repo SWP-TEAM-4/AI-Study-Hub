@@ -16,12 +16,18 @@ export function DashboardHero() {
   const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ["dashboardHero"],
     queryFn: async () => {
-      const [profile, aiUsage, tests] = await Promise.all([
+      const [profile, aiUsage, tests, activityLogs] = await Promise.all([
         userService.getMyProfile(),
         userService.getMyAIUsage(),
         userService.getMyTestHistory({ page: 0, size: 1, sort: "newest" }),
+        userService.getMyActivityLogs({ page: 0, size: 100, sort: "newest" }),
       ]);
-      return { profile: profile.data, aiUsage: aiUsage.data, testCount: tests.data.totalElements };
+      return {
+        profile: profile.data,
+        aiUsage: aiUsage.data,
+        testCount: tests.data.totalElements,
+        activityLogs: activityLogs.data.items,
+      };
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
@@ -34,6 +40,23 @@ export function DashboardHero() {
   const initials = fullName
     ? fullName.trim().split(" ").filter(Boolean).map((w: string) => w[0]).slice(-2).join("").toUpperCase()
     : "U";
+
+  const streakCount = (() => {
+    const loginDays = new Set((dashboardData?.activityLogs ?? [])
+      .filter((log) => log.action === "LOGIN")
+      .map((log) => new Date(log.createdAt).setHours(0, 0, 0, 0)));
+    if (loginDays.size === 0) return 0;
+
+    let count = 0;
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    if (!loginDays.has(day.getTime())) day.setDate(day.getDate() - 1);
+    while (loginDays.has(day.getTime())) {
+      count++;
+      day.setDate(day.getDate() - 1);
+    }
+    return count;
+  })();
 
   const stats = [
     { label: "Điểm uy tín", value: profile?.reputationPoints ?? 0, icon: Flame, color: "text-orange-500", bg: "bg-orange-500/10 dark:bg-orange-500/15", border: "border-orange-500/20" },
@@ -61,7 +84,7 @@ export function DashboardHero() {
               className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600 dark:text-orange-400 select-none"
             >
               <Flame size={13} aria-hidden="true" className="shrink-0" />
-              <span>{t("dashboard.hero.streak") || "Hành trình học tập"}</span>
+              <span>Chuỗi đăng nhập {streakCount} ngày</span>
               <TrendingUp size={11} aria-hidden="true" className="shrink-0 opacity-70" />
             </motion.div>
 
@@ -170,7 +193,13 @@ export function DashboardHero() {
                   <Icon size={16} className={stat.color} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-base font-bold text-foreground tabular-nums leading-none">{(stat.value).toLocaleString()}</div>
+                  <div className="text-base font-bold text-foreground tabular-nums leading-none">
+                    {isLoading || !dashboardData ? (
+                      <span className="inline-block h-4 w-10 animate-pulse rounded bg-muted" aria-hidden="true" />
+                    ) : (
+                      (stat.value).toLocaleString()
+                    )}
+                  </div>
                   <div className="text-[10px] text-muted-foreground leading-tight truncate mt-0.5">{stat.label}</div>
                 </div>
               </div>

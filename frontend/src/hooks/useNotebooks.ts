@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notebookService, NotebookDTO } from "../services/notebookService";
+import { ApiResponse, PaginatedResponse } from "../services/types";
 import { handleApiError } from "../utils/errorHandler";
 import { Notify } from "notiflix";
 
@@ -12,10 +13,27 @@ export const notebookKeys = {
 
 // ─── FETCH NOTEBOOKS ─────────────────────────────────────────────────────────
 export function useNotebooks() {
-  return useQuery({
+  return useQuery<ApiResponse<PaginatedResponse<NotebookDTO>>, any, NotebookDTO[]>({
     queryKey: notebookKeys.list(),
-    queryFn: () => notebookService.getNotebooks(),
-    staleTime: 5 * 60 * 1000, // 5 phút — giảm số lần gọi API không cần thiết
+    queryFn: async () => {
+      try {
+        return await notebookService.getNotebooks();
+      } catch (error: any) {
+        const status = error?.status ?? error?.response?.status;
+        if (status !== 401 && status !== 403) {
+          Notify.failure(error?.message || "Không thể tải danh sách Notebook");
+        }
+        throw error;
+      }
+    },
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    retry: (failureCount, error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      if (status === 401 || status === 403 || status === 404) return false;
+      return failureCount < 2;
+    },
     select: (data) => data?.data?.items ?? [],
   });
 }
@@ -97,7 +115,9 @@ export function useDeleteNotebook() {
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: notebookKeys.list() });
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: notebookKeys.list() });
+      }, 1000);
     },
   });
 }
