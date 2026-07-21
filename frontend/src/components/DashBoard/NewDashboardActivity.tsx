@@ -3,7 +3,7 @@
 import React, { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Layers, SquareCheck } from "lucide-react";
+import { ArrowRight, ClipboardList, Layers, BookOpen, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { userService } from "../../services/userService";
 import { flashcardService } from "../../services/flashcardService";
@@ -36,75 +36,110 @@ export const NewDashboardActivity = memo(function NewDashboardActivity() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
       <Panel
-        title="Bài Kiểm Tra Gần Đây"
+        icon={<ClipboardList size={18} className="text-primary" />}
+        title="Bài kiểm tra gần đây"
+        subtitle="Luyện tập & củng cố kiến thức"
+        accent="from-primary/15 via-primary/5 to-transparent"
+        ring="ring-primary/20"
         onViewAll={() => navigate("/quiz")}
       >
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
+        {error ? (
           <ErrorState retry={() => dataQuery.refetch()} />
         ) : quizzes.length === 0 ? (
-          <EmptyState text="Chưa có bài kiểm tra nào đâu bé ơi!" />
+          <EmptyState
+            icon={<Sparkles size={22} className="text-primary" />}
+            title="Chưa có bài kiểm tra nào"
+            hint="Hoàn thành bài kiểm tra đầu tiên để thấy lịch sử tại đây."
+            cta="Khám phá Quiz"
+            onClick={() => navigate("/quiz")}
+          />
         ) : (
-          <div className="divide-y divide-[#eff4ff] -mt-2">
-            {quizzes.map((quiz: any) => (
-              <div
+          <ul className="flex flex-col gap-2">
+            {quizzes.map((quiz: any, idx: number) => (
+              <motion.li
                 key={quiz.id}
-                className="flex items-center justify-between py-4 hover:bg-black/5 dark:hover:bg-white/5 transition-[background-color] group px-4 rounded-2xl"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.05, duration: 0.3 }}
+                className="group flex items-center gap-4 p-3.5 rounded-xl border border-transparent hover:border-border/60 hover:bg-muted/40 transition-all"
               >
+                <div className="size-11 shrink-0 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 grid place-items-center text-primary">
+                  <ClipboardList size={18} />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-extrabold text-foreground truncate font-serif">{quiz.title}</p>
-                  <p className="text-[13px] text-muted-foreground mt-1 truncate font-bold">
+                  <p className="font-display text-[15px] font-semibold text-foreground truncate">
+                    {quiz.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     {quiz.subjectName || quiz.notebookTitle || "Chưa phân loại"}
                     {quiz.examType ? ` · ${quiz.examType}` : ""}
                   </p>
                 </div>
                 <button
                   onClick={() => navigate("/quiz")}
-                  className="ml-4 px-5 py-2.5 rounded-full bg-[#89cff0] text-white text-[13px] font-extrabold hover:bg-[#a6dcf8] border-b-4 border-[#0d6683] active:translate-y-[2px] active:border-b-[2px] transition-all"
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-foreground/5 hover:bg-primary hover:text-primary-foreground text-foreground text-xs font-semibold transition-all"
                 >
-                  Làm Bài
+                  Làm bài
+                  <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
                 </button>
-              </div>
+              </motion.li>
             ))}
-          </div>
+          </ul>
         )}
       </Panel>
 
       <Panel
-        title="Flashcard Gần Đây"
+        icon={<Layers size={18} className="text-accent" />}
+        title="Flashcard gần đây"
+        subtitle="Ghi nhớ nhanh với phương pháp lặp lại"
+        accent="from-accent/15 via-accent/5 to-transparent"
+        ring="ring-accent/20"
         onViewAll={() => navigate("/flashcards")}
       >
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
+        {error ? (
           <ErrorState retry={() => dataQuery.refetch()} />
         ) : decks.length === 0 ? (
-          <EmptyState text="Chưa có thẻ từ vựng nào hết!" />
+          <EmptyState
+            icon={<BookOpen size={22} className="text-accent" />}
+            title="Chưa có bộ Flashcard nào"
+            hint="Tạo bộ thẻ đầu tiên để bắt đầu ôn tập thông minh."
+            cta="Tạo Flashcard"
+            onClick={() => navigate("/flashcards")}
+          />
         ) : (
-          <div className="divide-y divide-border -mt-2">
-            {decks.map((deck: any) => (
-              <div
+          <ul className="flex flex-col gap-2">
+            {decks.map((deck: any, idx: number) => (
+              <motion.li
                 key={deck.id}
-                className="flex items-center justify-between py-4 hover:bg-black/5 dark:hover:bg-white/5 transition-[background-color] group px-4 rounded-2xl"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.05, duration: 0.3 }}
+                className="group flex items-center gap-4 p-3.5 rounded-xl border border-transparent hover:border-border/60 hover:bg-muted/40 transition-all"
               >
+                <div className="size-11 shrink-0 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 grid place-items-center text-accent">
+                  <Layers size={18} />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-extrabold text-foreground truncate font-serif">{deck.title || "Bộ Flashcard"}</p>
-                  <p className="text-[13px] text-muted-foreground mt-1 font-bold">
-                    <span className="text-[#0d6683] font-extrabold">{deck.cards.length} thẻ</span> · {new Date(deck.createdAt).toLocaleDateString("vi-VN")}
+                  <p className="font-display text-[15px] font-semibold text-foreground truncate">
+                    {deck.title || "Bộ Flashcard"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    <span className="font-semibold text-accent">{deck.cards.length}</span> thẻ ·{" "}
+                    {new Date(deck.createdAt).toLocaleDateString("vi-VN")}
                   </p>
                 </div>
                 <button
                   onClick={() => navigate("/flashcards")}
-                  className="ml-4 px-5 py-2.5 rounded-full bg-[#89cff0] text-white text-[13px] font-extrabold hover:bg-[#a6dcf8] border-b-4 border-[#0d6683] active:translate-y-[2px] active:border-b-[2px] transition-all"
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-foreground/5 hover:bg-accent hover:text-accent-foreground text-foreground text-xs font-semibold transition-all"
                 >
-                  Ôn Tập
+                  Ôn tập
+                  <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
                 </button>
-              </div>
+              </motion.li>
             ))}
-          </div>
+          </ul>
         )}
       </Panel>
     </div>
@@ -112,48 +147,68 @@ export const NewDashboardActivity = memo(function NewDashboardActivity() {
 });
 
 function Panel({
+  icon,
   title,
+  subtitle,
+  accent,
+  ring,
   onViewAll,
-  children
+  children,
 }: {
+  icon: React.ReactNode;
   title: string;
+  subtitle: string;
+  accent: string;
+  ring: string;
   onViewAll: () => void;
   children: React.ReactNode;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="surface-card overflow-hidden flex flex-col transition-all hover:scale-[1.01]"
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow"
     >
-      <div className="px-8 py-8 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h3 className="text-2xl font-extrabold text-foreground tracking-tight font-serif">{title}</h3>
+      <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${accent} pointer-events-none`} />
+
+      <div className="relative px-6 pt-6 pb-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`size-10 rounded-xl bg-card ring-1 ${ring} grid place-items-center shadow-sm`}>
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-display text-lg font-bold text-foreground leading-tight truncate">
+              {title}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>
+          </div>
         </div>
         <button
           onClick={onViewAll}
-          className="text-[15px] font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 transition-[color] font-serif"
+          className="shrink-0 text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
         >
-          Tất cả &rarr;
+          Tất cả
+          <ArrowRight size={13} />
         </button>
       </div>
 
-      <div className="p-8 flex-1">{children}</div>
+      <div className="relative px-6 pb-6 pt-2">{children}</div>
     </motion.div>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="flex flex-col gap-4 py-2">
+    <div className="flex flex-col gap-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center justify-between py-2">
+        <div key={i} className="flex items-center gap-4 p-3.5">
+          <div className="size-11 rounded-xl bg-muted animate-pulse" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 bg-slate-100 rounded-full w-2/3 animate-pulse" />
-            <div className="h-3 bg-slate-100 rounded-full w-1/3 animate-pulse" />
+            <div className="h-3.5 bg-muted rounded-md w-2/3 animate-pulse" />
+            <div className="h-3 bg-muted rounded-md w-1/3 animate-pulse" />
           </div>
-          <div className="h-10 bg-slate-100 rounded-full w-20 ml-4 animate-pulse" />
+          <div className="h-8 w-20 bg-muted rounded-lg animate-pulse" />
         </div>
       ))}
     </div>
@@ -163,21 +218,41 @@ function LoadingState() {
 function ErrorState({ retry }: { retry: () => void }) {
   return (
     <div className="py-8 text-center">
-      <p className="text-[15px] font-bold text-red-500">Đã xảy ra lỗi tải dữ liệu.</p>
+      <p className="text-sm font-medium text-destructive">Đã xảy ra lỗi tải dữ liệu.</p>
       <button
         onClick={retry}
-        className="mt-4 px-5 py-2 rounded-full border border-red-200 text-[13px] font-extrabold text-red-500 hover:bg-red-50 transition-colors"
+        className="mt-3 px-4 py-2 rounded-lg border border-destructive/30 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors"
       >
-        Thử Lại
+        Thử lại
       </button>
     </div>
   );
 }
 
-function EmptyState({ text }: { text: string }) {
+function EmptyState({
+  icon,
+  title,
+  hint,
+  cta,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  hint: string;
+  cta: string;
+  onClick: () => void;
+}) {
   return (
-    <div className="py-12 text-center text-[15px] font-bold text-[#475569]">
-      {text}
+    <div className="py-8 text-center flex flex-col items-center gap-2">
+      <div className="size-12 rounded-2xl bg-muted/60 grid place-items-center mb-1">{icon}</div>
+      <p className="font-display text-sm font-semibold text-foreground">{title}</p>
+      <p className="text-xs text-muted-foreground max-w-[260px]">{hint}</p>
+      <button
+        onClick={onClick}
+        className="mt-3 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:brightness-110 transition-all"
+      >
+        {cta}
+      </button>
     </div>
   );
 }

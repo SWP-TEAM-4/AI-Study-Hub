@@ -1,5 +1,8 @@
 "use client";
 
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
+
 export interface UserDTO {
   id: number;
   email: string;
@@ -80,7 +83,7 @@ export interface TestHistoryDTO {
 const BASE_URL = "/api";
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
   if (token) {
     const cleanToken = token.replace(/['\"]+/g, "");
@@ -94,18 +97,14 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const textData = await response.text();
   let result: any = {};
   if (textData && textData.trim().length > 0) {
-    try {
-      result = JSON.parse(textData);
-    } catch {
-      result = { message: textData.substring(0, 200) };
-    }
+    result = safeParseJson<any>(textData, { message: textData.substring(0, 200) });
   }
 
   if (response.status === 401) {
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      localStorage.removeItem("auth-storage");
       window.location.href = "/";
     }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };

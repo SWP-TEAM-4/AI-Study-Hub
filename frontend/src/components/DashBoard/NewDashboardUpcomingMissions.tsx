@@ -35,7 +35,7 @@ export function NewDashboardUpcomingMissions() {
       desc: "Trạm xuất phát",
       status: "completed", // Completed milestone
       icon: Compass,
-      path: "/",
+      path: "/documents",
       colorClass: "bg-[#ecfdf5] text-[#059669] border-[#34d399] border-b-4 dark:bg-emerald-950/30 dark:text-white dark:border-emerald-500 dark:shadow-[0_0_15px_rgba(16,185,129,0.3)]",
       shadowClass: "shadow-[0_4px_0_rgba(52,211,153,0.25)]",
       pos: { left: "8%", top: "60%" },
@@ -59,7 +59,7 @@ export function NewDashboardUpcomingMissions() {
       desc: `${remainingRequests} lượt hỏi`,
       status: "upcoming",
       icon: Star,
-      path: "/ask-ai",
+      path: "/notebooks",
       colorClass: "bg-[#fff7ed] text-[#ea580c] border-[#ff7f50] border-b-4 dark:bg-orange-950/30 dark:text-white dark:border-orange-500 dark:shadow-[0_0_15px_rgba(249,115,22,0.3)]",
       shadowClass: "shadow-[0_4px_0_rgba(255,127,80,0.25)]",
       pos: { left: "50%", top: "67%" },

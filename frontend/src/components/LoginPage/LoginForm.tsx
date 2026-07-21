@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { safeLocalStorage } from '../../utils/safeStorage';
+import { safeParseJson } from '../../utils/safeParseJson';
 
 interface LoginFormProps {
   onLoginSuccess?: () => void;
@@ -33,13 +35,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = safeParseJson<any>(await response.text(), {});
 
       if (response.ok) {
         const token = data.data?.accessToken || data.token || data.accessToken;
         const user = data.data?.user || data.user;
-        localStorage.setItem('auth_token', token || '');
-        localStorage.setItem('auth_user', JSON.stringify(user || {}));
+        safeLocalStorage.setItem('auth_token', token || '');
+        safeLocalStorage.setJSON('auth_user', user || {});
 
         setTimeout(() => {
           navigate('/dashboard');

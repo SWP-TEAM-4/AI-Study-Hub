@@ -1,3 +1,6 @@
+import { safeLocalStorage } from "../utils/safeStorage";
+import { safeParseJson } from "../utils/safeParseJson";
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -169,7 +172,7 @@ export interface RelatedDeckDTO { id: number; notebookId?: number | null; title:
 const BASE_URL = "/api";
 
 async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const token = safeLocalStorage.getItem("auth_token");
   const headers = new Headers(options.headers);
   if (token) headers.set("Authorization", `Bearer ${token.replace(/['\"]+/g, "")}`);
   if (!headers.has("Content-Type") && options.method !== "GET" && options.method !== "DELETE") {
@@ -179,17 +182,15 @@ async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Prom
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
   let result: any = {};
-  try {
-    result = text ? JSON.parse(text) : {};
-  } catch {
-    throw { status: response.status, message: "Backend trả về JSON không hợp lệ", errorCode: "INVALID_RESPONSE" };
-  }
+  result = safeParseJson<any>(text, {});
 
   if (response.status === 401) {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
-    localStorage.removeItem("auth-storage");
-    window.location.href = "/";
+    safeLocalStorage.removeItem("auth_token");
+    safeLocalStorage.removeItem("auth_user");
+    safeLocalStorage.removeItem("auth-storage");
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
     throw { status: 401, message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại." };
   }
   if (!response.ok) {

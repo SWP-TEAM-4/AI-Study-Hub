@@ -46,7 +46,54 @@
         "keepItUp": "Keep it up! ",
         "upload": "Upload",
         "exit": "Exit"
+  "appShell": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "notebooks": "Notebooks",
+      "documents": "Documents",
+      "askAI": "Ask AI",
+      "quiz": "Quiz",
+      "flashcards": "Flashcards",
+      "community": "Community",
+      "myReports": "My Reports",
+      "notifications": "Notifications",
+      "profile": "Profile",
+      "admin": "Admin",
+      "reviewer": "Reviewer"
     },
+    "adminNav": {
+      "overview": "Overview",
+      "users": "Members",
+      "feedbacks": "Feedbacks",
+      "logs": "Activity Logs",
+      "academic": "Academic",
+      "roles": "Roles",
+      "reports": "Reports",
+      "marketplace": "Marketplace",
+      "badges": "Badges",
+      "systemConfigs": "System"
+    },
+    "backToDashboard": "Back to Dashboard",
+    "aiAssistant": "AI Assistant",
+    "readyToHelp": "Ready to help you review lessons.",
+    "startChat": "Start chatting →",
+    "streak": "7 Days",
+    "month": "June 2026",
+    "days": {
+      "mon": "Mo",
+      "tue": "Tu",
+      "wed": "We",
+      "thu": "Th",
+      "fri": "Fr",
+      "sat": "Sa",
+      "sun": "Su"
+    },
+    "today": "Today: 15th",
+    "keepItUp": "Keep it up! ",
+    "upload": "Upload",
+    "exit": "Exit",
+    "sendFeedback": "Send Feedback"
+  },
     "filters": {
         "allSubjects": "All Subjects",
         "allVisibility": "All Visibility",

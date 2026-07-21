@@ -46,7 +46,54 @@
         "keepItUp": "Giữ vững phong độ! ",
         "upload": "Tải lên",
         "exit": "Thoát"
+  "appShell": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "notebooks": "Notebooks",
+      "documents": "Tài liệu",
+      "askAI": "Hỏi AI",
+      "quiz": "Quiz",
+      "flashcards": "Flashcards",
+      "community": "Cộng đồng",
+      "myReports": "Đơn từ của tôi",
+      "notifications": "Thông báo",
+      "profile": "Hồ sơ",
+      "admin": "Admin",
+      "reviewer": "Kiểm duyệt"
     },
+    "adminNav": {
+      "overview": "Tổng quan",
+      "users": "Thành viên",
+      "feedbacks": "Góp ý",
+      "logs": "Nhật ký",
+      "academic": "Học thuật",
+      "roles": "Phân quyền",
+      "reports": "Vi phạm",
+      "marketplace": "Chợ Nội Dung",
+      "badges": "Huy hiệu",
+      "systemConfigs": "Hệ thống"
+    },
+    "backToDashboard": "Về Dashboard",
+    "aiAssistant": "Trợ lý AI",
+    "readyToHelp": "Sẵn sàng giúp bạn ôn tập bài học.",
+    "startChat": "Bắt đầu chat →",
+    "streak": "7 ngày",
+    "month": "Tháng 6, 2026",
+    "days": {
+      "mon": "T2",
+      "tue": "T3",
+      "wed": "T4",
+      "thu": "T5",
+      "fri": "T6",
+      "sat": "T7",
+      "sun": "CN"
+    },
+    "today": "Hôm nay: Ngày 15",
+    "keepItUp": "Giữ vững phong độ! ",
+    "upload": "Tải lên",
+    "exit": "Thoát",
+    "sendFeedback": "Gửi phản hồi"
+  },
     "filters": {
         "allSubjects": "Tất cả môn học",
         "allVisibility": "Tất cả hiển thị",
