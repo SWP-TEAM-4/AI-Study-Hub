@@ -128,6 +128,9 @@ public class GeminiChunkingService {
                 throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
                         "Gemini is currently rate-limited for document semantic chunking. Please wait a minute and try again.");
             }
+            if (isRetryableGeminiFailure(e)) {
+                throw buildRetryExhaustedException("semantic chunking", e);
+            }
             log.error("Gemini API error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
             return fallbackToLocal(rawText, requestedChunkSize, requestedOverlap,
                     "Gemini API error: " + e.getStatusCode());
@@ -222,12 +225,72 @@ public class GeminiChunkingService {
                 throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
                         "Gemini is currently rate-limited for document safety review. Please wait a minute and try again.");
             }
+            if (isRetryableGeminiFailure(e)) {
+                throw buildRetryExhaustedException("safety review", e);
+            }
             log.error("Gemini safety review API error: status={}, body={}",
                     e.getStatusCode(), e.getResponseBodyAsString());
             throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
                     "Gemini safety review failed: " + e.getStatusCode());
         } catch (Exception e) {
             log.error("Gemini safety review failed", e);
+            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
+                    "Gemini safety review failed: " + e.getMessage());
+        }
+    }
+
+    public SafetyReview reviewTextSafety(String rawText) {
+        if (rawText == null || rawText.isBlank()) {
+            throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
+        }
+        if (geminiConfig.getApiKey() == null || geminiConfig.getApiKey().isBlank()) {
+            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
+                    "Missing GEMINI_API_KEY. Document safety review cannot run without Gemini credentials.");
+        }
+
+        try {
+            WebClient webClient = buildWebClient();
+            List<SafetyReview> safetyReviews = new ArrayList<>();
+
+            for (String segment : splitIntoGeminiInputs(rawText)) {
+                JsonNode response = postGeminiWithRetry(
+                        webClient,
+                        buildSafetyOnlyReviewRequestBody(segment),
+                        "edited chunks safety review");
+
+                GeminiModeratedResponse parsed = parseModeratedResponse(response);
+                safetyReviews.add(toSafetyReview(parsed.moderation()));
+            }
+
+            if (safetyReviews.isEmpty()) {
+                throw new AppException(ErrorCode.GEMINI_EMPTY_RESPONSE,
+                        "Gemini returned no moderation verdict.");
+            }
+
+            SafetyReview combinedReview = combineSafetyReviews(safetyReviews);
+            log.info("Gemini safety-only review completed: segments={}, safe={}, severity={}, category={}",
+                    safetyReviews.size(), combinedReview.safe(), combinedReview.severity(),
+                    combinedReview.category());
+            return combinedReview;
+        } catch (AppException e) {
+            throw e;
+        } catch (WebClientResponseException.Unauthorized e) {
+            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
+                    "Gemini authentication failed. Please verify GEMINI_API_KEY.");
+        } catch (WebClientResponseException e) {
+            if (e.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
+                throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
+                        "Gemini is currently rate-limited for document safety review. Please wait a minute and try again.");
+            }
+            if (isRetryableGeminiFailure(e)) {
+                throw buildRetryExhaustedException("edited chunks safety review", e);
+            }
+            log.error("Gemini edited chunks safety review API error: status={}, body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
+                    "Gemini safety review failed: " + e.getStatusCode());
+        } catch (Exception e) {
+            log.error("Gemini edited chunks safety review failed", e);
             throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
                     "Gemini safety review failed: " + e.getMessage());
         }
@@ -241,31 +304,52 @@ public class GeminiChunkingService {
 
     private JsonNode postGeminiWithRetry(WebClient webClient, Object requestBody, String operation) {
         int maxAttempts = Math.max(1, geminiConfig.getMaxRetries());
-        WebClientResponseException.TooManyRequests lastRateLimit = null;
+        WebClientResponseException lastRetryableFailure = null;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 return postGeminiOnce(webClient, requestBody);
-            } catch (WebClientResponseException.TooManyRequests e) {
-                lastRateLimit = e;
+            } catch (WebClientResponseException e) {
+                if (!isRetryableGeminiFailure(e)) {
+                    throw e;
+                }
+                lastRetryableFailure = e;
                 if (attempt >= maxAttempts) {
                     break;
                 }
                 long delayMillis = resolveRetryDelayMillis(e, attempt);
-                log.warn("Gemini {} hit rate limit on attempt {}/{}. Retrying after {} ms.",
-                        operation, attempt, maxAttempts, delayMillis);
-                sleepBeforeRetry(delayMillis);
+                log.warn("Gemini {} temporary failure status={} on attempt {}/{}. Retrying after {} ms.",
+                        operation, e.getStatusCode(), attempt, maxAttempts, delayMillis);
+                sleepBeforeRetry(delayMillis, operation, e);
             }
         }
 
-        String retryAfter = lastRateLimit != null
-                ? lastRateLimit.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)
-                : null;
-        String retryHint = retryAfter == null || retryAfter.isBlank()
-                ? "Please wait a minute and try again."
-                : "Please wait " + retryAfter + " seconds and try again.";
-        throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
-                "Gemini is currently rate-limited for document " + operation + ". " + retryHint);
+        throw buildRetryExhaustedException(operation, lastRetryableFailure);
+    }
+
+    private boolean isRetryableGeminiFailure(WebClientResponseException exception) {
+        return exception.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)
+                || exception.getStatusCode().isSameCodeAs(HttpStatus.BAD_GATEWAY)
+                || exception.getStatusCode().isSameCodeAs(HttpStatus.SERVICE_UNAVAILABLE)
+                || exception.getStatusCode().isSameCodeAs(HttpStatus.GATEWAY_TIMEOUT)
+                || exception.getStatusCode().is5xxServerError();
+    }
+
+    private AppException buildRetryExhaustedException(String operation, WebClientResponseException exception) {
+        if (exception != null && exception.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
+            String retryAfter = exception.getHeaders().getFirst(HttpHeaders.RETRY_AFTER);
+            String retryHint = retryAfter == null || retryAfter.isBlank()
+                    ? "Please wait a minute and try again."
+                    : "Please wait " + retryAfter + " seconds and try again.";
+            return new AppException(ErrorCode.GEMINI_RATE_LIMITED,
+                    "Gemini is currently rate-limited for document " + operation + ". " + retryHint);
+        }
+
+        String status = exception == null ? "unknown status" : exception.getStatusCode().toString();
+        log.warn("Gemini {} remains unavailable after retry attempts. status={}", operation, status);
+        return new AppException(ErrorCode.GEMINI_UNAVAILABLE,
+                "Gemini is temporarily unavailable for document " + operation
+                        + ". The model is experiencing high demand; please try again later.");
     }
 
     private JsonNode postGeminiOnce(WebClient webClient, Object requestBody) {
@@ -307,7 +391,7 @@ public class GeminiChunkingService {
         }
     }
 
-    private long resolveRetryDelayMillis(WebClientResponseException.TooManyRequests exception, int attempt) {
+    private long resolveRetryDelayMillis(WebClientResponseException exception, int attempt) {
         String retryAfter = exception.getHeaders().getFirst(HttpHeaders.RETRY_AFTER);
         if (retryAfter != null && !retryAfter.isBlank()) {
             try {
@@ -321,13 +405,12 @@ public class GeminiChunkingService {
         return Math.min(exponentialDelay, 30_000L);
     }
 
-    private void sleepBeforeRetry(long delayMillis) {
+    private void sleepBeforeRetry(long delayMillis, String operation, WebClientResponseException retryCause) {
         try {
             Thread.sleep(Math.max(0L, delayMillis));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
-                    "Gemini retry was interrupted. Please try again later.");
+            throw buildRetryExhaustedException(operation, retryCause);
         }
     }
 
@@ -417,6 +500,63 @@ public class GeminiChunkingService {
                 Document segment:
                 %s
                 """.formatted(targetChunkSize, overlap, rawText);
+
+        return java.util.Map.of(
+                "contents", List.of(java.util.Map.of(
+                        "parts", List.of(java.util.Map.of("text", prompt))
+                )),
+                "generationConfig", java.util.Map.of(
+                        "temperature", Math.min(geminiConfig.getTemperature(), 0.1)
+                )
+        );
+    }
+
+    private Object buildSafetyOnlyReviewRequestBody(String rawText) {
+        String prompt = """
+                You are a strict document safety moderation engine for AI Study Hub,
+                an educational platform used by students in Vietnam.
+
+                Review the provided already-chunked document text. Do not rewrite, summarize,
+                split, or create chunks. Only decide whether the current chunk content is safe
+                to store, download, share publicly, or publish to a learning marketplace.
+
+                Safety policy:
+                - Flag content that appears to violate Vietnamese law or promotes illegal activity.
+                - Flag instructions, guides, transactions, recruitment, or promotion related to:
+                  illegal drugs, gambling/betting, prostitution/sexual exploitation, weapons or explosives,
+                  evading law enforcement, fraud/scams, identity theft, financial crime, malware/cyber abuse,
+                  terrorism/extremism, organized crime, serious violence, self-harm encouragement,
+                  sexual content involving minors, doxxing/personal data leaks, or hate/harassment targeting protected groups.
+                - Flag documents that mainly help users cheat exams, forge certificates, falsify school records,
+                  or bypass university systems.
+                - Do NOT flag neutral educational, historical, legal, medical, cybersecurity defensive,
+                  or policy discussion content when it does not provide actionable illegal instructions.
+                - When uncertain, choose safe=false with severity=MEDIUM only if the risk is concrete;
+                  avoid overblocking ordinary academic material.
+
+                Severity guide:
+                - NONE: safe ordinary educational content.
+                - LOW: mild policy concern but still safe because context is clearly educational/neutral.
+                - MEDIUM: concrete risky content or uncertain legal/safety concern; should not be shared automatically.
+                - HIGH: clearly illegal/harmful actionable content; block and penalize.
+                - CRITICAL: severe illegal content, sexual exploitation of minors, terrorism, weapons/explosives,
+                  major cyber abuse, or direct incitement; block and account may be banned.
+
+                Return ONLY one valid JSON object in this exact shape:
+                {
+                  "moderation": {
+                    "safe": true,
+                    "severity": "NONE",
+                    "category": "NONE",
+                    "confidence": 0.0,
+                    "reason": "short reason",
+                    "policyFlags": []
+                  }
+                }
+
+                Current chunk content:
+                %s
+                """.formatted(rawText);
 
         return java.util.Map.of(
                 "contents", List.of(java.util.Map.of(

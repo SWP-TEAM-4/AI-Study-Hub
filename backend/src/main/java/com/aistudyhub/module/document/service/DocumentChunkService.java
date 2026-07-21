@@ -103,10 +103,13 @@ public class DocumentChunkService {
             }
 
             aiUsageService.assertQuotaAvailable(userId, AiActionType.DOCUMENT_CHUNKING, 2);
+            boolean reviewExistingChunks = shouldReviewExistingChunks(document, request);
             updateProcessingStatus(documentId, ProcessingStatus.PROCESSING);
             processingStarted = true;
 
-            return transactionTemplate().execute(status -> processDocumentInternal(documentId, request));
+            return transactionTemplate().execute(status -> reviewExistingChunks
+                    ? reviewExistingChunksInternal(documentId)
+                    : processDocumentInternal(documentId, request));
         } catch (AppException e) {
             if (processingStarted) {
                 failProcessing(documentId, e.getMessage());
@@ -229,7 +232,7 @@ public class DocumentChunkService {
 
         DocumentChunk savedChunk = documentChunkRepository.save(chunk);
         invalidateDistributionAfterChunkMutation(document,
-                "Chunk content was manually edited; document must be reprocessed and safety-checked again.");
+                "Chunk đã được chỉnh sửa thủ công; tài liệu cần xử lý lại và kiểm duyệt an toàn trước khi chia sẻ.");
         safeLogAiUsage(userId, AiActionType.DOCUMENT_EMBEDDING, savedChunk.getTokenEstimate());
 
         log.info("Updated text and embedding for document {} chunk {}", documentId, chunkId);
@@ -256,7 +259,7 @@ public class DocumentChunkService {
         documentChunkRepository.deleteByDocumentId(documentId);
 
         invalidateDistributionAfterChunkMutation(document,
-                "Document chunks were deleted; document must be processed and safety-checked again before distribution.");
+                "Chunks đã bị xóa; tài liệu cần xử lý lại và kiểm duyệt an toàn trước khi chia sẻ.");
         documentRepository.save(document);
 
         log.info("Deleted {} chunks for document {}. Status reset to PENDING.", deletedCount, documentId);
@@ -405,6 +408,13 @@ public class DocumentChunkService {
         }
     }
 
+    private boolean shouldReviewExistingChunks(Document document, DocumentProcessRequest request) {
+        return document != null
+                && document.getModerationStatus() == DocumentModerationStatus.REVIEW_REQUIRED
+                && (request == null || !StringUtils.hasText(request.getMockText()))
+                && documentChunkRepository.countByDocumentId(document.getId()) > 0;
+    }
+
     private List<Long> filterDocumentsReadyForRag(List<Long> documentIds) {
         if (documentIds == null || documentIds.isEmpty()) {
             return List.of();
@@ -526,6 +536,83 @@ public class DocumentChunkService {
                 .build();
     }
 
+    private DocumentProcessResponse reviewExistingChunksInternal(Long documentId) {
+        Document document = documentRepository.findByIdForUpdate(documentId)
+                .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        List<DocumentChunk> chunks = documentChunkRepository.findByDocumentIdOrderByChunkIndexAsc(documentId);
+        if (chunks.isEmpty()) {
+            throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT,
+                    "Document has no chunks to review. Re-run chunking from the source file.");
+        }
+
+        String reviewText = buildExistingChunksReviewText(chunks);
+        GeminiChunkingService.SafetyReview safetyReview = geminiChunkingService.reviewTextSafety(reviewText);
+        List<TextChunkingService.ChunkResult> chunkResults = chunks.stream()
+                .map(chunk -> new TextChunkingService.ChunkResult(
+                        chunk.getChunkIndex(),
+                        chunk.getTextContent(),
+                        chunk.getTokenEstimate(),
+                        chunk.getSourcePage(),
+                        chunk.getSourceSection(),
+                        null))
+                .toList();
+
+        if (shouldBlockDocument(safetyReview)) {
+            applyModerationBlock(document, safetyReview);
+            safeLogAiUsage(document.getUser().getId(), AiActionType.DOCUMENT_CHUNKING,
+                    estimateDocumentChunkingTokens(reviewText, chunkResults));
+
+            return DocumentProcessResponse.builder()
+                    .documentId(documentId)
+                    .processingStatus(ProcessingStatus.FAILED.name())
+                    .moderationStatus(DocumentModerationStatus.BLOCKED.name())
+                    .violationSeverity(resolveSeverity(safetyReview).name())
+                    .moderationNote(buildModerationNote(safetyReview))
+                    .chunkCount(0)
+                    .chunks(List.of())
+                    .message("Edited chunks blocked by Gemini safety moderation: "
+                            + buildModerationNote(safetyReview))
+                    .build();
+        }
+
+        document.setProcessingStatus(ProcessingStatus.SUCCESS);
+        document.setModerationStatus(DocumentModerationStatus.SAFE);
+        document.setViolationSeverity(resolveSeverity(safetyReview));
+        document.setModerationNote(buildModerationNote(safetyReview));
+        document.setModeratedAt(LocalDateTime.now());
+        document.setAiVerdictNote("Gemini safety review passed for edited chunks: "
+                + buildModerationNote(safetyReview));
+        documentRepository.save(document);
+
+        List<DocumentChunkResponse> responses = chunks.stream()
+                .map(chunk -> toResponse(chunk, document.getTitle()))
+                .toList();
+        safeLogAiUsage(document.getUser().getId(), AiActionType.DOCUMENT_CHUNKING,
+                estimateDocumentChunkingTokens(reviewText, chunkResults));
+
+        log.info("Document {} edited chunks safety review passed without re-chunking: {} chunks preserved",
+                documentId, responses.size());
+
+        return DocumentProcessResponse.builder()
+                .documentId(documentId)
+                .processingStatus(ProcessingStatus.SUCCESS.name())
+                .moderationStatus(DocumentModerationStatus.SAFE.name())
+                .violationSeverity(resolveSeverity(safetyReview).name())
+                .moderationNote(buildModerationNote(safetyReview))
+                .chunkCount(responses.size())
+                .chunks(responses)
+                .message("Edited chunks safety review passed. Manual chunk edits were preserved.")
+                .build();
+    }
+
+    private String buildExistingChunksReviewText(List<DocumentChunk> chunks) {
+        return chunks.stream()
+                .map(chunk -> "[[CHUNK:" + chunk.getChunkIndex() + "]]\n"
+                        + normalizeReason(chunk.getTextContent(), ""))
+                .collect(Collectors.joining("\n\n"));
+    }
+
     private DocumentProcessResponse processDocumentInternal(Long documentId, DocumentProcessRequest request) {
         Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_NOT_FOUND));
@@ -637,7 +724,7 @@ public class DocumentChunkService {
 
     private void invalidateDistributionAfterChunkMutation(Document document, String reason) {
         document.setProcessingStatus(ProcessingStatus.PENDING);
-        document.setModerationStatus(DocumentModerationStatus.PENDING);
+        document.setModerationStatus(DocumentModerationStatus.REVIEW_REQUIRED);
         document.setViolationSeverity(DocumentViolationSeverity.NONE);
         document.setModerationNote(reason);
         document.setModeratedAt(null);
