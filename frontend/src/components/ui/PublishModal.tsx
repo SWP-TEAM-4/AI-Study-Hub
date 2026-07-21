@@ -104,7 +104,9 @@ export default function PublishModal({ isOpen, onClose, document: targetDocument
               <div className="p-2 bg-primary/10 text-primary rounded-xl">
                 <Share2 size={20} />
               </div>
-              <h3 className="font-bold font-display text-lg text-foreground">{t("components.publishModal.title", "Chia sẻ Cộng đồng")}</h3>
+              <h3 className="font-display font-bold text-base sm:text-lg text-foreground leading-tight">
+                {t("components.publishModal.title", "Chia sẻ Cộng đồng")}
+              </h3>
             </div>
             <button
               onClick={onClose}
@@ -116,17 +118,17 @@ export default function PublishModal({ isOpen, onClose, document: targetDocument
 
           <form onSubmit={handlePublish} className="p-5 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                {t("components.publishModal.document", "Tài liệu")}
-              </label>
+                <label className="block text-xs font-display font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  {t("components.publishModal.document", "Tài liệu")}
+                </label>
               <div className="w-full bg-muted/30 border border-border/50 rounded-xl px-4 py-3 flex items-center gap-3 text-foreground">
                 <BookOpen size={16} className="text-primary" />
-                <span className="font-medium text-sm truncate">{targetDocument?.title || ""}</span>
+                <span className="font-display font-medium text-sm truncate">{targetDocument?.title || ""}</span>
               </div>
             </div>
 
             {(targetDocument?.clonedFromId || targetDocument?.processingStatus !== "SUCCESS") && (
-              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 flex gap-2">
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs font-display font-medium text-amber-700 flex gap-2">
                 <AlertCircle size={15} className="shrink-0 mt-0.5" />
                 <span>
                   {targetDocument?.clonedFromId
@@ -137,13 +139,13 @@ export default function PublishModal({ isOpen, onClose, document: targetDocument
             )}
 
             <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                <label className="block text-xs font-display font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   {t("components.publishModal.subject", "Môn học")}
                 </label>
                 <select
                   value={subjectId}
                   onChange={(e) => setSubjectId(e.target.value)}
-                  className="w-full bg-background border border-border focus:border-primary rounded-xl px-3 py-2.5 outline-none text-sm font-medium text-foreground dark:bg-[#1a1a1a]"
+                  className="w-full bg-background border border-border focus:border-primary rounded-xl px-3 py-2.5 outline-none text-sm font-display font-medium text-foreground dark:bg-[#1a1a1a]"
                 >
                   <option value="">Chọn môn học</option>
                   {subjects.map((subject) => (
@@ -155,33 +157,33 @@ export default function PublishModal({ isOpen, onClose, document: targetDocument
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                {t("components.publishModal.description", "Mô tả tài liệu (bắt buộc)")}
-              </label>
+                <label className="block text-xs font-display font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  {t("components.publishModal.description", "Mô tả tài liệu (bắt buộc)")}
+                </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t("components.publishModal.placeholder", "Giới thiệu sơ qua về tài liệu này...")}
-                className="w-full bg-background border border-border focus:border-primary rounded-xl px-4 py-3 outline-none text-sm min-h-[100px] resize-none text-foreground placeholder:text-muted-foreground dark:bg-[#1a1a1a]"
+                className="w-full bg-background border border-border focus:border-primary rounded-xl px-4 py-3 outline-none text-sm font-display min-h-[100px] resize-none text-foreground placeholder:text-muted-foreground dark:bg-[#1a1a1a]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <label className="block text-xs font-display font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Ghi chú gửi kiểm duyệt viên
               </label>
               <textarea
                 value={publishNote}
                 onChange={(e) => setPublishNote(e.target.value)}
                 placeholder="Có thể bỏ trống. Hệ thống sẽ tự dùng mô tả tài liệu làm ghi chú."
-                className="w-full bg-background border border-border focus:border-primary rounded-xl px-4 py-3 outline-none text-sm min-h-[72px] resize-none text-foreground placeholder:text-muted-foreground dark:bg-[#1a1a1a]"
+                className="w-full bg-background border border-border focus:border-primary rounded-xl px-4 py-3 outline-none text-sm font-display min-h-[72px] resize-none text-foreground placeholder:text-muted-foreground dark:bg-[#1a1a1a]"
               />
             </div>
 
             <button
               type="submit"
               disabled={isPublishing || !targetDocument?.id || !!targetDocument?.clonedFromId || targetDocument?.processingStatus !== "SUCCESS"}
-              className="w-full mt-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-50"
+              className="w-full mt-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-display font-bold flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-50"
             >
               {isPublishing ? (
                 <>

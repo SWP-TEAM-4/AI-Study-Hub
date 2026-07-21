@@ -1,3 +1,4 @@
+import { Notify } from "notiflix";
 import { ApiResponse, PaginatedResponse } from "./types";
 
 export interface NotebookDTO {
@@ -90,6 +91,14 @@ function getUserId(): number {
     console.error("Error parsing auth_user in getUserId:", e);
   }
 
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    localStorage.removeItem("auth-storage");
+    Notify.failure("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+    setTimeout(() => { window.location.href = "/"; }, 800);
+  }
+
   throw {
     status: 401,
     message: "Không xác định được userId hiện tại. Vui lòng đăng nhập lại trước khi dùng Notebook.",
@@ -139,18 +148,28 @@ function toPaginatedNotebooks(
 }
 
 async function hydrateDocumentCounts(items: NotebookDTO[]): Promise<NotebookDTO[]> {
-  const results = await Promise.allSettled(
-    items.map(async (notebook) => {
-      if (notebook.documentCount > 0) return notebook;
+  const needHydrate = items.filter((notebook) => !notebook.documentCount || notebook.documentCount === 0);
+  if (needHydrate.length === 0) return items;
 
+  const results = await Promise.allSettled(
+    needHydrate.map(async (notebook) => {
       const res = await nbRequest<ApiResponse<PaginatedResponse<unknown>>>(`/notebooks/${notebook.id}/documents?page=0&size=1`, { method: "GET" });
-      return {
-        ...notebook,
-        documentCount: res.data?.totalElements ?? notebook.documentCount,
-      };
+      return { id: notebook.id, count: res.data?.totalElements ?? 0 };
     }),
   );
-  return results.map((result, index) => result.status === "fulfilled" ? result.value : items[index]);
+
+  const countMap = new Map<number, number>();
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      countMap.set(needHydrate[index].id, result.value.count);
+    }
+  });
+
+  return items.map((notebook) => {
+    const hydrated = countMap.get(notebook.id);
+    if (hydrated === undefined) return notebook;
+    return { ...notebook, documentCount: hydrated };
+  });
 }
 
 export const notebookService = {

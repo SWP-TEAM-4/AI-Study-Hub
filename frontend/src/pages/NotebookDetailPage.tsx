@@ -132,11 +132,17 @@ export default function NotebookDetailPage() {
   };
 
   const handleShareClick = () => {
-    navigate("/documents");
     Notify.info("Chuyển đến trang Quản lý Tài Liệu để tùy chỉnh cấu hình chia sẻ.");
+    setTimeout(() => {
+      navigate("/documents");
+    }, 50);
   };
 
   const handleDocumentClick = (doc: DocumentDTO | null) => {
+    if (!doc || !doc.id) {
+      Notify.warning("Tài liệu không khả dụng hoặc đã bị gỡ khỏi notebook.");
+      return;
+    }
     setActiveDocument(doc);
   };
 
@@ -189,7 +195,7 @@ export default function NotebookDetailPage() {
         <DocumentViewerPane document={activeDocument} onClose={() => setActiveDocument(null)} />
       )}
 
-      <div className={`${activeDocument ? "w-[42%] min-w-[360px]" : "flex-1"} flex flex-col min-w-0 h-full relative transition-[width]`}>
+      <div className={`${activeDocument ? "w-[42%] min-w-[360px]" : "flex-1"} flex flex-col min-w-0 h-full transition-[width] duration-300 ease-out`}>
         <NotebookChat
           ref={chatRef}
           notebookId={notebook.id}

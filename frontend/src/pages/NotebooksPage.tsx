@@ -449,11 +449,17 @@ export default function NotebooksPage() {
     { label: "Từ A - Z", value: "az" }
   ];
 
-  useEffect(() => {
-    if (subjectOptions.length > 0 && !subjectOptions.some((subject) => subject.value === newSubjectId)) {
-      setNewSubjectId(subjectOptions[0].value);
-    }
-  }, [newSubjectId, subjectOptions]);
+const createSubjectOptions = useMemo(
+  () => subjects.map((subject) => ({ label: subject.code, value: String(subject.id) })),
+  [subjects],
+);
+
+useEffect(() => {
+  if (createSubjectOptions.length === 0) return;
+  if (!newSubjectId || !createSubjectOptions.some((subject) => subject.value === newSubjectId)) {
+    setNewSubjectId(createSubjectOptions[0].value);
+  }
+}, [newSubjectId, createSubjectOptions]);
 
   const getSubjectLabel = (subjectId: number) => {
     const subject = subjectMap[subjectId];
@@ -601,7 +607,7 @@ export default function NotebooksPage() {
                   </div>
 
                   {/* Subject Select */}
-                  <div className="w-full sm:w-[200px] z-[60]">
+                  <div className="w-full sm:w-[200px] z-[100]">
                     <AnimatedSelect
                       value={activeSubjectTab}
                       onChange={setActiveSubjectTab}
@@ -611,7 +617,7 @@ export default function NotebooksPage() {
                   </div>
 
                   {/* Sort Select */}
-                  <div className="w-full sm:w-[180px] z-[50]">
+                  <div className="w-full sm:w-[180px] z-[100]">
                     <AnimatedSelect
                       value={sortBy}
                       onChange={setSortBy}
@@ -726,7 +732,7 @@ export default function NotebooksPage() {
       {/* Create Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -760,7 +766,7 @@ export default function NotebooksPage() {
                     className="w-full h-11 px-4 bg-slate-50 focus:bg-white border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl outline-none text-sm font-bold text-slate-800 placeholder:text-slate-400 transition-all shadow-inner"
                   />
                 </div>
-                <div className="relative z-[70]">
+                <div className="relative z-[200]">
                   <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">Môn học</label>
                   <AnimatedSelect 
                     value={newSubjectId}
@@ -794,7 +800,7 @@ export default function NotebooksPage() {
       {/* Edit Modal */}
       <AnimatePresence>
         {editModal.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -828,7 +834,7 @@ export default function NotebooksPage() {
                     className="w-full h-11 px-4 bg-slate-50 focus:bg-white border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl outline-none text-sm font-bold text-slate-800 placeholder:text-slate-400 transition-all shadow-inner"
                   />
                 </div>
-                <div className="relative z-[70]">
+                <div className="relative z-[200]">
                   <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">Môn học</label>
                   <AnimatedSelect 
                     value={editModal.subjectId}
