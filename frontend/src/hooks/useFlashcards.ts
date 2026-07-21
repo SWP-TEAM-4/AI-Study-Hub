@@ -28,7 +28,6 @@ export function useGenerateFlashcardDeck() {
       flashcardService.generateFlashcardDeck(payload),
     onSuccess: (res) => {
       if (res.success && res.data) {
-        // Optimistic: prepend vào danh sách ngay lập tức
         queryClient.setQueryData(flashcardKeys.decks(), (old: any) => {
           if (!old?.data?.items) return old;
           return {
@@ -63,17 +62,13 @@ export function useCreateFlashcardDeck(callbacks?: { onSuccess?: () => void }) {
   });
 }
 
-// ─── DELETE FLASHCARD DECK (OPTIMISTIC) ──────────────────────────────────────
+// ─── DELETE FLASHCARD DECK (HARD DELETE, NO UNDO) ────────────────────────────
 export function useDeleteFlashcardDeck() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return flashcardService.deleteFlashcardDeck(id);
-    },
+    mutationFn: (id: number) => flashcardService.deleteFlashcardDeck(id),
 
-    // Optimistic: xóa khỏi list ngay lập tức
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: flashcardKeys.decks() });
       const previousDecks = queryClient.getQueryData(flashcardKeys.decks());
@@ -89,27 +84,18 @@ export function useDeleteFlashcardDeck() {
         };
       });
 
-      import("sonner").then(({ toast }) => {
-        toast("Đã xóa bộ Flashcard", {
-          description: "Bộ Flashcard đã được chuyển vào thùng rác.",
-          action: {
-            label: "Hoàn tác",
-            onClick: () => {
-              queryClient.setQueryData(flashcardKeys.decks(), previousDecks);
-            }
-          }
-        });
-      });
-
       return { previousDecks };
     },
 
     onError: (err, _id, context) => {
-      // Rollback nếu API thất bại
       if (context?.previousDecks) {
         queryClient.setQueryData(flashcardKeys.decks(), context.previousDecks);
       }
       handleApiError(err, "Lỗi xóa Flashcard Deck");
+    },
+
+    onSuccess: () => {
+      Notify.success("Đã xóa vĩnh viễn bộ Flashcard");
     },
 
     onSettled: () => {

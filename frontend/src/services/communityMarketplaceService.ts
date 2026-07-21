@@ -16,7 +16,7 @@ export interface MarketplaceItemDTO {
   reviewCount?: number | null;
   acceptPercentage?: number | string | null;
   marketStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
-  visibility?: "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+  visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
   clonedFromId?: number | null;
   createdAt?: string | null;
 }

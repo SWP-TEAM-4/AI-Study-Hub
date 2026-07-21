@@ -2,7 +2,7 @@ import { ApiResponse, PaginatedResponse } from "./types";
 
 const BASE_URL = "/api";
 
-type Visibility = "PRIVATE" | "WORKSPACE" | "MARKETPLACE";
+type Visibility = "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
 type MarketStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 
 export interface FlashcardDTO {
@@ -88,7 +88,16 @@ async function flashcardRequest<T>(endpoint: string, options: RequestInit = {}):
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   const text = await response.text();
-  const result = text ? JSON.parse(text) : {};
+  let result: any = {};
+  try {
+    result = text ? JSON.parse(text) : {};
+  } catch {
+    throw {
+      status: response.status,
+      message: response.ok ? "Backend trả về JSON không hợp lệ" : (text || "Lỗi giao tiếp API Flashcard"),
+      errorCode: "INVALID_RESPONSE",
+    };
+  }
 
   if (response.status === 401) {
     if (typeof window !== "undefined") {
