@@ -68,15 +68,19 @@ async function nbRequest<T>(endpoint: string, options: RequestInit = {}): Promis
 function getUserId(): number {
   try {
     const user = safeLocalStorage.getJSON<any>("auth_user", null);
-    const userId = Number(user?.userId ?? user?.id);
+    const userId = Number(user.userId ?? user.id);
     if (Number.isFinite(userId) && userId > 0) return userId;
-
-    const parsed = safeLocalStorage.getJSON<any>("auth-storage", null);
-    const storedUser = parsed?.state?.user;
-    const storedUserId = Number(storedUser?.userId ?? storedUser?.id);
-    if (Number.isFinite(storedUserId) && storedUserId > 0) return storedUserId;
   } catch (e) {
     console.error("Error parsing auth_user in getUserId:", e);
+  }
+
+  try {
+    const parsed = safeLocalStorage.getJSON<any>("auth-storage", null);
+    const user = parsed?.state?.user;
+    const userId = Number(user?.userId ?? user?.id);
+    if (Number.isFinite(userId) && userId > 0) return userId;
+  } catch (e) {
+    console.error("Error parsing auth-storage in getUserId:", e);
   }
 
   safeLocalStorage.removeItem("auth_token");

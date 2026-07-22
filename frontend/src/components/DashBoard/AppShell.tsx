@@ -56,6 +56,7 @@ const nav = [
   { path: "/quiz", labelKey: "appShell.nav.quiz", icon: Gamepad2 },
   { path: "/flashcards", labelKey: "appShell.nav.flashcards", icon: Layers },
   { path: "/community", labelKey: "appShell.nav.community", icon: Globe2 },
+  { path: "/badges", labelKey: "appShell.nav.badges", icon: Award },
   { path: "/my-reports", labelKey: "appShell.nav.myReports", icon: Flag },
   { path: "/notifications", labelKey: "appShell.nav.notifications", icon: BellRing },
   { path: "/profile", labelKey: "appShell.nav.profile", icon: CircleUserRound },
@@ -538,6 +539,61 @@ export function AppShell() {
                 >
                   <Globe size={14} className={i18n.language === 'vi' ? 'text-blue-500' : 'text-rose-500'} />
                   <span>{i18n.language === 'vi' ? 'EN' : 'VI'}</span>
+                </button>
+              </div>
+
+              {/* CỤM 2: Quick Actions - Badges, Points, Notifications, Settings */}
+              <div className="hidden md:flex items-center gap-2">
+                {/* Badge Icon - Award */}
+                <button
+                  onClick={() => navigate("/badges")}
+                  title="Huy hiệu"
+                  className="group relative flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200/50 dark:border-amber-700/50 text-amber-600 dark:text-amber-400 hover:from-amber-100 hover:to-orange-100 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 active:scale-95 transition-all shadow-sm hover:shadow-md"
+                >
+                  <Award size={18} strokeWidth={2.5} />
+                </button>
+
+                {/* Points/Score Icon - Zap */}
+                <button
+                  onClick={() => navigate("/profile")}
+                  title="Điểm"
+                  className="group relative flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border border-emerald-200/50 dark:border-emerald-700/50 text-emerald-600 dark:text-emerald-400 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/50 dark:hover:to-teal-900/50 active:scale-95 transition-all shadow-sm hover:shadow-md"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                </button>
+
+                {/* Notification Bell - modern style */}
+                <button
+                  onClick={() => navigate("/notifications")}
+                  title="Thông báo"
+                  className="group relative flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/30 dark:to-pink-900/30 border border-rose-200/50 dark:border-rose-700/50 text-rose-600 dark:text-rose-400 hover:from-rose-100 hover:to-pink-100 dark:hover:from-rose-900/50 dark:hover:to-pink-900/50 active:scale-95 transition-all shadow-sm hover:shadow-md"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                  </svg>
+                  <span className="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-[8px] font-black text-white flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-neutral-900">3</span>
+                </button>
+
+                {/* Settings Icon - Sliders */}
+                <button
+                  onClick={() => navigate("/profile")}
+                  title="Cài đặt"
+                  className="group relative flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 border border-slate-200/50 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 hover:from-slate-200 hover:to-slate-100 dark:hover:from-slate-700 dark:hover:to-slate-800 active:scale-95 transition-all shadow-sm hover:shadow-md"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="4" x2="4" y1="21" y2="14"/>
+                    <line x1="4" x2="4" y1="10" y2="3"/>
+                    <line x1="12" x2="12" y1="21" y2="12"/>
+                    <line x1="12" x2="12" y1="8" y2="3"/>
+                    <line x1="20" x2="20" y1="21" y2="16"/>
+                    <line x1="20" x2="20" y1="12" y2="3"/>
+                    <line x1="2" x2="6" y1="14" y2="14"/>
+                    <line x1="10" x2="14" y1="8" y2="8"/>
+                    <line x1="18" x2="22" y1="16" y2="16"/>
+                  </svg>
                 </button>
               </div>
 
