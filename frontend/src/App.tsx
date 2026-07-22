@@ -30,6 +30,7 @@ const SharedDocumentPage = lazy(() => import("./pages/SharedDocumentPage"));
 const ReviewerPage = lazy(() => import("./pages/ReviewerPage"));
 const ReviewerDocumentPreviewPage = lazy(() => import("./pages/ReviewerDocumentPreviewPage"));
 const MyReportsPage = lazy(() => import("./pages/MyReportsPage"));
+const BadgesPage = lazy(() => import("./pages/BadgesPage"));
 
 // ── Landing page switcher: set VITE_ACTIVE_LANDING="corporate" to show new page ──
 const CorporateLanding = lazy(() => import("./components/LoginPage/CorporateLanding"));
@@ -141,6 +142,7 @@ export default function App() {
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/badges" element={<BadgesPage />} />
           <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {(userRole === "ADMIN" || capabilities?.canModerateReports) && (

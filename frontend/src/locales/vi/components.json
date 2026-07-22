@@ -1,4 +1,23 @@
 {
+  "appShell": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "notebooks": "Notebooks",
+      "documents": "Tài liệu",
+      "quiz": "Quiz",
+      "flashcards": "Flashcards",
+      "community": "Cộng đồng",
+      "badges": "Huy hiệu",
+      "myReports": "Báo cáo của tôi",
+      "notifications": "Thông báo",
+      "profile": "Hồ sơ",
+      "admin": "Quản trị"
+    },
+    "backToDashboard": "Quay lại Dashboard",
+    "sendFeedback": "Gửi phản hồi",
+    "search": "Tìm kiếm...",
+    "upload": "Tải lên"
+  },
   "aiConfigModal": {
     "titleQuiz": "Cấu hình Quiz",
     "titleFlashcard": "Cấu hình Flashcard",

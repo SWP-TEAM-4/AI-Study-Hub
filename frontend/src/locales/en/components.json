@@ -1,4 +1,23 @@
 {
+  "appShell": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "notebooks": "Notebooks",
+      "documents": "Documents",
+      "quiz": "Quiz",
+      "flashcards": "Flashcards",
+      "community": "Community",
+      "badges": "Badges",
+      "myReports": "My Reports",
+      "notifications": "Notifications",
+      "profile": "Profile",
+      "admin": "Admin"
+    },
+    "backToDashboard": "Back to Dashboard",
+    "sendFeedback": "Send Feedback",
+    "search": "Search...",
+    "upload": "Upload"
+  },
   "aiConfigModal": {
     "titleQuiz": "Configure Quiz",
     "titleFlashcard": "Configure Flashcard",
