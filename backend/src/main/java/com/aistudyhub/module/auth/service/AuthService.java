@@ -2,6 +2,7 @@ package com.aistudyhub.module.auth.service;
 
 import com.aistudyhub.common.enums.ActivityActionType;
 import com.aistudyhub.common.enums.ActivityTargetType;
+import com.aistudyhub.common.enums.ReputationEventType;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.common.utils.DateUtil;
@@ -11,6 +12,7 @@ import com.aistudyhub.entity.Semester;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.auth.dto.*;
+import com.aistudyhub.module.reputation.service.ReputationService;
 import com.aistudyhub.module.systemconfig.SystemConfigKeys;
 import com.aistudyhub.module.systemconfig.service.SystemConfigService;
 import com.aistudyhub.repository.ComboRepository;
@@ -36,7 +38,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -59,6 +63,7 @@ public class AuthService {
     private static final String PROVIDER_GOOGLE = "GOOGLE";
     private static final String PROVIDER_GITHUB = "GITHUB";
     private static final String APPLICATION_USER_AGENT = "AI-Study-Hub";
+    private static final ZoneId REWARD_TIME_ZONE = ZoneId.of("Asia/Bangkok");
     private static final SecureRandom VERIFICATION_CODE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
@@ -71,6 +76,7 @@ public class AuthService {
     private final EmailService emailService;
     private final SystemConfigService systemConfigService;
     private final ActivityLogService activityLogService;
+    private final ReputationService reputationService;
     private final WebClient.Builder webClientBuilder;
 
     @Value("${app.oauth.google.client-id:}")
@@ -258,7 +264,7 @@ public class AuthService {
 
     // ── Login ─────────────────────────────────────────────────────────────────
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         // 1. Tìm user
         User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
@@ -291,6 +297,7 @@ public class AuthService {
                 metadata,
                 user.getEmail(),
                 user.getFullName());
+        user = rewardFirstLoginOfDay(user);
         return toAuthResponse(user, token);
     }
 
@@ -328,6 +335,7 @@ public class AuthService {
 
         User user = upsertOAuthUser(PROVIDER_GOOGLE, providerUserId, email, fullName, avatarUrl);
         logOAuthLogin(user, PROVIDER_GOOGLE);
+        user = rewardFirstLoginOfDay(user);
         String token = jwtTokenProvider.generateToken(user.getId());
         return toAuthResponse(user, token);
     }
@@ -344,6 +352,7 @@ public class AuthService {
 
         User user = upsertOAuthUser(PROVIDER_GITHUB, providerUserId, email, fullName, avatarUrl);
         logOAuthLogin(user, PROVIDER_GITHUB);
+        user = rewardFirstLoginOfDay(user);
         String token = jwtTokenProvider.generateToken(user.getId());
         return toAuthResponse(user, token);
     }
@@ -686,6 +695,22 @@ public class AuthService {
                 metadata,
                 user.getEmail(),
                 user.getFullName());
+    }
+
+    private User rewardFirstLoginOfDay(User user) {
+        String rewardDate = LocalDate.now(REWARD_TIME_ZONE).toString();
+        reputationService.applyConfiguredEvent(
+                user.getId(),
+                null,
+                ReputationEventType.DAILY_LOGIN,
+                "USER",
+                user.getId(),
+                "AUTH_LOGIN",
+                null,
+                "Thưởng đăng nhập lần đầu trong ngày",
+                "DAILY_LOGIN:" + user.getId() + ":" + rewardDate,
+                user.getId());
+        return userRepository.findById(user.getId()).orElse(user);
     }
 
     private String requiredVerifiedGoogleEmail(JsonNode profile) {

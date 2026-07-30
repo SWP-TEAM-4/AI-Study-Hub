@@ -2,8 +2,10 @@ package com.aistudyhub.repository;
 
 import com.aistudyhub.common.enums.Role;
 import com.aistudyhub.entity.User;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,6 +26,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByRegistrationIp(String registrationIp);
 
     Optional<User> findByIdAndIsActiveTrue(Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") Long id);
 
     java.util.List<User> findAllByIsActiveTrueAndRoleNot(Role role);
 

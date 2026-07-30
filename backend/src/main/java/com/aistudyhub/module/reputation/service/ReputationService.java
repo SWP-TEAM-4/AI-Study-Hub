@@ -69,11 +69,6 @@ public class ReputationService {
             return null;
         }
 
-        Optional<ReputationEvent> existing = reputationEventRepository.findByIdempotencyKey(idempotencyKey.trim());
-        if (existing.isPresent()) {
-            return toResponse(existing.get());
-        }
-
         RewardRule rule = rewardRuleRepository.findByEventType(eventType).orElse(null);
         if (rule == null || !Boolean.TRUE.equals(rule.getEnabled())) {
             return null;
@@ -82,6 +77,16 @@ public class ReputationService {
         int pointsDelta = Optional.ofNullable(rule.getPointsDelta()).orElse(0);
         if (pointsDelta == 0) {
             return null;
+        }
+
+        // Serialize reward writes per user so concurrent requests cannot both pass
+        // the idempotency check before either transaction inserts its event.
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Optional<ReputationEvent> existing = reputationEventRepository.findByIdempotencyKey(idempotencyKey.trim());
+        if (existing.isPresent()) {
+            return toResponse(existing.get());
         }
 
         String periodKey = currentPeriodKey();
@@ -93,8 +98,6 @@ public class ReputationService {
             }
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         Subject subject = subjectId == null ? null : subjectRepository.findById(subjectId).orElse(null);
         User actor = actorUserId == null ? null : userRepository.findById(actorUserId).orElse(null);
 
@@ -309,6 +312,7 @@ public class ReputationService {
             return "Điểm uy tín được cập nhật";
         }
         return switch (eventType) {
+            case DAILY_LOGIN -> "Thưởng đăng nhập hằng ngày";
             case CONTENT_APPROVED_DOCUMENT -> "Tài liệu được duyệt";
             case CONTENT_APPROVED_QUIZ -> "Quiz được duyệt";
             case CONTENT_APPROVED_FLASHCARD_DECK -> "Flashcard được duyệt";
