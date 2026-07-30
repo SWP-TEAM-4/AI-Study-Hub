@@ -1,6 +1,7 @@
 package com.aistudyhub.common.enums;
 
 public enum ReputationEventType {
+    DAILY_LOGIN,
     CONTENT_APPROVED_DOCUMENT,
     CONTENT_APPROVED_QUIZ,
     CONTENT_APPROVED_FLASHCARD_DECK,

@@ -495,19 +495,27 @@ export default function ReviewerPage() {
 
                   {/* Xem trực tiếp file trong trang kiểm duyệt, không tải xuống. */}
                   {selectedItem.targetType === "DOCUMENT" && (
-                    <div className="mb-5 bg-primary/5 border border-primary/20 rounded-xl overflow-hidden">
-                      <div className="p-3.5 flex items-center gap-4">
-                      <div className="min-w-0 flex items-center gap-3">
-                        <div className="size-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center shrink-0">
-                          <FileText size={20} />
+                    <div className="mb-5 overflow-hidden rounded-xl border border-primary/20 bg-primary/5">
+                      <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <FileText size={20} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-foreground">File tài liệu đính kèm</div>
+                            <div className="max-w-xs truncate text-[11px] text-muted-foreground">
+                              {detailedInfo?.fileUrl ? "Đang hiển thị tài liệu trực tiếp" : "Tài liệu chưa có liên kết xem"}
+                            </div>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-foreground">File tài liệu đính kèm</div>
-                          <div className="text-[11px] text-muted-foreground truncate max-w-xs">{detailedInfo?.fileUrl ? "Đang hiển thị tài liệu trực tiếp" : "Tài liệu chưa có liên kết xem"}</div>
-                        </div>
+
+                        <button
+                          onClick={() => navigate(`/reviewer/documents/${selectedItem.targetId}`)}
+                          className="h-9 shrink-0 rounded-lg bg-primary px-3.5 text-xs font-bold text-primary-foreground"
+                        >
+                          Xem nội dung đã chunking
+                        </button>
                       </div>
-                      </div>
-                      <div className="px-3.5 pb-3.5"><button onClick={() => navigate(`/reviewer/documents/${selectedItem.targetId}`)} className="px-3.5 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold">Xem nội dung đã chunking</button></div>
                     </div>
                   )}
 

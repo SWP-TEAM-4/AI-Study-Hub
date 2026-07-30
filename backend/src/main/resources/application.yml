@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/aistudyhub5
     username: postgres
-    password: huyplay
+    password: 12345678
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -89,7 +89,7 @@ app:
       timeout: 60
       max-retries: 3
 
-    gemini: 
+    gemini:
       api-key: AQ.Ab8RN6LZuahqtq6tvPHPfkOkHLQoocJzwOcdIab5j-P-8bKPvQ
       base-url: https://generativelanguage.googleapis.com/v1/models
       model: gemini-3.5-flash
