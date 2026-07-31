@@ -18,7 +18,10 @@ import com.aistudyhub.module.activitylog.service.ActivityLogService;
 import com.aistudyhub.module.community.service.CommunityPermissionService;
 import com.aistudyhub.module.community.service.RewardBadgeService;
 import com.aistudyhub.module.document.service.DocumentSafetyGuard;
+import com.aistudyhub.module.flashcard.dto.FlashcardResponse;
 import com.aistudyhub.module.marketplace.dto.*;
+import com.aistudyhub.module.quiz.dto.OptionResponse;
+import com.aistudyhub.module.quiz.dto.QuestionResponse;
 import com.aistudyhub.module.notification.service.NotificationService;
 import com.aistudyhub.module.reputation.dto.ReputationEventResponse;
 import com.aistudyhub.module.reputation.service.ReputationService;
@@ -51,7 +54,9 @@ public class MarketReviewService {
     private final MarketReviewRepository marketReviewRepository;
     private final DocumentRepository documentRepository;
     private final QuizRepository quizRepository;
+    private final QuizQuestionRepository quizQuestionRepository;
     private final FlashcardDeckRepository flashcardDeckRepository;
+    private final FlashcardRepository flashcardRepository;
     private final UserService userService;
     private final CommunityPermissionService communityPermissionService;
     private final CommunityRoleRepository communityRoleRepository;
@@ -222,6 +227,7 @@ public class MarketReviewService {
         // 4. Combine into a unified pending list
         List<MarketPendingItemResponse> items = new ArrayList<>();
         for (Document doc : docs) {
+            MarketplaceSubmission submission = pendingSubmission("DOCUMENT", doc.getId());
             QueuePolicy queuePolicy = resolveQueuePolicy("DOCUMENT", doc.getId(), doc.getSubject().getId(), doc.getUser().getId());
             items.add(MarketPendingItemResponse.builder()
                     .targetType("DOCUMENT")
@@ -229,43 +235,36 @@ public class MarketReviewService {
                     .title(doc.getTitle())
                     .fileUrl(documentSafetyGuard.isDistributable(doc) ? doc.getFileUrl() : null)
                     .fileType(doc.getFileType())
-                    .submittedAt(marketplaceSubmissionRepository
-                            .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
-                                    "DOCUMENT", doc.getId(), MarketStatus.PENDING)
-                            .map(MarketplaceSubmission::getSubmittedAt)
-                            .orElse(doc.getUpdatedAt()))
+                    .submissionNote(submissionNote(submission, doc.getSubmitNote()))
+                    .submittedAt(submission != null ? submission.getSubmittedAt() : doc.getUpdatedAt())
                     .subjectId(doc.getSubject().getId()).ownerId(doc.getUser().getId())
                     .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
                     .requiredVotes(queuePolicy.requiredVotes())
                     .build());
         }
         for (Quiz quiz : quizzes) {
+            MarketplaceSubmission submission = pendingSubmission("QUIZ", quiz.getId());
             QueuePolicy queuePolicy = resolveQueuePolicy("QUIZ", quiz.getId(), quiz.getSubject().getId(), quiz.getCreator().getId());
             items.add(MarketPendingItemResponse.builder()
                     .targetType("QUIZ")
                     .targetId(quiz.getId())
                     .title(quiz.getTitle())
-                    .submittedAt(marketplaceSubmissionRepository
-                            .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
-                                    "QUIZ", quiz.getId(), MarketStatus.PENDING)
-                            .map(MarketplaceSubmission::getSubmittedAt)
-                            .orElse(quiz.getUpdatedAt()))
+                    .submissionNote(submissionNote(submission, quiz.getSubmitNote()))
+                    .submittedAt(submission != null ? submission.getSubmittedAt() : quiz.getUpdatedAt())
                     .subjectId(quiz.getSubject().getId()).ownerId(quiz.getCreator().getId())
                     .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
                     .requiredVotes(queuePolicy.requiredVotes())
                     .build());
         }
         for (FlashcardDeck deck : decks) {
+            MarketplaceSubmission submission = pendingSubmission("FLASHCARD_DECK", deck.getId());
             QueuePolicy queuePolicy = resolveQueuePolicy("FLASHCARD_DECK", deck.getId(), deck.getSubject().getId(), deck.getUser().getId());
             items.add(MarketPendingItemResponse.builder()
                     .targetType("FLASHCARD_DECK")
                     .targetId(deck.getId())
                     .title(deck.getTitle())
-                    .submittedAt(marketplaceSubmissionRepository
-                            .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(
-                                    "FLASHCARD_DECK", deck.getId(), MarketStatus.PENDING)
-                            .map(MarketplaceSubmission::getSubmittedAt)
-                            .orElse(deck.getUpdatedAt()))
+                    .submissionNote(submissionNote(submission, deck.getSubmitNote()))
+                    .submittedAt(submission != null ? submission.getSubmittedAt() : deck.getUpdatedAt())
                     .subjectId(deck.getSubject().getId()).ownerId(deck.getUser().getId())
                     .adminRequired(queuePolicy.adminRequired()).policyMode(queuePolicy.mode())
                     .requiredVotes(queuePolicy.requiredVotes())
@@ -1033,10 +1032,12 @@ public class MarketReviewService {
     // ── Mapping Helpers ─────────────────────────────────────────────────────
 
     private MarketplaceItemResponse toItemResponse(Document doc) {
+        MarketplaceSubmission submission = pendingSubmission("DOCUMENT", doc.getId());
         return MarketplaceItemResponse.builder()
                 .targetType("DOCUMENT")
                 .targetId(doc.getId())
                 .title(doc.getTitle())
+                .description(doc.getDescription())
                 .subjectId(doc.getSubject() != null ? doc.getSubject().getId() : null)
                 .creatorId(doc.getUser() != null ? doc.getUser().getId() : null)
                 .creatorName(doc.getUser() != null ? doc.getUser().getFullName() : null)
@@ -1050,14 +1051,22 @@ public class MarketReviewService {
                 .fileUrl(documentSafetyGuard.isDistributable(doc) ? doc.getFileUrl() : null)
                 .fileType(doc.getFileType())
                 .createdAt(doc.getCreatedAt())
+                .submittedAt(submission != null ? submission.getSubmittedAt() : doc.getUpdatedAt())
+                .submissionNote(submissionNote(submission, doc.getSubmitNote()))
+                .policyMode(submission != null && submission.getPolicyModeSnapshot() != null ? submission.getPolicyModeSnapshot().name() : null)
+                .requiredVotes(submission != null ? submission.getRequiredVotesSnapshot() : null)
+                .approvalPercentageRequired(submission != null ? submission.getApprovalPercentageSnapshot() : null)
                 .build();
     }
 
     private MarketplaceItemResponse toItemResponse(Quiz quiz) {
+        MarketplaceSubmission submission = pendingSubmission("QUIZ", quiz.getId());
         return MarketplaceItemResponse.builder()
                 .targetType("QUIZ")
                 .targetId(quiz.getId())
                 .title(quiz.getTitle())
+                .description(quiz.getDescription())
+                .examType(quiz.getExamType())
                 .subjectId(quiz.getSubject() != null ? quiz.getSubject().getId() : null)
                 .creatorId(quiz.getCreator() != null ? quiz.getCreator().getId() : null)
                 .creatorName(quiz.getCreator() != null ? quiz.getCreator().getFullName() : null)
@@ -1068,10 +1077,20 @@ public class MarketReviewService {
                 .communityRatingAvg(quiz.getCommunityRatingAvg())
                 .marketStatus(quiz.getMarketStatus())
                 .visibility(quiz.getVisibility())
+                .createdAt(quiz.getCreatedAt())
+                .submittedAt(submission != null ? submission.getSubmittedAt() : quiz.getUpdatedAt())
+                .submissionNote(submissionNote(submission, quiz.getSubmitNote()))
+                .policyMode(submission != null && submission.getPolicyModeSnapshot() != null ? submission.getPolicyModeSnapshot().name() : null)
+                .requiredVotes(submission != null ? submission.getRequiredVotesSnapshot() : null)
+                .approvalPercentageRequired(submission != null ? submission.getApprovalPercentageSnapshot() : null)
+                .questions(quizQuestionRepository.findByQuizIdOrderById(quiz.getId()).stream()
+                        .map(this::toQuestionResponse)
+                        .toList())
                 .build();
     }
 
     private MarketplaceItemResponse toItemResponse(FlashcardDeck deck) {
+        MarketplaceSubmission submission = pendingSubmission("FLASHCARD_DECK", deck.getId());
         return MarketplaceItemResponse.builder()
                 .targetType("FLASHCARD_DECK")
                 .targetId(deck.getId())
@@ -1086,6 +1105,56 @@ public class MarketReviewService {
                 .communityRatingAvg(deck.getCommunityRatingAvg())
                 .marketStatus(deck.getMarketStatus())
                 .visibility(deck.getVisibility())
+                .createdAt(deck.getCreatedAt())
+                .submittedAt(submission != null ? submission.getSubmittedAt() : deck.getUpdatedAt())
+                .submissionNote(submissionNote(submission, deck.getSubmitNote()))
+                .policyMode(submission != null && submission.getPolicyModeSnapshot() != null ? submission.getPolicyModeSnapshot().name() : null)
+                .requiredVotes(submission != null ? submission.getRequiredVotesSnapshot() : null)
+                .approvalPercentageRequired(submission != null ? submission.getApprovalPercentageSnapshot() : null)
+                .cards(flashcardRepository.findByDeckIdOrderById(deck.getId()).stream()
+                        .map(this::toFlashcardResponse)
+                        .toList())
+                .build();
+    }
+
+    private MarketplaceSubmission pendingSubmission(String type, Long targetId) {
+        return marketplaceSubmissionRepository
+                .findFirstByTargetTypeAndTargetIdAndStatusOrderBySubmissionRoundDesc(type, targetId, MarketStatus.PENDING)
+                .orElse(null);
+    }
+
+    private String submissionNote(MarketplaceSubmission submission, String fallback) {
+        if (submission != null && submission.getSubmitNote() != null && !submission.getSubmitNote().isBlank()) {
+            return submission.getSubmitNote().trim();
+        }
+        return fallback != null && !fallback.isBlank() ? fallback.trim() : null;
+    }
+
+    private QuestionResponse toQuestionResponse(QuizQuestion question) {
+        List<OptionResponse> optionResponses = question.getOptions() == null ? List.of() : question.getOptions().stream()
+                .map(option -> OptionResponse.builder()
+                        .id(option.getId())
+                        .optionText(option.getOptionText())
+                        .isCorrect(option.getIsCorrect())
+                        .build())
+                .toList();
+
+        return QuestionResponse.builder()
+                .id(question.getId())
+                .quizId(question.getQuiz() != null ? question.getQuiz().getId() : null)
+                .questionText(question.getQuestionText())
+                .questionType(question.getQuestionType())
+                .explanation(question.getExplanation())
+                .options(optionResponses)
+                .build();
+    }
+
+    private FlashcardResponse toFlashcardResponse(Flashcard card) {
+        return FlashcardResponse.builder()
+                .id(card.getId())
+                .deckId(card.getDeck() != null ? card.getDeck().getId() : null)
+                .frontText(card.getFrontText())
+                .backText(card.getBackText())
                 .build();
     }
 

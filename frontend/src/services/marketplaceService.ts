@@ -6,21 +6,52 @@ export interface AdminContentDTO {
   targetType: "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK";
   targetId: number;
   title: string;
+  description?: string | null;
+  examType?: string | null;
   subjectId?: number | null;
+  creatorId?: number | null;
   creatorName?: string;
   downloadCount?: number;
   reviewCount?: number;
   acceptPercentage?: number;
+  communityReviewCount?: number;
+  communityRatingAvg?: number;
   marketStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   visibility?: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
+  submissionNote?: string | null;
   submittedAt?: string;
   createdAt?: string;
   ownerId?: number;
   adminRequired?: boolean;
   policyMode?: "SINGLE_REVIEWER" | "QUORUM";
   requiredVotes?: number;
+  approvalPercentageRequired?: number;
   fileUrl?: string | null;
   fileType?: string | null;
+  questions?: MarketplaceQuestionDTO[];
+  cards?: MarketplaceFlashcardDTO[];
+}
+
+export interface MarketplaceQuestionOptionDTO {
+  id?: number;
+  optionText: string;
+  isCorrect?: boolean;
+}
+
+export interface MarketplaceQuestionDTO {
+  id?: number;
+  quizId?: number;
+  questionText: string;
+  questionType?: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "FILL_IN_THE_BLANK" | string;
+  explanation?: string | null;
+  options: MarketplaceQuestionOptionDTO[];
+}
+
+export interface MarketplaceFlashcardDTO {
+  id?: number;
+  deckId?: number;
+  frontText: string;
+  backText: string;
 }
 
 export interface VoteResultDTO {

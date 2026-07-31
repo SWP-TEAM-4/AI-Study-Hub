@@ -2,9 +2,12 @@ package com.aistudyhub.module.marketplace.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.Visibility;
+import com.aistudyhub.module.flashcard.dto.FlashcardResponse;
+import com.aistudyhub.module.quiz.dto.QuestionResponse;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,6 +35,8 @@ public class MarketplaceItemResponse {
     private Long targetId;
     // Tiêu đề của tài liệu, đề thi hoặc bộ thẻ ghi nhớ
     private String title;
+    private String description;
+    private String examType;
     // ID môn học liên kết với tài nguyên này
     private Long subjectId;
     private Long creatorId;
@@ -50,5 +55,12 @@ public class MarketplaceItemResponse {
     private String fileUrl;
     private String fileType;
     private LocalDateTime createdAt;
+    private LocalDateTime submittedAt;
+    private String submissionNote;
+    private String policyMode;
+    private Integer requiredVotes;
+    private Integer approvalPercentageRequired;
     private Long clonedFromId;
+    private List<QuestionResponse> questions;
+    private List<FlashcardResponse> cards;
 }
