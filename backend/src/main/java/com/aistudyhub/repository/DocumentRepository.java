@@ -24,6 +24,14 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
 
     Optional<Document> findByIdAndUserId(Long id, Long userId);
 
+    @Query("""
+            SELECT COUNT(d.id) > 0
+            FROM Document d
+            WHERE d.user.id = :userId
+              AND LOWER(d.title) = LOWER(:title)
+            """)
+    boolean existsByUserIdAndTitleIgnoreCase(@Param("userId") Long userId, @Param("title") String title);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT d FROM Document d WHERE d.id = :id")
     Optional<Document> findByIdForUpdate(@Param("id") Long id);

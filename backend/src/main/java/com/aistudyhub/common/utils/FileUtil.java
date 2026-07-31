@@ -2,9 +2,14 @@ package com.aistudyhub.common.utils;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.text.Normalizer;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public final class FileUtil {
+
+    private static final Pattern UNSAFE_FILENAME_CHARS = Pattern.compile("[\\\\/:*?\"<>|\\p{Cntrl}]+");
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
     private static final Set<String> ALLOWED_TYPES = Set.of(
             "application/pdf",
@@ -35,6 +40,17 @@ public final class FileUtil {
     public static String sanitizeFilename(String filename) {
         if (filename == null)
             return "file";
-        return filename.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
+        String normalized = Normalizer.normalize(filename, Normalizer.Form.NFC)
+                .replace('\u0000', ' ')
+                .trim();
+        normalized = UNSAFE_FILENAME_CHARS.matcher(normalized).replaceAll("_");
+        normalized = WHITESPACE.matcher(normalized).replaceAll(" ").trim();
+        normalized = normalized.replaceAll("^[. ]+", "").replaceAll("[. ]+$", "");
+        return normalized.isBlank() ? "file" : normalized;
+    }
+
+    public static String sanitizePathSegment(String segment) {
+        String sanitized = sanitizeFilename(segment);
+        return sanitized.replace("..", "_");
     }
 }

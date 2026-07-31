@@ -1,20 +1,23 @@
 "use client";
 
 import React, { memo } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { userService } from "../../services/userService";
+import { Award, BarChart3, CheckCircle2, Target } from "lucide-react";
+import { userService, type TestHistoryDTO } from "../../services/userService";
 import { SkeletonCard } from "../ui/SkeletonCard";
+
+type DayPoint = {
+  d: string;
+  dateKey: string;
+  avgScore: number | null;
+  completedCount: number;
+};
+
+const DAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const PAGE_SIZE = 200;
+const MAX_HISTORY_PAGES = 5;
 
 const containerVariants = {
   hidden: { opacity: 0, y: 15 },
@@ -34,239 +37,162 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 };
 
-function CustomTooltip({ active, payload }: any) {
-  if (active && payload && payload.length) {
-    return (
-      <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-background p-3 shadow-lg select-none">
-        <p className="text-[13px] font-extrabold text-foreground uppercase font-serif">
-          {payload[0].payload.d}
-        </p>
-        <p className="mt-1 text-[15px] font-bold text-emerald-600">
-          {payload[0].value} phút học bài
-        </p>
-      </div>
-    );
-  }
-  return null;
+function startOfMondayWeek(baseDate: Date) {
+  const date = new Date(baseDate);
+  const day = date.getDay();
+  const distanceToMonday = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + distanceToMonday);
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
-const mockWeekActivity = [
-  { d: "T2", minutes: 45 },
-  { d: "T3", minutes: 60 },
-  { d: "T4", minutes: 30 },
-  { d: "T5", minutes: 120 },
-  { d: "T6", minutes: 75 },
-  { d: "T7", minutes: 90 },
-  { d: "CN", minutes: 110 },
-];
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatScore(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function normalizeScore(value?: number | null) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return Math.max(0, Math.min(10, numeric));
+}
+
+async function getRecentTestHistory() {
+  const collected: TestHistoryDTO[] = [];
+  const previousWeekStart = addDays(startOfMondayWeek(new Date()), -7);
+
+  for (let page = 0; page < MAX_HISTORY_PAGES; page += 1) {
+    const response = await userService.getMyTestHistory({ page, size: PAGE_SIZE, sort: "newest" });
+    const items = response.data?.items ?? [];
+    collected.push(...items);
+
+    const reachedOldData = items.some((item) => {
+      if (!item.createdAt) return false;
+      return new Date(item.createdAt) < previousWeekStart;
+    });
+
+    if (items.length < PAGE_SIZE || reachedOldData) break;
+  }
+
+  return collected;
+}
+
+function buildWeekPoints(tests: TestHistoryDTO[], weekStart: Date) {
+  const buckets = DAY_LABELS.map((label, index) => ({
+    d: label,
+    dateKey: toDateKey(addDays(weekStart, index)),
+    scores: [] as number[],
+  }));
+  const weekEnd = addDays(weekStart, 7);
+
+  tests.forEach((test) => {
+    if (test.status !== "COMPLETED" || !test.createdAt) return;
+    const score = normalizeScore(test.totalScore);
+    if (score === null) return;
+
+    const date = new Date(test.createdAt);
+    if (date < weekStart || date >= weekEnd) return;
+
+    const day = date.getDay();
+    const targetIndex = day === 0 ? 6 : day - 1;
+    buckets[targetIndex].scores.push(score);
+  });
+
+  return buckets.map<DayPoint>((bucket) => {
+    const completedCount = bucket.scores.length;
+    const avgScore = completedCount
+      ? Number((bucket.scores.reduce((sum, score) => sum + score, 0) / completedCount).toFixed(2))
+      : null;
+
+    return {
+      d: bucket.d,
+      dateKey: bucket.dateKey,
+      avgScore,
+      completedCount,
+    };
+  });
+}
+
+function CustomTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload as DayPoint;
+
+  return (
+    <div className="select-none rounded-2xl border border-black/5 bg-background p-3 shadow-lg dark:border-white/5">
+      <p className="text-[13px] font-extrabold uppercase text-foreground">{point.d} · {point.dateKey}</p>
+      <p className="mt-1 text-[15px] font-bold text-emerald-600">
+        {point.avgScore === null ? "-" : `${formatScore(point.avgScore)}/10`}
+      </p>
+      <p className="mt-1 text-xs font-semibold text-muted-foreground">
+        {point.completedCount ? `${point.completedCount} bài đã hoàn thành` : "Không có quiz hoàn thành"}
+      </p>
+    </div>
+  );
+}
 
 export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
-  const [activeIdx, setActiveIdx] = React.useState<number | null>(null);
-
-  const { data: apiTestHistory, isLoading } = useQuery({
-    queryKey: ["weekActivityRealtime"],
-    queryFn: async () => {
-      try {
-        const response = await userService.getMyTestHistory({ page: 0, size: 100 });
-        return response.data?.items || [];
-      } catch {
-        return [];
-      }
-    },
-    staleTime: 0,
-    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+  const { data: testHistory = [], isLoading } = useQuery({
+    queryKey: ["dashboard", "practice-results"],
+    queryFn: getRecentTestHistory,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
     refetchOnWindowFocus: true,
   });
 
-  // Fallback to mock data if API is empty or loading
-  const chartData = React.useMemo(() => {
-    // Initialize days of the week (T2 - CN)
-    const days = [
-      { d: "T2", minutes: 0 },
-      { d: "T3", minutes: 0 },
-      { d: "T4", minutes: 0 },
-      { d: "T5", minutes: 0 },
-      { d: "T6", minutes: 0 },
-      { d: "T7", minutes: 0 },
-      { d: "CN", minutes: 0 },
-    ];
+  const summary = React.useMemo(() => {
+    const thisWeekStart = startOfMondayWeek(new Date());
+    const previousWeekStart = addDays(thisWeekStart, -7);
+    const thisWeekPoints = buildWeekPoints(testHistory, thisWeekStart);
+    const collectWeekScores = (weekStart: Date) => testHistory
+      .filter((test) => {
+        if (test.status !== "COMPLETED" || !test.createdAt) return false;
+        const date = new Date(test.createdAt);
+        return date >= weekStart && date < addDays(weekStart, 7);
+      })
+      .map((test) => normalizeScore(test.totalScore))
+      .filter((score): score is number => score !== null);
 
-    if (!apiTestHistory || apiTestHistory.length === 0) {
-      return mockWeekActivity;
-    }
+    const completedScores = collectWeekScores(thisWeekStart);
+    const previousWeekScores = collectWeekScores(previousWeekStart);
+    const averageScores = (scores: number[]) => scores.length
+      ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+      : null;
 
-    // Get current week range (Monday - Sunday)
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
-    const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
-    
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() + distanceToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
+    const completedCount = completedScores.length;
+    const highestScore = completedCount ? Math.max(...completedScores) : null;
+    const thisWeekAverage = averageScores(completedScores);
+    const previousWeekAverage = averageScores(previousWeekScores);
+    const progressPercent =
+      thisWeekAverage !== null && previousWeekAverage !== null && previousWeekAverage > 0
+        ? Math.round(((thisWeekAverage - previousWeekAverage) / previousWeekAverage) * 100)
+        : null;
 
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-    // Sum test durations (in minutes) for each day of the current week
-    apiTestHistory.forEach((test: any) => {
-      if (!test.createdAt) return;
-      const testDate = new Date(test.createdAt);
-      if (testDate >= startOfWeek && testDate < endOfWeek) {
-        const dayOfWeek = testDate.getDay(); // 0 (Sun) to 6 (Sat)
-        const targetIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        days[targetIndex].minutes += test.duration || 15; // default to 15 mins if duration is null/0
-      }
-    });
-
-    const totalRealMinutes = days.reduce((sum, d) => sum + d.minutes, 0);
-    // If the user has history but no activity this week, we show real zeros, otherwise if history is completely empty we show mock data
-    if (totalRealMinutes === 0 && apiTestHistory.length === 0) {
-      return mockWeekActivity;
-    }
-
-    return days;
-  }, [apiTestHistory]);
-
-  const { totalMinutes, avgMinutes, maxMinutes, peakIdx } = React.useMemo(() => {
-    const total = chartData.reduce((acc: number, curr: any) => acc + curr.minutes, 0);
-    const avg = Math.round(total / chartData.length);
-    const max = Math.max(...chartData.map((d: any) => d.minutes));
-    const peak = chartData.findIndex((d: any) => d.minutes === max);
-    return { totalMinutes: total, avgMinutes: avg, maxMinutes: max, peakIdx: peak };
-  }, [chartData]);
+    return {
+      chartData: thisWeekPoints,
+      completedCount,
+      highestScore,
+      average: thisWeekAverage,
+      progressPercent,
+    };
+  }, [testHistory]);
 
   if (isLoading) {
     return <SkeletonCard />;
   }
 
-  // Custom Dot renderer for Rollercoaster concept
-  const RenderCustomDot = (props: any) => {
-    const { cx, cy, payload, index } = props;
-    const isPeak = index === peakIdx;
-    
-    // We render the cart at the currently hovered index, or fallback to the peak day
-    const isCartHere = activeIdx !== null ? index === activeIdx : isPeak;
-    
-    return (
-      <g key={`roller-node-${index}`} className="select-none pointer-events-none">
-        {/* Idea 2: Realistic Rollercoaster Scaffold Support */}
-        {/* Main vertical support pillar */}
-        <line 
-          x1={cx} 
-          y1={cy} 
-          x2={cx} 
-          y2={220} 
-          stroke="currentColor" 
-          strokeWidth="3.5" 
-          strokeLinecap="round" 
-          strokeDasharray="4 4"
-          opacity="0.1" 
-        />
-        {/* Horizontal cross brace */}
-        <line 
-          x1={cx - 12} 
-          y1={cy + 30} 
-          x2={cx + 12} 
-          y2={cy + 30} 
-          stroke="currentColor" 
-          strokeWidth="2" 
-          opacity="0.1" 
-        />
-        {/* X bracing below tracks */}
-        <line 
-          x1={cx - 10} 
-          y1={cy + 15} 
-          x2={cx + 10} 
-          y2={cy + 45} 
-          stroke="currentColor" 
-          strokeWidth="1.5" 
-          opacity="0.1" 
-        />
-        <line 
-          x1={cx + 10} 
-          y1={cy + 15} 
-          x2={cx - 10} 
-          y2={cy + 45} 
-          stroke="currentColor" 
-          strokeWidth="1.5" 
-          opacity="0.1" 
-        />
-
-        {/* Idea 3: Start/Finish Theme Flags and stations */}
-        {index === 0 ? (
-          /* Start Flag */
-          <g transform={`translate(${cx - 8}, ${cy - 28})`}>
-            <rect x="0" y="0" width="3" height="28" fill="currentColor" opacity="0.3" rx="1" />
-            <path d="M 3 0 L 18 6 L 3 12 Z" fill="#10b981" />
-          </g>
-        ) : index === 6 ? (
-          /* Checkered Finish Flag */
-          <g transform={`translate(${cx - 2}, ${cy - 28})`}>
-            <rect x="0" y="0" width="3" height="28" fill="currentColor" opacity="0.3" rx="1" />
-            <path d="M 3 0 H 17 V 10 H 3 Z" fill="#0f172a" />
-            <path d="M 3 0 H 10 V 5 H 3 Z" fill="white" />
-            <path d="M 10 5 H 17 V 10 H 10 Z" fill="white" />
-          </g>
-        ) : (
-          /* Station Balloon Dot */
-          <circle 
-            cx={cx} 
-            cy={cy} 
-            r={6} 
-            fill="#34d399" 
-            stroke="white" 
-            strokeWidth={2} 
-          />
-        )}
-
-        {/* Idea 1 & 4: Rollercoaster Cart with Owl and Magic Sparkles */}
-        {isPeak && (
-          <g transform={`translate(${cx - 24}, ${cy - 29})`} className="select-none pointer-events-none">
-            <g>
-              {/* Sparkle Sparks trails */}
-              <path 
-                d="M -12 2 L -8 4 L -12 6 L -14 4 Z" 
-                fill="#fbbf24" 
-              />
-              <path 
-                d="M -8 18 L -4 20 L -8 22 L -10 20 Z" 
-                fill="#fbbf24" 
-              />
-              <circle cx="-16" cy="12" r="3.5" fill="#f59e0b" />
-
-              {/* Passenger Wise Owl sitting in the cabin stably */}
-              <text x="12" y="2" fontSize="22">🦉</text>
-
-              {/* Bubbly Rollercoaster Cart Body (Toy capsule design) */}
-              <path 
-                d="M 4 8 C 4 2, 8 0, 14 0 H 34 C 40 0, 44 2, 44 8 V 18 C 44 22, 40 24, 34 24 H 14 C 8 24, 4 22, 4 18 Z" 
-                fill="#34d399" 
-                stroke="#065f46" 
-                strokeWidth="2.5" 
-              />
-              {/* Windshield/Window */}
-              <path 
-                d="M 28 4 H 38 V 12 H 28 Z" 
-                fill="#bae6fd" 
-                stroke="#0284c7" 
-                strokeWidth="1.5" 
-                strokeLinejoin="round" 
-              />
-              {/* Decorative yellow stripe */}
-              <rect x="8" y="14" width="28" height="4" rx="2" fill="#facc15" />
-              
-              {/* Wheels sitting exactly on the line */}
-              <circle cx="14" cy="24" r="5" fill="#334155" stroke="white" strokeWidth="1.5" />
-              <circle cx="14" cy="24" r="1.5" fill="white" />
-              
-              <circle cx="34" cy="24" r="5" fill="#334155" stroke="white" strokeWidth="1.5" />
-              <circle cx="34" cy="24" r="1.5" fill="white" />
-            </g>
-          </g>
-        )}
-      </g>
-    );
-  };
+  const hasScores = summary.chartData.some((point) => point.avgScore !== null);
 
   return (
     <motion.div
@@ -275,141 +201,117 @@ export const NewDashboardStudyChart = memo(function NewDashboardStudyChart() {
       animate="show"
       className="surface-card relative flex h-full flex-col overflow-hidden p-8 transition-all hover:scale-[1.01] select-none"
     >
-      {/* Dynamic Rollercoaster Chart Animations */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes float-owl {
-          0% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-5px) rotate(4deg); }
-          100% { transform: translateY(0px) rotate(0deg); }
-        }
-        @keyframes cart-vibrate {
-          0% { transform: translateY(0); }
-          50% { transform: translateY(0.8px); }
-          100% { transform: translateY(0); }
-        }
-        .animate-owl-bounce {
-          animation: float-owl 1.2s infinite ease-in-out;
-          display: inline-block;
-          transform-origin: center bottom;
-        }
-        .animate-cart-ride {
-          animation: cart-vibrate 0.12s infinite linear;
-        }
-      `}} />
-
-      <motion.div variants={itemVariants} className="relative z-10 mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+      <motion.div variants={itemVariants} className="relative z-10 mb-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-3">
-            <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-foreground font-serif">
-              Thời Gian Học Tập
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
+              <BarChart3 size={22} />
+            </div>
+            <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-foreground">
+              Kết quả luyện tập
             </h3>
           </div>
           <p className="text-[15px] font-bold text-muted-foreground">
-            Thời gian học tập chăm chỉ trong tuần này
+            Theo dõi điểm Quiz của bạn trong tuần này
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-col sm:items-end gap-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-4 py-2 text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400 font-serif">
-            +24% TIẾN BỘ!
+        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+          <div
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-extrabold ${
+              summary.progressPercent === null
+                ? "bg-muted text-muted-foreground"
+                : summary.progressPercent >= 0
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {summary.progressPercent === null
+              ? "Chưa đủ dữ liệu"
+              : `${summary.progressPercent > 0 ? "+" : ""}${summary.progressPercent}% tiến bộ`}
           </div>
           <p className="text-[13px] font-bold text-muted-foreground">
-            TB: {avgMinutes} phút/ngày
+            So với tuần trước
           </p>
         </div>
       </motion.div>
 
-      <motion.div variants={itemVariants} className="relative z-10 mb-10 grid grid-cols-3 gap-4 rounded-2xl bg-black/5 dark:bg-white/5 p-5">
+      <motion.div variants={itemVariants} className="relative z-10 mb-10 grid grid-cols-3 gap-4 rounded-2xl bg-black/5 p-5 dark:bg-white/5">
         {[
-          { label: "Cả Tuần", value: `${totalMinutes}p` },
-          { label: "Chăm Nhất", value: `${maxMinutes}p` },
-          { label: "Trung Bình", value: `${avgMinutes}p` },
-        ].map((s) => (
-          <div key={s.label} className="text-center">
-            <div className="text-2xl font-extrabold tracking-tight text-foreground font-serif">{s.value}</div>
-            <div className="mt-1 text-[12px] font-extrabold text-muted-foreground uppercase tracking-wider font-serif">{s.label}</div>
+          { icon: CheckCircle2, label: "Số bài đã làm", value: summary.completedCount },
+          { icon: Award, label: "Điểm cao nhất", value: summary.highestScore === null ? "-" : formatScore(summary.highestScore) },
+          { icon: Target, label: "Điểm trung bình", value: summary.average === null ? "-" : formatScore(summary.average) },
+        ].map((metric) => (
+          <div key={metric.label} className="min-w-0 text-center">
+            <div className="mx-auto mb-2 flex size-8 items-center justify-center rounded-xl bg-card/80 text-emerald-600 shadow-sm">
+              <metric.icon size={16} />
+            </div>
+            <div className="truncate text-2xl font-extrabold tracking-tight text-foreground">{metric.value}</div>
+            <div className="mt-1 text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground">{metric.label}</div>
           </div>
         ))}
       </motion.div>
 
-      {/* Rollercoaster Area Chart */}
-      <motion.div
-        variants={itemVariants}
-        className="relative z-10 min-h-[260px] w-full flex-1 overflow-visible"
-        role="img"
-      >
+      <motion.div variants={itemVariants} className="relative z-10 min-h-[260px] w-full flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={chartData}
-            margin={{ top: 40, right: 10, left: -24, bottom: 0 }}
-            onMouseMove={(state) => {
-              if (state && state.activeTooltipIndex !== undefined && state.activeTooltipIndex !== null) {
-                setActiveIdx(state.activeTooltipIndex as number);
-              }
-            }}
-            onMouseLeave={() => {
-              setActiveIdx(null);
-            }}
+            data={summary.chartData}
+            margin={{ top: 20, right: 12, left: -20, bottom: 0 }}
           >
             <defs>
-              <linearGradient id="colorMinutes" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#34d399" stopOpacity={0.15} />
+              <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#34d399" stopOpacity={0.22} />
                 <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="currentColor" strokeOpacity={0.06} />
+            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="currentColor" strokeOpacity={0.08} />
             <XAxis
               dataKey="d"
               axisLine={false}
               tickLine={false}
               fontSize={13}
-              tick={{ fill: "currentColor", opacity: 0.5, fontWeight: 700 }}
+              tick={{ fill: "currentColor", opacity: 0.55, fontWeight: 800 }}
               dy={12}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
               fontSize={13}
-              tick={{ fill: "currentColor", opacity: 0.5, fontWeight: 700 }}
-              tickFormatter={(v) => `${v}p`}
+              tick={{ fill: "currentColor", opacity: 0.55, fontWeight: 800 }}
+              tickFormatter={(value) => `${value}`}
+              ticks={[0, 2, 4, 6, 8, 10]}
+              domain={[0, 10]}
               dx={-12}
-              domain={[0, 'dataMax + 40']}
-            />
-            <ReferenceLine
-              y={avgMinutes}
-              stroke="#fbbf24"
-              strokeDasharray="4 4"
-              strokeOpacity={0.8}
-              strokeWidth={2}
             />
             <Tooltip
               content={<CustomTooltip />}
-              cursor={{ stroke: 'rgba(52,211,153,0.15)', strokeWidth: 2, fill: 'transparent' }}
+              cursor={{ stroke: "rgba(52,211,153,0.2)", strokeWidth: 2, fill: "transparent" }}
             />
-            {/* The main background area block and bottom track support */}
             <Area
               type="monotone"
-              dataKey="minutes"
-              stroke="#34d399"
-              strokeWidth={8}
-              fillOpacity={1}
-              fill="url(#colorMinutes)"
-              animationBegin={200}
-              animationDuration={1000}
-            />
-            {/* The inner rail track line that carries the passenger Owl */}
-            <Area
-              type="monotone"
-              dataKey="minutes"
-              stroke="#065f46"
-              strokeWidth={3}
-              fill="none"
-              dot={<RenderCustomDot />}
+              dataKey="avgScore"
+              name="Điểm trung bình"
+              stroke="#10b981"
+              strokeWidth={4}
+              fill="url(#scoreGradient)"
+              connectNulls={false}
+              dot={{ r: 5, strokeWidth: 2, stroke: "#ffffff", fill: "#10b981" }}
+              activeDot={{ r: 7, strokeWidth: 3, stroke: "#ffffff", fill: "#059669" }}
+              animationBegin={150}
+              animationDuration={900}
             />
           </AreaChart>
         </ResponsiveContainer>
-      </motion.div>
 
+        {!hasScores && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="rounded-2xl border border-dashed border-border bg-background/80 px-5 py-4 text-center shadow-sm backdrop-blur">
+              <p className="text-sm font-extrabold text-foreground">Chưa có quiz hoàn thành trong tuần này</p>
+              <p className="mt-1 text-xs font-semibold text-muted-foreground">Hoàn thành quiz để biểu đồ bắt đầu ghi nhận điểm.</p>
+            </div>
+          </div>
+        )}
+      </motion.div>
     </motion.div>
   );
 });

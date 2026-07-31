@@ -95,18 +95,29 @@ public class DocumentUploadService {
                     .orElseThrow(() -> new AppException(ErrorCode.SUBJECT_NOT_FOUND));
         }
 
-        // 6. Upload file lên storage (local hoặc Supabase)
-        StorageService.StorageResult storageResult = storageService.upload(file, userId);
-
-        // 7. Xác định file type từ extension
+        // 6. Xác định file type từ extension
         String fileType = FileUtil.getExtension(file.getOriginalFilename());
 
-        // 8. Tạo Document entity
+        // 7. Chuẩn hóa tên hiển thị, giữ tiếng Việt và tự đổi tên nếu trùng
+        String requestedTitle = title != null && !title.isBlank()
+                ? title.trim()
+                : FileUtil.sanitizeFilename(file.getOriginalFilename());
+        String uniqueTitle = resolveUniqueTitle(userId, requestedTitle);
+        String storageFileName = ensureFileExtension(uniqueTitle, fileType);
+        String subjectFolderName = resolveSubjectFolderName(subject);
+
+        // 8. Upload file lên storage (local hoặc Supabase)
+        StorageService.StorageResult storageResult = storageService.upload(
+                file,
+                userId,
+                subjectFolderName,
+                storageFileName);
+
+        // 9. Tạo Document entity
         Document document = Document.builder()
                 .user(user)
                 .subject(subject)
-                .title(title != null && !title.isBlank() ? title.trim()
-                        : FileUtil.sanitizeFilename(file.getOriginalFilename()))
+                .title(uniqueTitle)
                 .description(description)
                 .fileUrl(storageResult.fileUrl())
                 .cloudFilePath(storageResult.cloudFilePath())
@@ -137,6 +148,50 @@ public class DocumentUploadService {
         scheduleAutomaticProcessing(document.getId(), userId);
 
         return DocumentResponseMapper.toResponse(document);
+    }
+
+    private String resolveUniqueTitle(Long userId, String requestedTitle) {
+        String sanitizedTitle = FileUtil.sanitizeFilename(requestedTitle);
+        if (!documentRepository.existsByUserIdAndTitleIgnoreCase(userId, sanitizedTitle)) {
+            return sanitizedTitle;
+        }
+
+        String baseName = sanitizedTitle;
+        String extension = "";
+        int dotIndex = sanitizedTitle.lastIndexOf('.');
+        if (dotIndex > 0) {
+            baseName = sanitizedTitle.substring(0, dotIndex);
+            extension = sanitizedTitle.substring(dotIndex);
+        }
+
+        int suffix = 1;
+        String candidate;
+        do {
+            candidate = baseName + " (" + suffix + ")" + extension;
+            suffix++;
+        } while (documentRepository.existsByUserIdAndTitleIgnoreCase(userId, candidate));
+        return candidate;
+    }
+
+    private String ensureFileExtension(String fileName, String fileType) {
+        String sanitizedName = FileUtil.sanitizeFilename(fileName);
+        if (fileType == null || fileType.isBlank()) {
+            return sanitizedName;
+        }
+        String extension = "." + fileType.toLowerCase();
+        return sanitizedName.toLowerCase().endsWith(extension)
+                ? sanitizedName
+                : sanitizedName + extension;
+    }
+
+    private String resolveSubjectFolderName(Subject subject) {
+        if (subject == null) {
+            return "Chưa phân môn";
+        }
+        String code = subject.getCode() != null ? subject.getCode().trim() : "";
+        String name = subject.getName() != null ? subject.getName().trim() : "";
+        String folderName = (code + (code.isBlank() || name.isBlank() ? "" : " - ") + name).trim();
+        return folderName.isBlank() ? "Môn học " + subject.getId() : folderName;
     }
 
     private void scheduleAutomaticProcessing(Long documentId, Long userId) {

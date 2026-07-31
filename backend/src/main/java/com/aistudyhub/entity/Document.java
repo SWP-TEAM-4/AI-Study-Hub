@@ -52,7 +52,7 @@ public class Document {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "file_url", length = 500)
+    @Column(name = "file_url", columnDefinition = "TEXT")
     private String fileUrl;
 
     @Column(name = "cloud_file_path", length = 500)
