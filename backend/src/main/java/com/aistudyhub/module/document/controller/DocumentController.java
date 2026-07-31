@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 @RestController
 @RequestMapping("/api/documents")
 @RequiredArgsConstructor
@@ -61,10 +64,20 @@ public class DocumentController {
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails principal) {
         DocumentService.DocumentFileDownload download = documentService.downloadDocument(id, principal.getId());
+        String encodedFilename = URLEncoder.encode(download.filename(), StandardCharsets.UTF_8)
+                .replace("+", "%20");
         return ResponseEntity.ok()
                 .contentType(download.mediaType())
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.filename() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + asciiFallback(download.filename()) + "\"; filename*=UTF-8''" + encodedFilename)
                 .body(download.content());
+    }
+
+    private String asciiFallback(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "document";
+        }
+        return filename.replaceAll("[^\\x20-\\x7E]", "_").replace("\"", "");
     }
 
 }

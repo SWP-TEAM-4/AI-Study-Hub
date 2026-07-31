@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.time.Instant;
 
 /**
  * Owner: BE1 – Local Storage implementation (MVP)
@@ -23,7 +22,7 @@ import java.time.Instant;
  * Lưu file vào thư mục ./uploads trên server.
  * Chỉ active khi STORAGE_TYPE=local (default).
  * <p>
- * Cấu trúc folder: {localStoragePath}/{userId}/{timestamp}_{sanitizedFilename}
+ * Cấu trúc folder: {localStoragePath}/{userId}/{subjectFolder}/{filename}
  */
 @Slf4j
 @Service
@@ -34,26 +33,27 @@ public class LocalStorageService implements StorageService {
     private final StorageConfig storageConfig;
 
     @Override
-    public StorageResult upload(MultipartFile file, Long userId) {
+    public StorageResult upload(MultipartFile file, Long userId, String folderName, String fileName) {
         try {
             // 1. Validate file
             if (!FileUtil.isAllowedType(file)) {
                 throw new AppException(ErrorCode.INVALID_FILE_TYPE);
             }
 
-            // 2. Build file path: ./uploads/{userId}/{timestamp}_{filename}
-            String sanitizedName = FileUtil.sanitizeFilename(file.getOriginalFilename());
-            String fileName = Instant.now().toEpochMilli() + "_" + sanitizedName;
-            Path userDir = Paths.get(storageConfig.getLocalStoragePath(), String.valueOf(userId));
-            Files.createDirectories(userDir);
+            // 2. Build file path: ./uploads/{userId}/{subjectFolder}/{filename}
+            String safeFolderName = FileUtil.sanitizePathSegment(folderName);
+            String safeFileName = FileUtil.sanitizeFilename(fileName);
+            Path subjectDir = Paths.get(storageConfig.getLocalStoragePath(), String.valueOf(userId), safeFolderName);
+            Files.createDirectories(subjectDir);
 
-            Path filePath = userDir.resolve(fileName);
+            Path filePath = resolveAvailablePath(subjectDir, safeFileName);
+            String storedFileName = filePath.getFileName().toString();
 
             // 3. Save file
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(file.getInputStream(), filePath);
 
             // 4. Build paths
-            String cloudFilePath = userId + "/" + fileName;  // relative path từ uploads root
+            String cloudFilePath = userId + "/" + safeFolderName + "/" + storedFileName;  // relative path từ uploads root
             String fileUrl = storageConfig.getBaseUrl() + "/" + cloudFilePath;
 
             log.info("File saved locally: {} ({} bytes)", filePath, file.getSize());
@@ -65,6 +65,28 @@ public class LocalStorageService implements StorageService {
             log.error("Failed to save file locally: {}", e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to save file: " + e.getMessage());
         }
+    }
+
+    private Path resolveAvailablePath(Path directory, String fileName) {
+        Path candidate = directory.resolve(fileName);
+        if (!Files.exists(candidate)) {
+            return candidate;
+        }
+
+        String baseName = fileName;
+        String extension = "";
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex > 0) {
+            baseName = fileName.substring(0, dotIndex);
+            extension = fileName.substring(dotIndex);
+        }
+
+        int suffix = 1;
+        do {
+            candidate = directory.resolve(baseName + " (" + suffix + ")" + extension);
+            suffix++;
+        } while (Files.exists(candidate));
+        return candidate;
     }
 
     @Override

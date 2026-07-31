@@ -62,22 +62,24 @@ public class SupabaseStorageService implements StorageService {
     /**
      * Upload file lên Supabase Storage.
      *
-     * @param file   file từ multipart request
-     * @param userId user ID để tổ chức folder
+     * @param file       file từ multipart request
+     * @param userId     user ID để tổ chức folder
+     * @param folderName không dùng với Supabase để tránh key Unicode/folder conflict
+     * @param fileName   không dùng với Supabase để giữ storage key tương thích cũ
      * @return StorageResult với fileUrl và cloudFilePath (relative path trong bucket)
      */
     @Override
-    public StorageResult upload(MultipartFile file, Long userId) {
+    public StorageResult upload(MultipartFile file, Long userId, String folderName, String fileName) {
         // 1. Validate file type
         if (!FileUtil.isAllowedType(file)) {
             throw new AppException(ErrorCode.INVALID_FILE_TYPE);
         }
 
         try {
-            // 2. Build file path: documents/{userId}/{timestamp}_{filename}
-            String sanitizedName = FileUtil.sanitizeFilename(file.getOriginalFilename());
-            String fileName = Instant.now().toEpochMilli() + "_" + sanitizedName;
-            String filePath = "documents/" + userId + "/" + fileName;
+            // 2. Keep the legacy Supabase object key format to avoid Unicode folder/key conflicts.
+            String sanitizedName = sanitizeSupabaseObjectName(file.getOriginalFilename());
+            String storedFileName = Instant.now().toEpochMilli() + "_" + sanitizedName;
+            String filePath = "documents/" + userId + "/" + storedFileName;
 
             // 3. Resolve Content Type
             String contentType = resolveContentType(file);
@@ -89,7 +91,7 @@ public class SupabaseStorageService implements StorageService {
             restClient.post()
                     .uri("/storage/v1/object/{bucket}/{filePath}", storageConfig.getSupabaseStorageBucket(), filePath)
                     .contentType(MediaType.parseMediaType(contentType))
-                    .header("x-upsert", "true") // Cho phép ghi đè nếu trùng tên
+                    .header("x-upsert", "true")
                     .body(fileBytes)
                     .retrieve()
                     .toBodilessEntity();
@@ -104,7 +106,7 @@ public class SupabaseStorageService implements StorageService {
             throw e;
         } catch (Exception e) {
             log.error("Lỗi khi upload file lên Supabase: {}", e.getMessage(), e);
-            throw new AppException(ErrorCode.INTERNAL_ERROR, "Lỗi khi upload file lên Supabase: " + e.getMessage());
+            throw new AppException(ErrorCode.SUPABASE_STORAGE_ERROR, "Lỗi khi upload file lên Supabase: " + e.getMessage());
         }
     }
 
@@ -161,6 +163,14 @@ public class SupabaseStorageService implements StorageService {
     }
 
     // ── Private Helpers ──────────────────────────────────────────────────────
+
+    private String sanitizeSupabaseObjectName(String filename) {
+        String value = filename == null || filename.isBlank() ? "file" : filename.trim();
+        value = value.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
+        value = value.replaceAll("_+", "_");
+        value = value.replaceAll("^[._-]+", "").replaceAll("[._-]+$", "");
+        return value.isBlank() ? "file" : value;
+    }
 
     /**
      * Tạo signed URL có hiệu lực 7 ngày (604800 giây).

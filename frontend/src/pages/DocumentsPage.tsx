@@ -154,6 +154,15 @@ export default function DocumentsPage() {
     return subject ? subject.code : `Môn #${subjectId}`;
   };
 
+  const subjectFolderId = (subjectId?: number | null) => `subject_${subjectId ?? "unassigned"}`;
+
+  const getSubjectFolderName = (subjectId?: number | null) => {
+    if (!subjectId) return "Chưa phân môn";
+    const subject = subjectMap[subjectId];
+    if (!subject) return `Môn #${subjectId}`;
+    return subject.name ? `${subject.code} - ${subject.name}` : subject.code;
+  };
+
   const documentQueryParams = useMemo(() => {
     const processingStatuses = ["PENDING", "PROCESSING", "SUCCESS", "FAILED"] as const;
     const sortMap: Record<string, string> = {
@@ -194,6 +203,46 @@ export default function DocumentsPage() {
   const [deletingChunksId, setDeletingChunksId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [chunkCounts, setChunkCounts] = useState<Record<number, number>>({});
+
+  const autoSubjectFolders = useMemo(() => {
+    const map = new Map<string, FolderDTO>();
+    list.forEach((doc) => {
+      const id = subjectFolderId(doc.subjectId);
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          name: getSubjectFolderName(doc.subjectId),
+          parentId: null,
+          createdAt: doc.createdAt || new Date().toISOString(),
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [list, subjectMap]);
+
+  useEffect(() => {
+    if (autoSubjectFolders.length === 0) return;
+    setFolders((prev) => {
+      const existingIds = new Set(prev.map((folder) => folder.id));
+      const missing = autoSubjectFolders.filter((folder) => !existingIds.has(folder.id));
+      return missing.length ? [...prev, ...missing] : prev;
+    });
+  }, [autoSubjectFolders]);
+
+  useEffect(() => {
+    if (list.length === 0) return;
+    setFileFolderMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      list.forEach((doc) => {
+        if (!(doc.id in next)) {
+          next[doc.id] = subjectFolderId(doc.subjectId);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [list]);
 
   // States phục vụ hiển thị & CHỈNH SỬA CHUNKS
   const [overviewDoc, setOverviewDoc] = useState<DocumentDTO | null>(null);
@@ -450,12 +499,21 @@ export default function DocumentsPage() {
   const processFilesUpload = async (files: FileList) => {
     if (files.length === 0) return;
     try {
+      const currentSubjectFolder = currentFolderId?.startsWith("subject_")
+        ? currentFolderId.replace("subject_", "")
+        : null;
+      const subjectIdFromFolder = currentSubjectFolder && currentSubjectFolder !== "unassigned"
+        ? Number(currentSubjectFolder)
+        : undefined;
+      const uploadSubjectId = subjectIdFromFolder
+        || (filterSubject !== "all" ? Number(filterSubject) : undefined);
+
       for (let i = 0; i < files.length; i++) {
-        const uploadResponse = await uploadMutation.mutateAsync(files[i]);
+        const uploadResponse = await uploadMutation.mutateAsync({ file: files[i], subjectId: uploadSubjectId });
         const uploadedDoc = uploadResponse.data;
-        // Tự động gắn File vừa upload vào thư mục đang đứng hiện tại
+        // Tự động gắn file vừa upload vào folder theo môn học.
         if (uploadedDoc?.id) {
-          setFileFolderMap(prev => ({ ...prev, [uploadedDoc.id]: currentFolderId }));
+          setFileFolderMap(prev => ({ ...prev, [uploadedDoc.id]: subjectFolderId(uploadedDoc.subjectId ?? uploadSubjectId ?? null) }));
         }
       }
       Notify.success("Tải lên file thành công. Chờ chunking tự động!");
@@ -520,10 +578,9 @@ export default function DocumentsPage() {
   const filtered = useMemo(
     () => {
       let result = list.filter((x) => {
-        // Nếu có từ khóa tìm kiếm, bỏ qua bộ lọc thư mục để tìm kiếm global.
-        // Ngược lại, chỉ hiển thị file thuộc thư mục hiện tại.
-        const fileFolder = fileFolderMap[x.id] ?? null;
-        const matchFolder = q.trim() ? true : fileFolder === currentFolderId;
+        // Root Drive hiển thị toàn bộ file; khi vào folder thì lọc đúng folder đó.
+        const fileFolder = fileFolderMap[x.id] ?? subjectFolderId(x.subjectId);
+        const matchFolder = q.trim() || currentFolderId === null ? true : fileFolder === currentFolderId;
 
         const keyword = (q || "").toLowerCase();
         const matchSearch =
@@ -908,7 +965,7 @@ export default function DocumentsPage() {
 
       {/* Documents Render Container - Hiển thị dạng Danh sách/Bảng */}
       <div className="mt-4 w-full space-y-2 !overflow-visible">
-        <h3 className="pl-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Tập tin tài liệu · {filtered.length}</h3>
+        <h3 className="pl-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Tập tin tài liệu gần đây · {filtered.length}</h3>
         <div className="surface-card !overflow-visible border border-border/40 shadow-sm">
           <table className="w-full text-sm">
             <thead className="border-b border-border/50 bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">

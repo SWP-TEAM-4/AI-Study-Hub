@@ -393,7 +393,7 @@ export function AppShell() {
                 <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:h-0 lg:group-hover/sidebar:h-auto overflow-hidden transition-all duration-300">
                   Cá nhân
                 </div>
-                {nav.slice(6, 9).map((item) => (
+                {nav.slice(6, 10).map((item) => (
                   <NavItem
                     key={item.path}
                     active={location.pathname === item.path}
@@ -411,7 +411,7 @@ export function AppShell() {
                   <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-white/40 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:h-0 lg:group-hover/sidebar:h-auto overflow-hidden transition-all duration-300">
                     Quản trị
                   </div>
-                  {nav.slice(9).map((item) => (
+                  {nav.slice(10).map((item) => (
                     <NavItem
                       key={item.path}
                       active={location.pathname === item.path}

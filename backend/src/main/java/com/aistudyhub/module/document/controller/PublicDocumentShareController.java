@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 @RestController
 @RequestMapping("/api/share/documents")
 @RequiredArgsConstructor
@@ -35,10 +38,20 @@ public class PublicDocumentShareController {
     public ResponseEntity<byte[]> downloadSharedDocument(@PathVariable String shareToken) {
         DocumentShareLinkService.SharedDocumentDownload download =
                 documentShareLinkService.downloadSharedDocument(shareToken);
+        String encodedFilename = URLEncoder.encode(download.filename(), StandardCharsets.UTF_8)
+                .replace("+", "%20");
 
         return ResponseEntity.ok()
                 .contentType(download.mediaType())
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.filename() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + asciiFallback(download.filename()) + "\"; filename*=UTF-8''" + encodedFilename)
                 .body(download.content());
+    }
+
+    private String asciiFallback(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "document";
+        }
+        return filename.replaceAll("[^\\x20-\\x7E]", "_").replace("\"", "");
     }
 }

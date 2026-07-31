@@ -10,7 +10,6 @@ import {
   GraduationCap,
   Search,
   Star,
-  TrendingUp,
   Trophy,
   Users,
   X,
@@ -516,9 +515,6 @@ export default function CommunityPage() {
   const [items, setItems] = useState<MarketplaceItemDTO[]>([]);
   const [trendingItems, setTrendingItems] = useState<MarketplaceItemDTO[]>([]);
   const [topRatedItems, setTopRatedItems] = useState<MarketplaceItemDTO[]>([]);
-  const [latestDocuments, setLatestDocuments] = useState<MarketplaceItemDTO[]>([]);
-  const [latestQuizzes, setLatestQuizzes] = useState<MarketplaceItemDTO[]>([]);
-  const [latestFlashcards, setLatestFlashcards] = useState<MarketplaceItemDTO[]>([]);
   const [leaderboardType, setLeaderboardType] = useState<ReputationLeaderboardKind>("contributors");
   const [leaderboardPeriod, setLeaderboardPeriod] = useState(currentPeriodKey());
   const [leaderboardItems, setLeaderboardItems] = useState<ReputationLeaderboardItemDTO[]>([]);
@@ -578,7 +574,7 @@ export default function CommunityPage() {
         const academicTermId = filters.academicTermId !== "all" ? Number(filters.academicTermId) : undefined;
         const category = asMarketplaceCategory(filters.category);
 
-        const [mainRes, trendingRes, topRatedRes, docRes, quizRes, flashRes] = await Promise.all([
+        const [mainRes, trendingRes, topRatedRes] = await Promise.all([
           communityMarketplaceService.browse({
             category,
             page: 0,
@@ -588,20 +584,14 @@ export default function CommunityPage() {
             subjectId,
             academicTermId,
           }),
-          communityMarketplaceService.browse({ category: "all", page: 0, size: 8, keyword: filters.search, sort: "downloadCount", subjectId }),
-          communityMarketplaceService.browse({ category: "all", page: 0, size: 8, keyword: filters.search, sort: "acceptPercentage", subjectId }),
-          communityMarketplaceService.browse({ category: "documents", page: 0, size: 4, keyword: filters.search, sort: "newest", subjectId }),
-          communityMarketplaceService.browse({ category: "quizzes", page: 0, size: 4, keyword: filters.search, sort: "newest", subjectId, academicTermId }),
-          communityMarketplaceService.browse({ category: "flashcards", page: 0, size: 4, keyword: filters.search, sort: "newest", subjectId }),
+          communityMarketplaceService.browse({ category, page: 0, size: 8, keyword: filters.search, sort: "downloadCount", subjectId, academicTermId }),
+          communityMarketplaceService.browse({ category, page: 0, size: 8, keyword: filters.search, sort: "acceptPercentage", subjectId, academicTermId }),
         ]);
 
         if (!mounted) return;
         setItems(mainRes.data.items ?? []);
         setTrendingItems(trendingRes.data.items ?? []);
         setTopRatedItems(topRatedRes.data.items ?? []);
-        setLatestDocuments(docRes.data.items ?? []);
-        setLatestQuizzes(quizRes.data.items ?? []);
-        setLatestFlashcards(flashRes.data.items ?? []);
       } catch (err: any) {
         if (mounted) {
           setItems([]);
@@ -910,31 +900,6 @@ export default function CommunityPage() {
             {renderGrid(topRatedItems.length ? topRatedItems : items.slice(0, 8))}
           </section>
 
-          {filters.category === "all" && (
-            <div className="space-y-8">
-              <section>
-                <SectionHeader icon={<FileText size={18} />} title="Latest Documents" />
-                {renderGrid(latestDocuments)}
-              </section>
-              <section>
-                <SectionHeader icon={<GraduationCap size={18} />} title="Latest Quiz" />
-                {renderGrid(latestQuizzes)}
-              </section>
-              <section>
-                <SectionHeader icon={<BookOpen size={18} />} title="Latest Flashcards" />
-                {renderGrid(latestFlashcards)}
-              </section>
-            </div>
-          )}
-
-          <section>
-            <SectionHeader
-              icon={<TrendingUp size={19} className="text-primary" />}
-              title="Kết quả theo bộ lọc"
-              subtitle="Danh sách đang áp dụng category, môn, học kỳ và sort ở thanh lọc"
-            />
-            {renderGrid(items)}
-          </section>
         </div>
       )}
       <AnimatePresence>

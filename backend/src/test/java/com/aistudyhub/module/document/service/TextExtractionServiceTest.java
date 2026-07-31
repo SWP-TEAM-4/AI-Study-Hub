@@ -3,6 +3,9 @@ package com.aistudyhub.module.document.service;
 import com.aistudyhub.common.exception.AppException;
 import com.aistudyhub.common.exception.ErrorCode;
 import com.aistudyhub.entity.Document;
+import org.apache.poi.xslf.usermodel.XMLSlideShow;
+import org.apache.poi.xslf.usermodel.XSLFSlide;
+import org.apache.poi.xslf.usermodel.XSLFTextBox;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +14,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.awt.Rectangle;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.*;
@@ -183,6 +189,22 @@ class TextExtractionServiceTest {
     }
 
     @Test
+    @DisplayName("Should extract text from a valid PPTX file")
+    void extractText_FromPptx_Success() throws IOException {
+        testDocument.setFileType("PPTX");
+        byte[] pptxContent = createPptxContent("Slide title", "Important lecture content");
+
+        when(storageService.readFileContent(anyString())).thenReturn(pptxContent);
+
+        String extractedText = textExtractionService.extractText(testDocument);
+
+        assertThat(extractedText).contains("[[PAGE:1]]");
+        assertThat(extractedText).contains("[[SECTION:Slide 1]]");
+        assertThat(extractedText).contains("Slide title");
+        assertThat(extractedText).contains("Important lecture content");
+    }
+
+    @Test
     @DisplayName("Should handle storage service exception")
     void extractText_StorageServiceThrowsException_PropagatesAsExtractionFailed() {
         // Given
@@ -232,5 +254,23 @@ class TextExtractionServiceTest {
         assertThat(extractedText).contains("Third paragraph");
         // Should have newlines but not excessive ones
         assertThat(extractedText.split("\n").length).isGreaterThan(1);
+    }
+
+    private byte[] createPptxContent(String title, String body) throws IOException {
+        try (XMLSlideShow slideShow = new XMLSlideShow();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            XSLFSlide slide = slideShow.createSlide();
+
+            XSLFTextBox titleBox = slide.createTextBox();
+            titleBox.setAnchor(new Rectangle(50, 50, 500, 80));
+            titleBox.setText(title);
+
+            XSLFTextBox bodyBox = slide.createTextBox();
+            bodyBox.setAnchor(new Rectangle(50, 150, 500, 200));
+            bodyBox.setText(body);
+
+            slideShow.write(outputStream);
+            return outputStream.toByteArray();
+        }
     }
 }

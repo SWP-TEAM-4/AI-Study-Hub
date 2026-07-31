@@ -18,11 +18,21 @@ public interface StorageService {
     /**
      * Upload file lên storage.
      *
-     * @param file     file upload từ multipart request
-     * @param userId   ID của user upload (dùng để tổ chức folder)
+     * @param file       file upload từ multipart request
+     * @param userId     ID của user upload (dùng để tổ chức folder)
+     * @param folderName tên folder môn học
+     * @param fileName   tên file đã được chuẩn hóa và tránh trùng
      * @return StorageResult chứa fileUrl (public URL) và cloudFilePath (path để xóa/đọc lại)
      */
-    StorageResult upload(MultipartFile file, Long userId);
+    StorageResult upload(MultipartFile file, Long userId, String folderName, String fileName);
+
+    /**
+     * Backward-compatible upload signature for existing tests/callers.
+     */
+    default StorageResult upload(MultipartFile file, Long userId) {
+        String fileName = file != null ? file.getOriginalFilename() : "file";
+        return upload(file, userId, "Chưa phân môn", fileName);
+    }
 
     /**
      * Đọc nội dung file (dùng cho text extraction trong BE-016).

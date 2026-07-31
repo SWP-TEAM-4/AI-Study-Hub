@@ -7,8 +7,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,7 +24,7 @@ import java.util.regex.Pattern;
  * 1. Normalize text (remove excessive whitespace, trim lines)
  * 2. Chia theo paragraph (double newline) trước
  * 3. Nếu paragraph > chunkSize → chia theo sentence boundary
- * 4. Nếu sentence > chunkSize → chia cứng theo chunkSize với overlap
+ * 4. Nếu sentence > chunkSize → chia theo cuối câu/khoảng trắng trước khi buộc cắt cứng
  * 5. Merge paragraphs nhỏ liền kề cho đến khi đạt chunkSize
  */
 @Slf4j
@@ -32,6 +34,9 @@ public class TextChunkingService {
 
     private static final Pattern PAGE_MARKER = Pattern.compile("^\\[\\[PAGE:(\\d+)]]$");
     private static final Pattern SECTION_MARKER = Pattern.compile("^\\[\\[SECTION:(.+)]]$");
+    private static final Locale SENTENCE_LOCALE = Locale.forLanguageTag("vi-VN");
+    private static final String SENTENCE_TERMINATORS = ".!?…。！？";
+    private static final double MIN_SPLIT_RATIO = 0.55;
 
     private final ChunkConfig chunkConfig;
 
@@ -129,7 +134,7 @@ public class TextChunkingService {
                     // Giữ overlap bằng cách lấy phần cuối của chunk trước
                     String overlapText = getOverlapText(currentChunk.toString(), overlap);
                     currentChunk.setLength(0);
-                    if (!overlapText.isEmpty()) {
+                    if (!overlapText.isEmpty() && overlapText.length() + trimmed.length() + 1 <= chunkSize) {
                         currentChunk.append(overlapText).append("\n");
                     }
                     currentChunkSourcePage = activeSourcePage;
@@ -204,7 +209,7 @@ public class TextChunkingService {
 
     /**
      * Split a large paragraph by sentence boundaries.
-     * Nếu sentence vẫn quá lớn → split cứng theo chunkSize.
+     * Nếu sentence vẫn quá lớn → split theo cuối câu/khoảng trắng trước khi buộc cắt cứng.
      */
     private List<ChunkSeed> splitLargeParagraph(
             String paragraph,
@@ -214,27 +219,30 @@ public class TextChunkingService {
             String sourceSection) {
         List<ChunkSeed> chunks = new ArrayList<>();
 
-        // Try splitting by sentences first (., !, ?)
-        String[] sentences = paragraph.split("(?<=[.!?])\\s+");
+        List<String> sentences = splitSentences(paragraph);
 
         StringBuilder currentChunk = new StringBuilder();
         for (String sentence : sentences) {
-            if (sentence.length() > chunkSize) {
+            String trimmedSentence = sentence.trim();
+            if (trimmedSentence.isEmpty()) {
+                continue;
+            }
+
+            if (trimmedSentence.length() > chunkSize) {
                 // Flush current
                 if (!currentChunk.isEmpty()) {
                     chunks.add(new ChunkSeed(currentChunk.toString().trim(), sourcePage, sourceSection));
                     currentChunk.setLength(0);
                 }
-                // Hard split the oversized sentence
-                chunks.addAll(hardSplit(sentence, chunkSize, overlap, sourcePage, sourceSection));
+                chunks.addAll(hardSplit(trimmedSentence, chunkSize, overlap, sourcePage, sourceSection));
                 continue;
             }
 
-            if (currentChunk.length() + sentence.length() + 1 > chunkSize) {
+            if (!currentChunk.isEmpty() && currentChunk.length() + trimmedSentence.length() + 1 > chunkSize) {
                 chunks.add(new ChunkSeed(currentChunk.toString().trim(), sourcePage, sourceSection));
                 String overlapText = getOverlapText(currentChunk.toString(), overlap);
                 currentChunk.setLength(0);
-                if (!overlapText.isEmpty()) {
+                if (!overlapText.isEmpty() && overlapText.length() + trimmedSentence.length() + 1 <= chunkSize) {
                     currentChunk.append(overlapText).append(" ");
                 }
             }
@@ -242,7 +250,7 @@ public class TextChunkingService {
             if (!currentChunk.isEmpty()) {
                 currentChunk.append(" ");
             }
-            currentChunk.append(sentence);
+            currentChunk.append(trimmedSentence);
         }
 
         if (!currentChunk.isEmpty()) {
@@ -253,7 +261,9 @@ public class TextChunkingService {
     }
 
     /**
-     * Hard split text into fixed-size chunks with overlap.
+     * Split oversized text into bounded chunks with overlap.
+     * Ưu tiên điểm cắt tự nhiên: cuối câu → xuống dòng → khoảng trắng.
+     * Chỉ cắt theo index khi một token dài hơn chunkSize và không có boundary an toàn.
      */
     private List<ChunkSeed> hardSplit(
             String text,
@@ -264,11 +274,28 @@ public class TextChunkingService {
         List<ChunkSeed> chunks = new ArrayList<>();
         int start = 0;
         while (start < text.length()) {
-            int end = Math.min(start + chunkSize, text.length());
-            chunks.add(new ChunkSeed(text.substring(start, end).trim(), sourcePage, sourceSection));
-            int step = Math.max(1, chunkSize - overlap);
-            start += step;
-            if (start >= text.length()) break;
+            start = skipLeadingWhitespace(text, start);
+            if (start >= text.length()) {
+                break;
+            }
+
+            int maxEnd = Math.min(start + chunkSize, text.length());
+            int end = findBestSplitEnd(text, start, maxEnd, chunkSize);
+            if (end <= start) {
+                end = maxEnd;
+            }
+
+            String chunk = text.substring(start, end).trim();
+            if (!chunk.isEmpty()) {
+                chunks.add(new ChunkSeed(chunk, sourcePage, sourceSection));
+            }
+
+            if (end >= text.length()) {
+                break;
+            }
+
+            int nextStart = resolveNextStartWithOverlap(text, start, end, overlap);
+            start = nextStart > start ? nextStart : skipLeadingWhitespace(text, end);
         }
         return chunks;
     }
@@ -277,8 +304,193 @@ public class TextChunkingService {
      * Get the last N characters of a text as overlap for the next chunk.
      */
     private String getOverlapText(String text, int overlapSize) {
-        if (text.length() <= overlapSize) return "";
-        return text.substring(text.length() - overlapSize).trim();
+        if (overlapSize <= 0 || text == null) return "";
+
+        String normalized = text.trim();
+        if (normalized.length() <= overlapSize) return "";
+
+        List<String> sentences = splitSentences(normalized);
+        StringBuilder overlap = new StringBuilder();
+        for (int i = sentences.size() - 1; i >= 0; i--) {
+            String sentence = sentences.get(i).trim();
+            if (sentence.isEmpty()) {
+                continue;
+            }
+
+            int candidateLength = overlap.isEmpty()
+                    ? sentence.length()
+                    : sentence.length() + 1 + overlap.length();
+            if (candidateLength > overlapSize) {
+                break;
+            }
+
+            if (!overlap.isEmpty()) {
+                overlap.insert(0, " ");
+            }
+            overlap.insert(0, sentence);
+        }
+
+        if (!overlap.isEmpty()) {
+            return overlap.toString().trim();
+        }
+
+        int start = findTailWordBoundaryStart(normalized, overlapSize);
+        return start < normalized.length() ? normalized.substring(start).trim() : "";
+    }
+
+    private List<String> splitSentences(String text) {
+        String normalized = text == null ? "" : text.trim();
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+
+        BreakIterator iterator = BreakIterator.getSentenceInstance(SENTENCE_LOCALE);
+        iterator.setText(normalized);
+
+        List<String> sentences = new ArrayList<>();
+        int start = iterator.first();
+        for (int end = iterator.next(); end != BreakIterator.DONE; start = end, end = iterator.next()) {
+            String sentence = normalized.substring(start, end).trim();
+            if (!sentence.isEmpty()) {
+                sentences.add(sentence);
+            }
+        }
+
+        return sentences.isEmpty() ? List.of(normalized) : sentences;
+    }
+
+    private int findBestSplitEnd(String text, int start, int maxEnd, int chunkSize) {
+        if (maxEnd >= text.length()) {
+            return text.length();
+        }
+
+        int minEnd = Math.min(maxEnd, start + Math.max(1, (int) Math.floor(chunkSize * MIN_SPLIT_RATIO)));
+
+        int sentenceEnd = findSentenceEndBefore(text, minEnd, maxEnd);
+        if (sentenceEnd > start) {
+            return sentenceEnd;
+        }
+
+        int newlineEnd = findWhitespaceEndBefore(text, minEnd, maxEnd, true);
+        if (newlineEnd > start) {
+            return newlineEnd;
+        }
+
+        int whitespaceEnd = findWhitespaceEndBefore(text, minEnd, maxEnd, false);
+        if (whitespaceEnd > start) {
+            return whitespaceEnd;
+        }
+
+        int anyWhitespaceEnd = findWhitespaceEndBefore(text, start + 1, maxEnd, false);
+        return anyWhitespaceEnd > start ? anyWhitespaceEnd : maxEnd;
+    }
+
+    private int findSentenceEndBefore(String text, int minEnd, int maxEnd) {
+        for (int i = maxEnd - 1; i >= minEnd; i--) {
+            if (isSentenceTerminator(text.charAt(i))
+                    && (i + 1 >= text.length() || Character.isWhitespace(text.charAt(i + 1)))) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
+    private int findWhitespaceEndBefore(String text, int minEnd, int maxEnd, boolean newlineOnly) {
+        for (int i = maxEnd - 1; i >= minEnd; i--) {
+            char c = text.charAt(i);
+            if (newlineOnly ? c == '\n' : Character.isWhitespace(c)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int resolveNextStartWithOverlap(String text, int chunkStart, int chunkEnd, int overlap) {
+        if (overlap <= 0) {
+            return skipLeadingWhitespace(text, chunkEnd);
+        }
+
+        int target = Math.max(chunkStart + 1, chunkEnd - overlap);
+
+        int sentenceStart = findSentenceStartAtOrAfter(text, target, chunkEnd);
+        if (sentenceStart > chunkStart && sentenceStart < chunkEnd) {
+            return skipLeadingWhitespace(text, sentenceStart);
+        }
+
+        int wordStart = findWordStartAtOrAfter(text, target, chunkEnd);
+        if (wordStart > chunkStart && wordStart < chunkEnd) {
+            return skipLeadingWhitespace(text, wordStart);
+        }
+
+        int previousWordStart = findWordStartBefore(text, target, chunkStart);
+        if (previousWordStart > chunkStart && previousWordStart < chunkEnd) {
+            return skipLeadingWhitespace(text, previousWordStart);
+        }
+
+        return skipLeadingWhitespace(text, chunkEnd);
+    }
+
+    private int findSentenceStartAtOrAfter(String text, int target, int endExclusive) {
+        for (int i = target; i < endExclusive - 1; i++) {
+            if (!isSentenceTerminator(text.charAt(i))) {
+                continue;
+            }
+
+            int next = i + 1;
+            while (next < endExclusive && Character.isWhitespace(text.charAt(next))) {
+                next++;
+            }
+            if (next < endExclusive) {
+                return next;
+            }
+        }
+        return -1;
+    }
+
+    private int findWordStartAtOrAfter(String text, int target, int endExclusive) {
+        for (int i = target; i < endExclusive - 1; i++) {
+            if (Character.isWhitespace(text.charAt(i))) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
+    private int findWordStartBefore(String text, int target, int startExclusive) {
+        for (int i = target - 1; i > startExclusive; i--) {
+            if (Character.isWhitespace(text.charAt(i))) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
+    private int findTailWordBoundaryStart(String text, int overlapSize) {
+        int target = Math.max(0, text.length() - overlapSize);
+
+        int forwardStart = findWordStartAtOrAfter(text, target, text.length());
+        if (forwardStart >= 0 && forwardStart < text.length()) {
+            return forwardStart;
+        }
+
+        int backwardStart = findWordStartBefore(text, target, 0);
+        if (backwardStart >= 0 && text.length() - backwardStart <= overlapSize + 40) {
+            return backwardStart;
+        }
+
+        return text.length();
+    }
+
+    private int skipLeadingWhitespace(String text, int start) {
+        int index = Math.max(0, start);
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private boolean isSentenceTerminator(char c) {
+        return SENTENCE_TERMINATORS.indexOf(c) >= 0;
     }
 
     private int resolveChunkSize(Integer requestedChunkSize) {

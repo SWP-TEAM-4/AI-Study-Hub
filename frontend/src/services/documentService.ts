@@ -472,7 +472,7 @@ export const documentService = {
 
   async getWorkspaceDocuments(
     page = 0,
-    size = 50,
+    size = 1000,
     keyword = "",
     filters: DocumentSearchFilters = {},
   ): Promise<ApiResponse<PaginatedResponse<DocumentDTO>>> {
