@@ -1,5 +1,6 @@
 package com.aistudyhub.module.marketplace.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.*;
 
 /**
@@ -11,5 +12,6 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class MarketplaceSubmitRequest {
+    @JsonAlias({"reviewNote", "submitNote"})
     private String note;
 }

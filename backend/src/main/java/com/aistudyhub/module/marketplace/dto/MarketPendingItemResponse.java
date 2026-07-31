@@ -19,6 +19,7 @@ public class MarketPendingItemResponse {
     // Có giá trị với DOCUMENT để màn kiểm duyệt mở file mà không cần gọi API khác.
     private String fileUrl;
     private String fileType;
+    private String submissionNote;
     private LocalDateTime submittedAt;
     private Long subjectId;
     private Long ownerId;
