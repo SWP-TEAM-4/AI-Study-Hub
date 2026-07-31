@@ -47,6 +47,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { FeedbackModal } from "../ui/FeedbackModal";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCapabilities } from "../../hooks/useCapabilities";
+import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 
 
 const nav = [
@@ -137,6 +138,7 @@ export function AppShell() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayInitials, setDisplayInitials] = useState("");
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const unreadNotificationCount = useUnreadNotificationCount();
 
   // Lấy user info từ zustand store
   const { user: authUser } = useAuthStore();
@@ -574,7 +576,11 @@ export function AppShell() {
                     <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
                     <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
                   </svg>
-                  <span className="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-[8px] font-black text-white flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-neutral-900">3</span>
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-[8px] font-black text-white flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-neutral-900">
+                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                    </span>
+                  )}
                 </button>
 
                 {/* Settings Icon - Sliders */}

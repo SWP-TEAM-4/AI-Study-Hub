@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 import { useAuthStore } from "../../store/useAuthStore";
 import { safeLocalStorage } from "../../utils/safeStorage";
+import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 
 export function MobileHeader() {
   const { scrollY } = useScroll();
@@ -15,6 +16,7 @@ export function MobileHeader() {
   const location = useLocation();
   const { open: openCommandPalette } = useCommandPalette();
   const { user: authUser } = useAuthStore();
+  const unreadNotificationCount = useUnreadNotificationCount();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayInitials, setDisplayInitials] = useState("");
@@ -121,7 +123,11 @@ export function MobileHeader() {
             className="size-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted active:scale-95 transition-all relative"
           >
             <Bell size={20} />
-            <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border border-background"></span>
+            {unreadNotificationCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-red-500 text-[9px] font-bold text-white rounded-full border border-background flex items-center justify-center">
+                {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+              </span>
+            )}
           </button>
 
           <button
