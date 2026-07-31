@@ -1,6 +1,8 @@
 package com.aistudyhub.module.document.controller;
 
 import com.aistudyhub.common.enums.MarketStatus;
+import com.aistudyhub.common.enums.DocumentModerationStatus;
+import com.aistudyhub.common.enums.DocumentViolationSeverity;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.Role;
 import com.aistudyhub.common.enums.Visibility;
@@ -147,6 +149,8 @@ class BE056Test {
                 .fileSize(2048L)
                 .cloudFilePath("documents/owner-notes.pdf")
                 .processingStatus(ProcessingStatus.SUCCESS)
+                .moderationStatus(DocumentModerationStatus.SAFE)
+                .violationSeverity(DocumentViolationSeverity.NONE)
                 .visibility(Visibility.PRIVATE)
                 .marketStatus(MarketStatus.NONE)
                 .downloadCount(0)
@@ -163,6 +167,8 @@ class BE056Test {
                 .fileSize(4096L)
                 .cloudFilePath("documents/marketplace-notes.pdf")
                 .processingStatus(ProcessingStatus.SUCCESS)
+                .moderationStatus(DocumentModerationStatus.SAFE)
+                .violationSeverity(DocumentViolationSeverity.NONE)
                 .visibility(Visibility.MARKETPLACE)
                 .marketStatus(MarketStatus.APPROVED)
                 .downloadCount(7)
@@ -190,11 +196,18 @@ class BE056Test {
                 new TextChunkingService.ChunkResult(1, secondChunk, 12, 2, "Validation", null)
         );
 
-        when(geminiChunkingService.chunkTextWithMetadata(eq(rawText), eq(800), eq(120)))
-                .thenReturn(new GeminiChunkingService.ChunkingOutcome(
+        when(geminiChunkingService.chunkTextWithSafetyReview(eq(rawText), eq(800), eq(120)))
+                .thenReturn(new GeminiChunkingService.ModeratedChunkingOutcome(
                         chunkResults,
                         GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC,
-                        "Gemini semantic chunking completed successfully"));
+                        "Gemini safety review and semantic chunking completed successfully",
+                        new GeminiChunkingService.SafetyReview(
+                                true,
+                                DocumentViolationSeverity.NONE,
+                                "NONE",
+                                0.01,
+                                "Safe educational software engineering notes.",
+                                List.of())));
         when(openAIEmbeddingService.generateBatchEmbeddings(eq(privateDocument.getId()),
                 eq(List.of(firstChunk, secondChunk))))
                 .thenReturn(Map.of(

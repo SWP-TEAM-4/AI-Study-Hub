@@ -14,17 +14,19 @@ import org.springframework.stereotype.Service;
 public class DocumentSafetyGuard {
 
     private final DocumentChunkRepository documentChunkRepository;
+    private final DocumentSafetyReviewService documentSafetyReviewService;
 
     public void assertDistributable(Document document) {
         if (document == null) {
             throw new AppException(ErrorCode.DOCUMENT_NOT_FOUND);
         }
-        if (document.getModerationStatus() == DocumentModerationStatus.BLOCKED) {
+        boolean safetyModerationEnabled = documentSafetyReviewService.isSafetyModerationEnabled();
+        if (safetyModerationEnabled && document.getModerationStatus() == DocumentModerationStatus.BLOCKED) {
             throw new AppException(ErrorCode.DOCUMENT_BLOCKED_BY_MODERATION,
                     resolveBlockedMessage(document));
         }
         if (document.getProcessingStatus() != ProcessingStatus.SUCCESS
-                || document.getModerationStatus() != DocumentModerationStatus.SAFE
+                || (safetyModerationEnabled && document.getModerationStatus() != DocumentModerationStatus.SAFE)
                 || documentChunkRepository.countByDocumentId(document.getId()) <= 0) {
             throw new AppException(ErrorCode.DOCUMENT_NOT_SAFE_FOR_DISTRIBUTION);
         }
@@ -34,8 +36,9 @@ public class DocumentSafetyGuard {
         if (document == null || document.getId() == null) {
             return false;
         }
+        boolean safetyModerationEnabled = documentSafetyReviewService.isSafetyModerationEnabled();
         return document.getProcessingStatus() == ProcessingStatus.SUCCESS
-                && document.getModerationStatus() == DocumentModerationStatus.SAFE
+                && (!safetyModerationEnabled || document.getModerationStatus() == DocumentModerationStatus.SAFE)
                 && documentChunkRepository.countByDocumentId(document.getId()) > 0;
     }
 

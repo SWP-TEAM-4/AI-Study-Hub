@@ -38,6 +38,7 @@ import {
   BellRing,
   CircleUserRound,
   ShieldCheck,
+  ShieldAlert,
   Flag,
   Trophy
 } from "lucide-react";
@@ -75,6 +76,7 @@ const adminNav = [
   { id: "marketplace", labelKey: "appShell.adminNav.marketplace", icon: BookMarked },
   { id: "badges", labelKey: "appShell.adminNav.badges", icon: Award },
   { id: "reputation", labelKey: "appShell.adminNav.reputation", icon: Trophy },
+  { id: "document-safety", labelKey: "appShell.adminNav.documentSafety", icon: ShieldAlert },
   { id: "system-configs", labelKey: "appShell.adminNav.systemConfigs", icon: Shield },
 ];
 

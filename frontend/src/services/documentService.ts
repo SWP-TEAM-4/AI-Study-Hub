@@ -28,6 +28,10 @@ export interface DocumentDTO {
   fileSize: number;
   visibility: "PRIVATE" | "PUBLIC_LINK" | "MARKETPLACE";
   marketStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  moderationStatus?: "PENDING" | "SAFE" | "BLOCKED" | "REVIEW_REQUIRED";
+  violationSeverity?: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  moderationNote?: string | null;
+  moderatedAt?: string | null;
   downloadCount: number;
   reviewCount: number;
   acceptPercentage: number;
@@ -88,6 +92,9 @@ export interface UpdateDocumentChunkRequest {
 export interface ProcessDocumentResponse {
   documentId: number;
   processingStatus: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
+  moderationStatus?: "PENDING" | "SAFE" | "BLOCKED" | "REVIEW_REQUIRED";
+  violationSeverity?: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  moderationNote?: string | null;
   chunkCount: number;
   chunks?: ChunkDTO[];
   message?: string;

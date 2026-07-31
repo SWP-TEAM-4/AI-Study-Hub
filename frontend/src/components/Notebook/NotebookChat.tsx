@@ -10,7 +10,7 @@ import remarkGfm from "remark-gfm";
 import { useNavigate } from "react-router-dom";
 import { Notify } from "notiflix";
 import {
-  ChatSessionDTO, MessageDTO, PracticeDraftDTO, PracticeImportRequest,
+  ChatSessionDTO, CitedSourceDTO, MessageDTO, PracticeDraftDTO, PracticeImportRequest,
   RelatedDeckDTO, RelatedQuizDTO, SendMessageRequest, chatService,
 } from "../../services/chatService";
 
@@ -24,7 +24,7 @@ interface NotebookChatProps {
   onBack?: () => void;
   onRenameClick?: () => void;
   onShareClick?: () => void;
-  onDocumentClick?: (doc: any) => void;
+  onDocumentClick?: (doc: any, source?: CitedSourceDTO) => void;
   onAttachDocumentClick?: () => void;
   onDetachDocument?: (documentId: number) => void;
   detachingDocumentId?: number | null;
@@ -423,6 +423,15 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
     setSelectedDocumentIds((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
   };
 
+  const openCitedSource = (source: CitedSourceDTO) => {
+    const document = documents.find((doc) => Number(doc.id) === Number(source.documentId));
+    if (!document) {
+      Notify.warning("Không tìm thấy tài liệu nguồn trong notebook này.");
+      return;
+    }
+    onDocumentClick?.(document, source);
+  };
+
   return (
     <div className={`grid grid-cols-1 ${compact ? "" : "lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_280px]"} gap-4 h-full min-h-0 bg-background p-3 md:p-4 overflow-hidden font-sans text-[15px]`}>
       <aside className={`${compact ? "hidden" : "hidden lg:flex"} flex-col gap-3 min-h-0`}>
@@ -571,11 +580,11 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
                             {message.citedSources.map((source, index) => (
                               <button
                                 key={`${source.documentId}-${index}`}
-                                onClick={() => onDocumentClick?.(documents.find((doc) => Number(doc.id) === source.documentId))}
+                                onClick={() => openCitedSource(source)}
                                 className="px-2.5 py-1 rounded-full bg-card border border-border text-[11px] font-semibold text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
                                 title={source.excerpt}
                               >
-                                <FileText size={11} className="inline mr-1" />{source.documentTitle}{source.sourcePage ? ` · tr.${source.sourcePage}` : ""}
+                                <FileText size={11} className="inline mr-1" />{source.documentTitle}{source.sourcePage ? ` · tr.${source.sourcePage}` : ""} · đoạn {source.chunkIndex + 1}
                               </button>
                             ))}
                           </div>
@@ -638,6 +647,9 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
               </button>
             )}
           </div>
+          <p className="mt-2 text-center text-[11px] leading-4 text-muted-foreground">
+            AI có thể mắc sai sót, hãy kiểm tra cẩn thận nha
+          </p>
         </footer>
       </main>
 

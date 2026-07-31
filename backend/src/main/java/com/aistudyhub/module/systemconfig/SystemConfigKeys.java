@@ -35,6 +35,7 @@ public final class SystemConfigKeys {
     public static final String COMMUNITY_REVIEWER_NOMINATION_LIMIT_PER_SUBJECT =
             "COMMUNITY_REVIEWER_NOMINATION_LIMIT_PER_SUBJECT";
     public static final String CONTENT_REPORT_DAILY_LIMIT = "CONTENT_REPORT_DAILY_LIMIT";
+    public static final String DOCUMENT_SAFETY_MODERATION_ENABLED = "DOCUMENT_SAFETY_MODERATION_ENABLED";
 
     public static final Set<String> PUBLIC_KEYS = Set.of(
             MAX_UPLOAD_FILE_SIZE_BYTES,
@@ -58,6 +59,10 @@ public final class SystemConfigKeys {
             CONTENT_REPORT_DAILY_LIMIT,
             REGISTRATION_VERIFICATION_EXPIRE_MINUTES,
             REGISTRATION_MAX_ACCOUNTS_PER_IP
+    );
+
+    public static final Set<String> BOOLEAN_KEYS = Set.of(
+            DOCUMENT_SAFETY_MODERATION_ENABLED
     );
 
     private SystemConfigKeys() {
