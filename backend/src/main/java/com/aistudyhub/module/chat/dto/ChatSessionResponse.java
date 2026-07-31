@@ -13,5 +13,10 @@ public class ChatSessionResponse {
     private Long notebookId;
     private Long userId;
     private String title;
+    private Boolean isPrivate;
+    private Boolean adminAccessAllowed;
+    private Boolean reportedToAdmin;
+    private String adminReportReason;
+    private LocalDateTime adminReportedAt;
     private LocalDateTime createdAt;
 }

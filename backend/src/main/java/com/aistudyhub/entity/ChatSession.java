@@ -35,6 +35,24 @@ public class ChatSession {
     @Column(length = 255)
     private String title;
 
+    @Column(name = "is_private", nullable = false)
+    @Builder.Default
+    private Boolean isPrivate = false;
+
+    @Column(name = "admin_access_allowed", nullable = false)
+    @Builder.Default
+    private Boolean adminAccessAllowed = false;
+
+    @Column(name = "reported_to_admin", nullable = false)
+    @Builder.Default
+    private Boolean reportedToAdmin = false;
+
+    @Column(name = "admin_report_reason", columnDefinition = "TEXT")
+    private String adminReportReason;
+
+    @Column(name = "admin_reported_at")
+    private LocalDateTime adminReportedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

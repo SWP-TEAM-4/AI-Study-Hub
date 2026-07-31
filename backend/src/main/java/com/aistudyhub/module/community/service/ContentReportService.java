@@ -496,10 +496,10 @@ public class ContentReportService {
         log.info("Content hidden: type={}, id={}, owner={}", type, targetId, contentOwner.getId());
 
         // Bước 3: Gửi thông báo cho chủ sở hữu nội dung
-        String notifyContent = "Your content \"" + contentTitle + "\" has been hidden due to community guidelines violation."
-                + (reason != null ? " Reason: " + reason : "");
+        String notifyContent = "Nội dung \"" + contentTitle + "\" đã bị admin ẩn do vi phạm hoặc cần kiểm tra lại."
+                + (reason != null ? " Lý do: " + reason : "");
         notificationService.createNotification(contentOwner.getId(),
-                "Content hidden", notifyContent);
+                "Nội dung của bạn đã bị ẩn", notifyContent);
 
         // Bước 4: Trả về thông tin chủ sở hữu
         return userService.getUserById(contentOwner.getId());
@@ -559,10 +559,10 @@ public class ContentReportService {
         log.info("Content restored: type={}, id={}, owner={}", type, targetId, contentOwner.getId());
 
         // Bước 3: Gửi thông báo cho chủ sở hữu nội dung
-        String notifyContent = "Your content \"" + contentTitle + "\" has been successfully restored."
-                + (reason != null ? " Reason: " + reason : "");
+        String notifyContent = "Nội dung \"" + contentTitle + "\" đã được admin khôi phục."
+                + (reason != null ? " Ghi chú: " + reason : "");
         notificationService.createNotification(contentOwner.getId(),
-                "Content restored", notifyContent);
+                "Nội dung của bạn đã được khôi phục", notifyContent);
 
         // Bước 4: Trả về thông tin chủ sở hữu
         return userService.getUserById(contentOwner.getId());
