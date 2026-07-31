@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, Pencil, Plus, X } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { SemesterDTO, SubjectDTO } from "../../services/academicService";
 import { NotebookDTO } from "../../services/notebookService";
 import { QuizDTO, QuizPayload } from "../../services/quizService";
@@ -21,8 +21,6 @@ interface QuizEditorModalProps {
   onSubmit: (payload: QuizPayload) => void | Promise<void>;
 }
 
-type VisibilityValue = NonNullable<QuizPayload["visibility"]>;
-
 interface QuizFormState {
   title: string;
   description: string;
@@ -30,7 +28,6 @@ interface QuizFormState {
   academicTermId: string;
   notebookId: string;
   examType: string;
-  visibility: VisibilityValue;
 }
 
 const emptyForm: QuizFormState = {
@@ -40,7 +37,6 @@ const emptyForm: QuizFormState = {
   academicTermId: "",
   notebookId: "",
   examType: "PRACTICE",
-  visibility: "PRIVATE",
 };
 
 function toFormState(quiz?: QuizDTO | null): QuizFormState {
@@ -53,7 +49,6 @@ function toFormState(quiz?: QuizDTO | null): QuizFormState {
     academicTermId: quiz.academicTermId ? String(quiz.academicTermId) : "",
     notebookId: quiz.notebookId ? String(quiz.notebookId) : "",
     examType: quiz.examType || "PRACTICE",
-    visibility: quiz.visibility || "PRIVATE",
   };
 }
 
@@ -107,17 +102,6 @@ export default function QuizEditorModal({
       : "Cập nhật thông tin phân loại mà không ảnh hưởng câu hỏi và lịch sử làm bài.";
 
   const Icon = mode === "create" ? Plus : Pencil;
-  const visibilityOptions = useMemo(() => {
-    const options = [
-      { label: "Riêng tư", value: "PRIVATE" },
-      { label: "Ai có liên kết cũng xem được", value: "PUBLIC_LINK" },
-    ];
-    if (form.visibility === "MARKETPLACE") {
-      options.push({ label: "Marketplace (quản lý tại Chợ)", value: "MARKETPLACE" });
-    }
-    return options;
-  }, [form.visibility]);
-
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedTitle = form.title.trim();
@@ -130,7 +114,6 @@ export default function QuizEditorModal({
       subjectId: optionalNumber(form.subjectId),
       academicTermId: optionalNumber(form.academicTermId),
       examType: form.examType || "PRACTICE",
-      visibility: form.visibility,
     });
   };
 
@@ -256,7 +239,7 @@ export default function QuizEditorModal({
                         </p>
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-4">
                         <div>
                           <span className={fieldLabelClass}>Loại bài</span>
                           <CustomSelect
@@ -269,20 +252,6 @@ export default function QuizEditorModal({
                               { label: "Cuối kỳ", value: "FINAL" },
                             ]}
                           />
-                        </div>
-                        <div>
-                          <span className={fieldLabelClass}>Quyền xem</span>
-                          {form.visibility === "MARKETPLACE" ? (
-                            <div className="flex h-11 items-center rounded-xl border border-border bg-muted/40 px-3.5 text-sm font-medium text-foreground">
-                              Marketplace · quản lý tại Chợ
-                            </div>
-                          ) : (
-                            <CustomSelect
-                              value={form.visibility}
-                              onChange={(value) => setForm((current) => ({ ...current, visibility: value as VisibilityValue }))}
-                              data={visibilityOptions}
-                            />
-                          )}
                         </div>
                       </div>
 

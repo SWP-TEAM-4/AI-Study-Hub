@@ -373,7 +373,6 @@ export default function QuizPage() {
           subjectId: values.subjectId,
           academicTermId: quiz.academicTermId,
           examType,
-          visibility: quiz.visibility || "PRIVATE",
         });
       }
 

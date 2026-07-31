@@ -201,7 +201,7 @@ export default function FlashcardsPage() {
   const [progressMap, setProgressMap] = useState<Record<number, FlashcardProgressDTO>>({});
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingDeck, setEditingDeck] = useState<FlashcardDeckDTO | null>(null);
-  const [deckForm, setDeckForm] = useState<FlashcardDeckPayload>({ title: "", visibility: "PRIVATE" });
+  const [deckForm, setDeckForm] = useState<FlashcardDeckPayload>({ title: "" });
   const [isSavingDeck, setIsSavingDeck] = useState(false);
   const { subjects, subjectMap, isLoading: isLoadingSubjects } = useSubjects();
   const [notebooks, setNotebooks] = useState<NotebookDTO[]>([]);
@@ -244,7 +244,7 @@ export default function FlashcardsPage() {
 
   const openCreateModal = () => {
     setEditingDeck(null);
-    setDeckForm({ title: "", visibility: "PRIVATE" });
+    setDeckForm({ title: "" });
     setIsEditorOpen(true);
   };
 
@@ -256,7 +256,6 @@ export default function FlashcardsPage() {
       title: deck.title,
       notebookId: deck.notebookId,
       subjectId: deck.subjectId,
-      visibility: deck.visibility,
     });
     setIsEditorOpen(true);
   };
@@ -314,7 +313,6 @@ export default function FlashcardsPage() {
           title: values.title,
           notebookId: publishDeck.notebookId,
           subjectId: values.subjectId,
-          visibility: publishDeck.visibility,
         });
       }
       await flashcardService.submitToMarketplace(publishDeck.id, values.reviewNote);
@@ -533,18 +531,6 @@ export default function FlashcardsPage() {
                     }))}
                   />
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Hiển thị</label>
-                  <select
-                    value={deckForm.visibility || "PRIVATE"}
-                    onChange={(e) => setDeckForm((prev: FlashcardDeckPayload) => ({ ...prev, visibility: e.target.value as FlashcardDeckPayload["visibility"] }))}
-                    className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border focus:border-primary outline-none text-sm"
-                  >
-                    <option value="PRIVATE">Riêng tư (PRIVATE)</option>
-                    <option value="PUBLIC_LINK">Chia sẻ qua link (PUBLIC_LINK)</option>
-                    <option value="MARKETPLACE">Cộng đồng (MARKETPLACE)</option>
-                  </select>
-                </div>
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
@@ -691,7 +677,18 @@ export default function FlashcardsPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.25 }}
-                  className="surface-card p-5 !overflow-visible flex h-full flex-col"
+                  onClick={() => handleViewDetail(deck)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleViewDetail(deck);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Xem chi tiết bộ flashcard ${deck.title}`}
+                  className="surface-card p-5 !overflow-visible flex h-full flex-col cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -718,6 +715,7 @@ export default function FlashcardsPage() {
                     <div className="relative group/menu shrink-0">
                       <button
                         aria-label="Mở menu thao tác"
+                        onClick={(event) => event.stopPropagation()}
                         className="grid size-11 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                       >
                         <MoreHorizontal size={16} />
@@ -794,13 +792,19 @@ export default function FlashcardsPage() {
                   </div>
                   <div className="mt-auto pt-5 grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => startStudy(deck.id, "all")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        startStudy(deck.id, "all");
+                      }}
                       className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
                     >
                       <Play size={15} fill="currentColor" /> Học nhanh
                     </button>
                     <button
-                      onClick={() => startStudy(deck.id, "due")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        startStudy(deck.id, "due");
+                      }}
                       className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/60"
                     >
                       <CalendarCheck size={15} /> Ôn đến hạn

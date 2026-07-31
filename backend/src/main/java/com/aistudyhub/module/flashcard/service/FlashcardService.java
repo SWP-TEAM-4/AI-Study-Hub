@@ -118,7 +118,7 @@ public class FlashcardService {
                 .notebook(notebook)
                 .subject(subject)
                 .title(request.getTitle().trim())
-                .visibility(request.getVisibility() != null ? request.getVisibility() : Visibility.PRIVATE)
+                .visibility(Visibility.PRIVATE)
                 .marketStatus(MarketStatus.NONE)
                 .downloadCount(0)
                 .reviewCount(0)
@@ -223,9 +223,6 @@ public class FlashcardService {
         deck.setTitle(requestedTitle);
         deck.setNotebook(notebook);
         deck.setSubject(subject);
-        if (request.getVisibility() != null) {
-            deck.setVisibility(request.getVisibility());
-        }
 
         deck = deckRepository.save(deck);
         log.info("Flashcard deck id={} updated by userId={}", deck.getId(), currentUserId);
