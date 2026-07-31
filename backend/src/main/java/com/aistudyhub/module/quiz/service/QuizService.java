@@ -108,7 +108,7 @@ public class QuizService {
                 .academicTerm(academicTerm)
                 .examType(request.getExamType())
                 .creator(currentUser)
-                .visibility(request.getVisibility() != null ? request.getVisibility() : Visibility.PRIVATE)
+                .visibility(Visibility.PRIVATE)
                 .marketStatus(MarketStatus.NONE)
                 .downloadCount(0)
                 .reviewCount(0)
@@ -208,9 +208,6 @@ public class QuizService {
         quiz.setSubject(subject);
         quiz.setAcademicTerm(academicTerm);
         quiz.setExamType(request.getExamType());
-        if (request.getVisibility() != null) {
-            quiz.setVisibility(request.getVisibility());
-        }
 
         quiz = quizRepository.save(quiz);
         log.info("Quiz id={} updated by userId={}", quiz.getId(), currentUserId);
