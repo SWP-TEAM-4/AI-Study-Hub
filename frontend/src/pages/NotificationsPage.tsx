@@ -5,6 +5,7 @@ import { Bell, CheckCheck, Search, Bot, Trophy, ShoppingBag, MessageCircle, Tras
 import { useMemo, useState, useEffect } from "react";
 import { notificationService, NotificationDTO } from "../services/notificationService";
 import { Notify } from "notiflix";
+import { publishUnreadNotificationCount } from "../hooks/useUnreadNotificationCount";
 
 const iconMap = {
   ai: { Icon: Bot, tint: "165" },
@@ -26,7 +27,10 @@ export default function NotificationsPage() {
     setIsLoading(true);
     try {
       const res = await notificationService.getMyNotifications({ page: 0, size: 50 });
-      if (res.success) setList(res.data.items);
+      if (res.success) {
+        setList(res.data.items);
+        publishUnreadNotificationCount(res.data.items.filter((notification) => !notification.isRead).length);
+      }
     } catch (e: any) {
       Notify.failure(e.message || "Lỗi tải thông báo");
     } finally {
@@ -45,6 +49,7 @@ export default function NotificationsPage() {
       const res = await notificationService.markAllAsRead();
       if (res.success) {
         setList((p) => p.map((n) => ({ ...n, isRead: true })));
+        publishUnreadNotificationCount(0);
         Notify.success("Đã đánh dấu đọc tất cả");
       }
     } catch (e: any) {
@@ -59,7 +64,13 @@ export default function NotificationsPage() {
     try {
       const res = await notificationService.markAsRead(id);
       if (res.success) {
-        setList((p) => p.map((x) => (x.id === id ? { ...x, isRead: true } : x)));
+        setList((previous) => {
+          const next = previous.map((notification) =>
+            notification.id === id ? { ...notification, isRead: true } : notification,
+          );
+          publishUnreadNotificationCount(next.filter((notification) => !notification.isRead).length);
+          return next;
+        });
       }
     } catch (e) {
       console.error(e);
@@ -71,7 +82,11 @@ export default function NotificationsPage() {
     try {
       const res = await notificationService.deleteNotification(id);
       if (res.success) {
-        setList((p) => p.filter(n => n.id !== id));
+        setList((previous) => {
+          const next = previous.filter((notification) => notification.id !== id);
+          publishUnreadNotificationCount(next.filter((notification) => !notification.isRead).length);
+          return next;
+        });
         Notify.success("Đã xóa thông báo");
       }
     } catch (e: any) {
