@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, BookOpen, Bot, Check, ChevronRight, CircleStop, FileText,
-  GraduationCap, Layers3, Loader2, MessageSquare, Plus, Send, Share2, Sparkles,
+  AlertTriangle, ArrowLeft, BookOpen, Bot, Check, ChevronRight, CircleStop, Eye, FileText,
+  GraduationCap, Layers3, Loader2, Lock, MessageSquare, Plus, Send, Share2, ShieldCheck, Sparkles,
   Trash2, X,
 } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
@@ -180,6 +180,10 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
   const currentMode = modeInfo[mode];
   const CurrentModeIcon = currentMode.icon;
   const draftMessages = useMemo(() => messages.filter((message) => message.practiceType), [messages]);
+  const activeSession = useMemo(
+    () => sessions.find((session) => session.id === activeSessionId) ?? null,
+    [activeSessionId, sessions],
+  );
 
   const loadRelated = async () => {
     const [quizResult, deckResult] = await Promise.allSettled([
@@ -261,6 +265,54 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
       if (activeSessionId === sessionId) setActiveSessionId(remaining[0]?.id ?? null);
       Notify.success("Đã xóa phiên chat");
     } catch (error: any) { Notify.failure(error?.message || "Không thể xóa phiên chat"); }
+  };
+
+  const applySessionUpdate = (updated: ChatSessionDTO) => {
+    setSessions((items) => items.map((item) => item.id === updated.id ? updated : item));
+  };
+
+  const updateActiveSessionAccess = async (payload: { isPrivate?: boolean; adminAccessAllowed?: boolean; adminReportReason?: string }) => {
+    if (!activeSessionId) {
+      Notify.warning("Hãy chọn một phiên chat trước.");
+      return;
+    }
+    try {
+      const response = await chatService.updateChatSessionAccess(activeSessionId, payload);
+      applySessionUpdate(response.data);
+      Notify.success("Đã cập nhật quyền phiên chat");
+    } catch (error: any) {
+      Notify.failure(error?.message || "Không thể cập nhật quyền phiên chat");
+    }
+  };
+
+  const toggleActiveSessionPrivate = () => {
+    if (!activeSession) return;
+    updateActiveSessionAccess({ isPrivate: !Boolean(activeSession.isPrivate) });
+  };
+
+  const toggleActiveSessionAdminAccess = () => {
+    if (!activeSession) return;
+    if (activeSession.isPrivate) {
+      Notify.warning("Phiên private chỉ cho admin xem khi bạn report phiên này.");
+      return;
+    }
+    updateActiveSessionAccess({ adminAccessAllowed: !Boolean(activeSession.adminAccessAllowed) });
+  };
+
+  const reportActiveSession = async () => {
+    if (!activeSessionId) {
+      Notify.warning("Hãy chọn một phiên chat trước.");
+      return;
+    }
+    const reason = window.prompt("Nhập ghi chú report phiên chat cho admin kiểm tra:");
+    if (!reason?.trim()) return;
+    try {
+      const response = await chatService.reportChatSession(activeSessionId, reason.trim());
+      applySessionUpdate(response.data);
+      Notify.success("Đã gửi report phiên chat tới admin");
+    } catch (error: any) {
+      Notify.failure(error?.message || "Không thể report phiên chat");
+    }
   };
 
   const buildRequest = (value: string, requestedMode: ChatMode): SendMessageRequest => {
@@ -464,10 +516,57 @@ const NotebookChat = forwardRef<NotebookChatRef, NotebookChatProps>(({
 
         <section className="surface-card rounded-2xl border border-border/60 p-4 flex-1 flex flex-col min-h-0 shadow-sm">
           <div className="flex items-center justify-between"><div><div className="text-[11px] uppercase tracking-[0.18em] font-bold text-primary">Phiên chat</div><h3 className="font-bold mt-1 text-base">Lịch sử</h3></div><button onClick={() => createSession()} className="h-9 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:brightness-110 transition-all"><Plus size={13} className="inline mr-1" />Mới</button></div>
+          {activeSession && (
+            <div className="mt-3 rounded-2xl border border-border/60 bg-muted/[0.18] p-3">
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={toggleActiveSessionPrivate}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-colors ${
+                    activeSession.isPrivate
+                      ? "border-amber-500/25 bg-amber-500/10 text-amber-700"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-primary"
+                  }`}
+                >
+                  <Lock size={12} />{activeSession.isPrivate ? "Private" : "Không private"}
+                </button>
+                <button
+                  onClick={toggleActiveSessionAdminAccess}
+                  disabled={Boolean(activeSession.isPrivate)}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                    activeSession.adminAccessAllowed && !activeSession.isPrivate
+                      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-primary"
+                  }`}
+                >
+                  <Eye size={12} />Admin xem
+                </button>
+                <button
+                  onClick={reportActiveSession}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-colors ${
+                    activeSession.reportedToAdmin
+                      ? "border-primary/25 bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-primary"
+                  }`}
+                >
+                  <AlertTriangle size={12} />{activeSession.reportedToAdmin ? "Đã report" : "Report"}
+                </button>
+              </div>
+              {activeSession.adminReportReason && (
+                <div className="mt-2 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                  Ghi chú: {activeSession.adminReportReason}
+                </div>
+              )}
+            </div>
+          )}
           <div className="mt-3 flex-1 overflow-y-auto custom-scrollbar space-y-2">
             {loadingSessions ? <div className="py-6 text-center text-sm text-muted-foreground">Đang tải...</div> : sessions.length === 0 ? <div className="py-6 text-center text-sm text-muted-foreground">Chưa có phiên chat.</div> : sessions.map((session) => (
               <button key={session.id} onClick={() => setActiveSessionId(session.id)} className={`w-full p-3.5 rounded-xl border text-left group transition-all ${activeSessionId === session.id ? "border-primary bg-primary/[0.05] shadow-sm" : "border-border/50 hover:border-primary/30 hover:bg-muted/20"}`}>
                 <div className="flex items-center gap-2"><div className="text-sm font-bold truncate flex-1">{session.title}</div><span onClick={(event) => { event.stopPropagation(); deleteSession(session.id); }} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"><Trash2 size={14} /></span></div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {session.isPrivate && <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-700"><Lock size={9} />Private</span>}
+                  {session.adminAccessAllowed && !session.isPrivate && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700"><ShieldCheck size={9} />Admin</span>}
+                  {session.reportedToAdmin && <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary"><AlertTriangle size={9} />Report</span>}
+                </div>
                 <div className="text-[11px] text-muted-foreground mt-1">{dateTime(session.createdAt)}</div>
               </button>
             ))}

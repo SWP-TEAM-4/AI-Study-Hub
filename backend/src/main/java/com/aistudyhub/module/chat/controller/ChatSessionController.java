@@ -5,6 +5,8 @@ import com.aistudyhub.common.response.PaginationResponse;
 import com.aistudyhub.module.chat.dto.ChatSessionResponse;
 import com.aistudyhub.module.chat.dto.CreateChatSessionRequest;
 import com.aistudyhub.module.chat.dto.DeleteChatSessionResponse;
+import com.aistudyhub.module.chat.dto.ReportChatSessionRequest;
+import com.aistudyhub.module.chat.dto.UpdateChatSessionAccessRequest;
 import com.aistudyhub.module.chat.service.ChatSessionService;
 import com.aistudyhub.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,6 +60,28 @@ public class ChatSessionController {
 
         ChatSessionResponse response = chatSessionService.getSession(sessionId, principal.getId());
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(summary = "Cập nhật quyền riêng tư và quyền admin preview cho chat session")
+    @PatchMapping("/api/chat-sessions/{sessionId}/access")
+    public ResponseEntity<ApiResponse<ChatSessionResponse>> updateSessionAccess(
+            @PathVariable Long sessionId,
+            @Valid @RequestBody UpdateChatSessionAccessRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        ChatSessionResponse response = chatSessionService.updateSessionAccess(sessionId, principal.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Chat session access updated successfully", response));
+    }
+
+    @Operation(summary = "User report chat session để admin được phép kiểm tra")
+    @PostMapping("/api/chat-sessions/{sessionId}/report")
+    public ResponseEntity<ApiResponse<ChatSessionResponse>> reportSession(
+            @PathVariable Long sessionId,
+            @Valid @RequestBody ReportChatSessionRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        ChatSessionResponse response = chatSessionService.reportSession(sessionId, principal.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Chat session reported successfully", response));
     }
 
     @Operation(summary = "Xóa chat session")

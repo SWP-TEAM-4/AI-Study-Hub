@@ -32,6 +32,7 @@ import {
   Compass,
   Library,
   FileStack,
+  FileSearch,
   Gamepad2,
   Layers,
   Globe2,
@@ -76,6 +77,7 @@ const adminNav = [
   { id: "marketplace", labelKey: "appShell.adminNav.marketplace", icon: BookMarked },
   { id: "badges", labelKey: "appShell.adminNav.badges", icon: Award },
   { id: "reputation", labelKey: "appShell.adminNav.reputation", icon: Trophy },
+  { id: "governance", labelKey: "appShell.adminNav.governance", icon: FileSearch },
   { id: "document-safety", labelKey: "appShell.adminNav.documentSafety", icon: ShieldAlert },
   { id: "system-configs", labelKey: "appShell.adminNav.systemConfigs", icon: Shield },
 ];

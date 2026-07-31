@@ -1,8 +1,10 @@
 import { safeLocalStorage } from "../utils/safeStorage";
 import { safeParseJson } from "../utils/safeParseJson";
 import { ApiResponse, PaginatedResponse } from "./types";
+import type { MessageDTO } from "./chatService";
 
-export type GovernanceTargetType = "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK";
+export type GovernanceTargetType = "DOCUMENT" | "QUIZ" | "FLASHCARD_DECK" | "CHAT_SESSION";
+export type AdminGovernanceTabKey = "documents" | "quizzes" | "flashcards" | "chat-sessions";
 
 export interface ReportDTO {
   id: number;
@@ -48,6 +50,78 @@ export interface ReviewDTO {
   reviewerAvatarUrl?: string | null;
   createdAt: string;
   authorName?: string;
+}
+
+export interface AdminGovernanceItemDTO {
+  targetType: GovernanceTargetType;
+  targetId: number;
+  title: string;
+  description?: string | null;
+  examType?: string | null;
+  ownerId?: number | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  subjectId?: number | null;
+  subjectCode?: string | null;
+  subjectName?: string | null;
+  notebookId?: number | null;
+  notebookTitle?: string | null;
+  visibility?: string | null;
+  marketStatus?: string | null;
+  processingStatus?: string | null;
+  moderationStatus?: string | null;
+  violationSeverity?: string | null;
+  fileType?: string | null;
+  fileSize?: number | null;
+  aiGenerated?: boolean;
+  itemCount?: number | null;
+  adminPreviewAllowed?: boolean;
+  accessReason?: string | null;
+  reportReason?: string | null;
+  reportedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface AdminGovernanceChunkDTO {
+  id: number;
+  documentId: number;
+  documentTitle?: string | null;
+  chunkIndex: number;
+  textContent: string;
+  tokenEstimate?: number | null;
+  sourcePage?: number | null;
+  sourceSection?: string | null;
+  vectorId?: string | null;
+}
+
+export interface AdminGovernanceOptionDTO {
+  id?: number;
+  optionText: string;
+  isCorrect?: boolean;
+}
+
+export interface AdminGovernanceQuestionDTO {
+  id?: number;
+  quizId?: number;
+  questionText: string;
+  questionType?: string;
+  explanation?: string | null;
+  options: AdminGovernanceOptionDTO[];
+}
+
+export interface AdminGovernanceFlashcardDTO {
+  id?: number;
+  deckId?: number;
+  frontText: string;
+  backText: string;
+}
+
+export interface AdminGovernancePreviewDTO extends AdminGovernanceItemDTO {
+  chunks?: AdminGovernanceChunkDTO[];
+  questions?: AdminGovernanceQuestionDTO[];
+  cards?: AdminGovernanceFlashcardDTO[];
+  messages?: MessageDTO[];
 }
 
 const BASE_URL = "/api";
@@ -200,6 +274,33 @@ export const governanceService = {
 
   deleteReview(id: number): Promise<ApiResponse<{ deleted: boolean }>> {
     return govRequest(`/community/reviews/${id}`, { method: "DELETE" });
+  },
+
+  getAdminGovernanceItems(
+    tab: AdminGovernanceTabKey,
+    page = 0,
+    size = 12,
+    keyword = "",
+  ): Promise<ApiResponse<PaginatedResponse<AdminGovernanceItemDTO>>> {
+    return govRequest(`/admin/governance/${tab}${toQuery({ page, size, keyword })}`, { method: "GET" });
+  },
+
+  getAdminGovernancePreview(
+    targetType: GovernanceTargetType,
+    targetId: number,
+  ): Promise<ApiResponse<AdminGovernancePreviewDTO>> {
+    return govRequest(`/admin/governance/${targetType}/${targetId}/preview`, { method: "GET" });
+  },
+
+  warnGovernanceOwner(
+    targetType: GovernanceTargetType,
+    targetId: number,
+    reason: string,
+  ): Promise<ApiResponse<AdminGovernanceItemDTO>> {
+    return govRequest(`/admin/governance/${targetType}/${targetId}/warn-owner`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
   },
 
   hideContent(targetType: string, targetId: number, reason: string): Promise<ApiResponse<any>> {

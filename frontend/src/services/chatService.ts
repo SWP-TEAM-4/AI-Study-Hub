@@ -21,6 +21,11 @@ export interface ChatSessionDTO {
   notebookId: number;
   userId: number;
   title: string;
+  isPrivate?: boolean;
+  adminAccessAllowed?: boolean;
+  reportedToAdmin?: boolean;
+  adminReportReason?: string | null;
+  adminReportedAt?: string | null;
   createdAt: string;
 }
 
@@ -169,6 +174,12 @@ export interface PracticeImportResponse {
 export interface RelatedQuizDTO { id: number; notebookId?: number | null; title: string; }
 export interface RelatedDeckDTO { id: number; notebookId?: number | null; title: string; cards?: unknown[]; }
 
+export interface UpdateChatSessionAccessPayload {
+  isPrivate?: boolean;
+  adminAccessAllowed?: boolean;
+  adminReportReason?: string;
+}
+
 const BASE_URL = "/api";
 
 async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -226,6 +237,12 @@ export const chatService = {
   },
   async createChatSession(notebookId: number, title: string): Promise<ApiResponse<ChatSessionDTO>> {
     return chatRequest(`/notebooks/${notebookId}/chat-sessions`, { method: "POST", body: JSON.stringify({ title }) });
+  },
+  async updateChatSessionAccess(sessionId: number, payload: UpdateChatSessionAccessPayload): Promise<ApiResponse<ChatSessionDTO>> {
+    return chatRequest(`/chat-sessions/${sessionId}/access`, { method: "PATCH", body: JSON.stringify(payload) });
+  },
+  async reportChatSession(sessionId: number, reason: string): Promise<ApiResponse<ChatSessionDTO>> {
+    return chatRequest(`/chat-sessions/${sessionId}/report`, { method: "POST", body: JSON.stringify({ reason }) });
   },
   async previewPracticeDraft(messageId: number): Promise<ApiResponse<PracticeDraftDTO>> {
     return chatRequest(`/chat-messages/${messageId}/practice-draft`, { method: "GET" });
