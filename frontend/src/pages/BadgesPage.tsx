@@ -200,10 +200,12 @@ export default function BadgesPage() {
         reputationService.getReputationLeaderboard("contributors", { page: 0, size: 1 }).catch(() => ({ data: { items: [], totalScore: 0, totalEvents: 0 } })),
         reputationService.getReputationLeaderboard("reviewers", { page: 0, size: 1 }).catch(() => ({ data: { items: [], totalScore: 0, totalEvents: 0 } })),
       ]);
+      const contributorData = contributors.data as { totalScore?: number; totalEvents?: number } | undefined;
+      const reviewerData = reviewers.data as { totalScore?: number; totalEvents?: number } | undefined;
       return {
-        contributorPoints: contributors.data?.totalScore ?? 0,
-        reviewerPoints: reviewers.data?.totalScore ?? 0,
-        totalEvents: (contributors.data?.totalEvents ?? 0) + (reviewers.data?.totalEvents ?? 0),
+        contributorPoints: contributorData?.totalScore ?? 0,
+        reviewerPoints: reviewerData?.totalScore ?? 0,
+        totalEvents: (contributorData?.totalEvents ?? 0) + (reviewerData?.totalEvents ?? 0),
       };
     },
   });

@@ -63,8 +63,8 @@ public class GeminiChunkingService {
                     "Input text is empty");
         }
         if (geminiConfig.getApiKey() == null || geminiConfig.getApiKey().isBlank()) {
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Missing GEMINI_API_KEY. Semantic chunking cannot run without Gemini credentials.");
+            return fallbackToLocal(rawText, requestedChunkSize, requestedOverlap,
+                    "Missing GEMINI_API_KEY. Using local heuristic chunking.");
         }
 
         int targetChunkSize = resolveChunkSize(requestedChunkSize);
@@ -115,25 +115,17 @@ public class GeminiChunkingService {
                     "Gemini semantic chunking completed successfully");
 
         } catch (AppException e) {
-            if (e.getErrorCode() == ErrorCode.GEMINI_CHUNKING_FAILED
-                    || e.getErrorCode() == ErrorCode.GEMINI_EMPTY_RESPONSE) {
+            if (shouldFallbackToLocal(e)) {
                 return fallbackToLocal(rawText, requestedChunkSize, requestedOverlap, e.getMessage());
             }
             throw e;
         } catch (WebClientResponseException.Unauthorized e) {
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Gemini authentication failed. Please verify GEMINI_API_KEY.");
+            return fallbackToLocal(rawText, requestedChunkSize, requestedOverlap,
+                    "Gemini authentication failed. Using local heuristic chunking.");
         } catch (WebClientResponseException e) {
-            if (e.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
-                throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
-                        "Gemini is currently rate-limited for document semantic chunking. Please wait a minute and try again.");
-            }
-            if (isRetryableGeminiFailure(e)) {
-                throw buildRetryExhaustedException("semantic chunking", e);
-            }
             log.error("Gemini API error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
             return fallbackToLocal(rawText, requestedChunkSize, requestedOverlap,
-                    "Gemini API error: " + e.getStatusCode());
+                    describeGeminiHttpFailure("semantic chunking", e));
         } catch (Exception e) {
             log.error("Gemini chunking failed", e);
             return fallbackToLocal(rawText, requestedChunkSize, requestedOverlap,
@@ -150,8 +142,8 @@ public class GeminiChunkingService {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
         }
         if (geminiConfig.getApiKey() == null || geminiConfig.getApiKey().isBlank()) {
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Missing GEMINI_API_KEY. Document safety review cannot run without Gemini credentials.");
+            return fallbackToLocalWithReview(rawText, requestedChunkSize, requestedOverlap,
+                    "Missing GEMINI_API_KEY. Document was chunked locally and needs admin safety review.");
         }
 
         int targetChunkSize = resolveChunkSize(requestedChunkSize);
@@ -216,25 +208,21 @@ public class GeminiChunkingService {
                     "Gemini safety review and semantic chunking completed successfully",
                     combinedReview);
         } catch (AppException e) {
+            if (shouldFallbackToLocal(e)) {
+                return fallbackToLocalWithReview(rawText, requestedChunkSize, requestedOverlap, e.getMessage());
+            }
             throw e;
         } catch (WebClientResponseException.Unauthorized e) {
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Gemini authentication failed. Please verify GEMINI_API_KEY.");
+            return fallbackToLocalWithReview(rawText, requestedChunkSize, requestedOverlap,
+                    "Gemini authentication failed. Document was chunked locally and needs admin safety review.");
         } catch (WebClientResponseException e) {
-            if (e.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
-                throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
-                        "Gemini is currently rate-limited for document safety review. Please wait a minute and try again.");
-            }
-            if (isRetryableGeminiFailure(e)) {
-                throw buildRetryExhaustedException("safety review", e);
-            }
             log.error("Gemini safety review API error: status={}, body={}",
                     e.getStatusCode(), e.getResponseBodyAsString());
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Gemini safety review failed: " + e.getStatusCode());
+            return fallbackToLocalWithReview(rawText, requestedChunkSize, requestedOverlap,
+                    describeGeminiHttpFailure("safety review", e));
         } catch (Exception e) {
             log.error("Gemini safety review failed", e);
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
+            return fallbackToLocalWithReview(rawText, requestedChunkSize, requestedOverlap,
                     "Gemini safety review failed: " + e.getMessage());
         }
     }
@@ -244,8 +232,8 @@ public class GeminiChunkingService {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
         }
         if (geminiConfig.getApiKey() == null || geminiConfig.getApiKey().isBlank()) {
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Missing GEMINI_API_KEY. Document safety review cannot run without Gemini credentials.");
+            return fallbackSafetyReview(
+                    "Missing GEMINI_API_KEY. Edited chunks need admin safety review.");
         }
 
         try {
@@ -273,26 +261,20 @@ public class GeminiChunkingService {
                     combinedReview.category());
             return combinedReview;
         } catch (AppException e) {
+            if (shouldFallbackToLocal(e)) {
+                return fallbackSafetyReview(e.getMessage());
+            }
             throw e;
         } catch (WebClientResponseException.Unauthorized e) {
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Gemini authentication failed. Please verify GEMINI_API_KEY.");
+            return fallbackSafetyReview(
+                    "Gemini authentication failed. Edited chunks need admin safety review.");
         } catch (WebClientResponseException e) {
-            if (e.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
-                throw new AppException(ErrorCode.GEMINI_RATE_LIMITED,
-                        "Gemini is currently rate-limited for document safety review. Please wait a minute and try again.");
-            }
-            if (isRetryableGeminiFailure(e)) {
-                throw buildRetryExhaustedException("edited chunks safety review", e);
-            }
             log.error("Gemini edited chunks safety review API error: status={}, body={}",
                     e.getStatusCode(), e.getResponseBodyAsString());
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Gemini safety review failed: " + e.getStatusCode());
+            return fallbackSafetyReview(describeGeminiHttpFailure("edited chunks safety review", e));
         } catch (Exception e) {
             log.error("Gemini edited chunks safety review failed", e);
-            throw new AppException(ErrorCode.GEMINI_CHUNKING_FAILED,
-                    "Gemini safety review failed: " + e.getMessage());
+            return fallbackSafetyReview("Gemini safety review failed: " + e.getMessage());
         }
     }
 
@@ -445,7 +427,7 @@ public class GeminiChunkingService {
 
     private Object buildSafetyReviewRequestBody(String rawText, int targetChunkSize, int overlap) {
         String prompt = """
-                You are a strict document safety moderation and RAG chunking engine for AI Study Hub,
+                You are a balanced document safety moderation and RAG chunking engine for AI Study Hub,
                 an educational platform used by students in Vietnam.
 
                 Your task has two parts:
@@ -464,6 +446,10 @@ public class GeminiChunkingService {
                   or bypass university systems.
                 - Do NOT flag neutral educational, historical, legal, medical, cybersecurity defensive,
                   or policy discussion content when it does not provide actionable illegal instructions.
+                - Do NOT flag isolated keywords without concrete harmful intent, operational steps,
+                  transactions, recruitment, or evasion guidance.
+                - For ordinary course notes, exam practice, policy summaries, and defensive technical
+                  learning material, prefer safe=true with severity=NONE or LOW.
                 - When uncertain, choose REVIEW_REQUIRED style reasoning by using safe=false with severity=MEDIUM
                   only if the risk is concrete; avoid overblocking ordinary academic material.
 
@@ -513,7 +499,7 @@ public class GeminiChunkingService {
 
     private Object buildSafetyOnlyReviewRequestBody(String rawText) {
         String prompt = """
-                You are a strict document safety moderation engine for AI Study Hub,
+                You are a balanced document safety moderation engine for AI Study Hub,
                 an educational platform used by students in Vietnam.
 
                 Review the provided already-chunked document text. Do not rewrite, summarize,
@@ -531,6 +517,10 @@ public class GeminiChunkingService {
                   or bypass university systems.
                 - Do NOT flag neutral educational, historical, legal, medical, cybersecurity defensive,
                   or policy discussion content when it does not provide actionable illegal instructions.
+                - Do NOT flag isolated keywords without concrete harmful intent, operational steps,
+                  transactions, recruitment, or evasion guidance.
+                - For ordinary course notes, exam practice, policy summaries, and defensive technical
+                  learning material, prefer safe=true with severity=NONE or LOW.
                 - When uncertain, choose safe=false with severity=MEDIUM only if the risk is concrete;
                   avoid overblocking ordinary academic material.
 
@@ -796,6 +786,27 @@ public class GeminiChunkingService {
         return value == null || value.isBlank() ? fallback : value.trim();
     }
 
+    private boolean shouldFallbackToLocal(AppException exception) {
+        return switch (exception.getErrorCode()) {
+            case GEMINI_CHUNKING_FAILED, GEMINI_EMPTY_RESPONSE, GEMINI_RATE_LIMITED, GEMINI_UNAVAILABLE -> true;
+            default -> false;
+        };
+    }
+
+    private String describeGeminiHttpFailure(String operation, WebClientResponseException exception) {
+        if (exception.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
+            String retryAfter = exception.getHeaders().getFirst(HttpHeaders.RETRY_AFTER);
+            String retryHint = retryAfter == null || retryAfter.isBlank()
+                    ? "no retry-after header"
+                    : "retry after " + retryAfter + " seconds";
+            return "Gemini " + operation + " is rate-limited (" + retryHint + ").";
+        }
+        if (isRetryableGeminiFailure(exception)) {
+            return "Gemini " + operation + " is temporarily unavailable: " + exception.getStatusCode();
+        }
+        return "Gemini " + operation + " API error: " + exception.getStatusCode();
+    }
+
     private ChunkingOutcome fallbackToLocal(
             String rawText,
             Integer requestedChunkSize,
@@ -810,6 +821,45 @@ public class GeminiChunkingService {
                 ChunkingStrategy.LOCAL_HEURISTIC_FALLBACK,
                 reason
         );
+    }
+
+    private ModeratedChunkingOutcome fallbackToLocalWithReview(
+            String rawText,
+            Integer requestedChunkSize,
+            Integer requestedOverlap,
+            String reason) {
+        List<TextChunkingService.ChunkResult> fallbackChunks =
+                fallbackChunkingService.chunkText(rawText, requestedChunkSize, requestedOverlap);
+        log.warn("Gemini safety review/chunking unavailable, switched to local heuristic chunking: {}", reason);
+        log.info("Local heuristic chunking created {} chunks as safety-review fallback", fallbackChunks.size());
+        return new ModeratedChunkingOutcome(
+                fallbackChunks,
+                ChunkingStrategy.LOCAL_HEURISTIC_FALLBACK,
+                reason,
+                fallbackSafetyReview(reason)
+        );
+    }
+
+    private SafetyReview fallbackSafetyReview(String reason) {
+        String compactReason = compactFallbackReason(reason);
+        log.warn("Gemini safety review unavailable, marking document for admin review: {}", compactReason);
+        return new SafetyReview(
+                false,
+                DocumentViolationSeverity.MEDIUM,
+                "GEMINI_REVIEW_UNAVAILABLE",
+                0.0,
+                "Gemini safety review unavailable; admin review is required. Cause: " + compactReason,
+                List.of("GEMINI_FALLBACK_REVIEW_REQUIRED")
+        );
+    }
+
+    private String compactFallbackReason(String reason) {
+        String normalized = normalizeModerationText(reason, "Gemini safety review unavailable.");
+        int maxLength = 240;
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLength - 3) + "...";
     }
 
     private record GeminiChunkDto(String textContent, Integer sourcePage, String sourceSection) {

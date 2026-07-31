@@ -451,10 +451,11 @@ export default function DocumentsPage() {
     if (files.length === 0) return;
     try {
       for (let i = 0; i < files.length; i++) {
-        const uploadedDoc = await uploadMutation.mutateAsync(files[i]);
+        const uploadResponse = await uploadMutation.mutateAsync(files[i]);
+        const uploadedDoc = uploadResponse.data;
         // Tự động gắn File vừa upload vào thư mục đang đứng hiện tại
-        if (uploadedDoc && (uploadedDoc as any).id) {
-          setFileFolderMap(prev => ({ ...prev, [(uploadedDoc as any).id]: currentFolderId }));
+        if (uploadedDoc?.id) {
+          setFileFolderMap(prev => ({ ...prev, [uploadedDoc.id]: currentFolderId }));
         }
       }
       Notify.success("Tải lên file thành công. Chờ chunking tự động!");

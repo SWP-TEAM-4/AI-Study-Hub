@@ -8,6 +8,7 @@
       "quiz": "Quiz",
       "flashcards": "Flashcards",
       "community": "Cộng đồng",
+      "badges": "Huy hiệu của tôi",
       "myReports": "Đơn từ của tôi",
       "notifications": "Thông báo",
       "profile": "Hồ sơ",
@@ -25,6 +26,7 @@
       "marketplace": "Chợ Nội Dung",
       "badges": "Huy hiệu",
       "reputation": "Điểm & Quota",
+      "documentSafety": "An toàn tài liệu",
       "systemConfigs": "Hệ thống"
     },
     "backToDashboard": "Về Dashboard",

@@ -8,6 +8,7 @@
       "quiz": "Quiz",
       "flashcards": "Flashcards",
       "community": "Community",
+      "badges": "My Badges",
       "myReports": "My Reports",
       "notifications": "Notifications",
       "profile": "Profile",
@@ -25,6 +26,7 @@
       "marketplace": "Marketplace",
       "badges": "Badges",
       "reputation": "Points & Quota",
+      "documentSafety": "Document Safety",
       "systemConfigs": "System"
     },
     "backToDashboard": "Back to Dashboard",
