@@ -82,6 +82,32 @@ public class SystemConfigService {
         return toResponse(saved);
     }
 
+    @Transactional
+    public SystemConfigResponse upsertValueByKey(String configKey,
+                                                 String configValue,
+                                                 String description,
+                                                 Long actorUserId) {
+        String normalizedKey = normalizeKey(configKey);
+        String normalizedValue = normalizeRequiredValue(configValue);
+        validateConfigValue(normalizedKey, normalizedValue);
+
+        SystemConfig config = systemConfigRepository.findByConfigKey(normalizedKey)
+                .orElseGet(() -> SystemConfig.builder()
+                        .configKey(normalizedKey)
+                        .build());
+
+        boolean isNew = config.getId() == null;
+        config.setConfigValue(normalizedValue);
+        config.setDescription(normalizeNullable(description));
+        config.setPublic(isPublicConfigKey(normalizedKey));
+
+        SystemConfig saved = systemConfigRepository.save(config);
+        log.info("{} system config id={} key={}",
+                isNew ? "Created" : "Updated", saved.getId(), saved.getConfigKey());
+        logConfigMutation(actorUserId, saved, isNew ? "CREATE" : "UPDATE");
+        return toResponse(saved);
+    }
+
     private void validateConfigValue(String key, String value) {
         if (SystemConfigKeys.MARKETPLACE_AUTO_APPROVE_MIN_REVIEWS.equals(key)) {
             try {
@@ -105,6 +131,8 @@ public class SystemConfigService {
                 throw new AppException(ErrorCode.VALIDATION_ERROR,
                         "MARKETPLACE_AUTO_APPROVE_ACCEPT_PERCENTAGE must be a valid integer");
             }
+        } else if (SystemConfigKeys.BOOLEAN_KEYS.contains(key)) {
+            validateBooleanValue(key, value);
         } else if (SystemConfigKeys.NON_NEGATIVE_INTEGER_KEYS.contains(key)) {
             validateNonNegativeInteger(key, value);
         }
@@ -138,6 +166,21 @@ public class SystemConfigService {
                 .map(value -> parseIntOrDefault(normalizedKey, value, defaultValue))
                 .orElseGet(() -> {
                     log.warn("System config key={} not found. Using default value={}", normalizedKey, defaultValue);
+                    return defaultValue;
+                });
+    }
+
+    @Transactional(readOnly = true)
+    public boolean getBooleanValueOrDefault(String configKey, boolean defaultValue) {
+        String normalizedKey = normalizeKey(configKey);
+        return systemConfigRepository.findByConfigKey(normalizedKey)
+                .map(SystemConfig::getConfigValue)
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .map(value -> parseBooleanOrDefault(normalizedKey, value, defaultValue))
+                .orElseGet(() -> {
+                    log.warn("System config key={} not found. Using default value={}",
+                            normalizedKey, defaultValue);
                     return defaultValue;
                 });
     }
@@ -212,6 +255,47 @@ public class SystemConfigService {
         } catch (NumberFormatException e) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, key + " must be a valid integer");
         }
+    }
+
+    private void validateBooleanValue(String key, String value) {
+        String normalizedValue = value.trim().toLowerCase(Locale.ROOT);
+        if (!isBooleanValue(normalizedValue)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    key + " must be a boolean value: true or false");
+        }
+    }
+
+    private boolean parseBooleanOrDefault(String key, String value, boolean defaultValue) {
+        String normalizedValue = value.trim().toLowerCase(Locale.ROOT);
+        if (isTruthyValue(normalizedValue)) {
+            return true;
+        }
+        if (isFalsyValue(normalizedValue)) {
+            return false;
+        }
+        log.warn("System config key={} has invalid boolean value='{}'. Using default value={}",
+                key, value, defaultValue);
+        return defaultValue;
+    }
+
+    private boolean isBooleanValue(String value) {
+        return isTruthyValue(value) || isFalsyValue(value);
+    }
+
+    private boolean isTruthyValue(String value) {
+        return "true".equals(value)
+                || "1".equals(value)
+                || "yes".equals(value)
+                || "on".equals(value)
+                || "enabled".equals(value);
+    }
+
+    private boolean isFalsyValue(String value) {
+        return "false".equals(value)
+                || "0".equals(value)
+                || "no".equals(value)
+                || "off".equals(value)
+                || "disabled".equals(value);
     }
 
     private SystemConfigResponse toResponse(SystemConfig config) {

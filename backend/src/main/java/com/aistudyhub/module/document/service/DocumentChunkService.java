@@ -3,6 +3,7 @@ package com.aistudyhub.module.document.service;
 import com.aistudyhub.common.enums.ProcessingStatus;
 import com.aistudyhub.common.enums.AiActionType;
 import com.aistudyhub.common.enums.DocumentModerationStatus;
+import com.aistudyhub.common.enums.DocumentSafetyReviewEventType;
 import com.aistudyhub.common.enums.DocumentViolationSeverity;
 import com.aistudyhub.common.enums.MarketStatus;
 import com.aistudyhub.common.enums.ReputationEventType;
@@ -74,8 +75,15 @@ public class DocumentChunkService {
     private final CommunityPermissionService communityPermissionService;
     private final ReputationService reputationService;
     private final NotificationService notificationService;
+    private final DocumentSafetyReviewService documentSafetyReviewService;
     private final PlatformTransactionManager transactionManager;
     private final ConcurrentMap<Long, ReentrantLock> processingLocks = new ConcurrentHashMap<>();
+
+    private enum DocumentSafetyDecision {
+        SAFE,
+        REVIEW_REQUIRED,
+        BLOCK
+    }
 
     // ── 1. Process document → chunks ─────────────────────────────────────────
 
@@ -231,8 +239,13 @@ public class DocumentChunkService {
         chunk.setVectorId(embeddingResult.vectorId());
 
         DocumentChunk savedChunk = documentChunkRepository.save(chunk);
-        invalidateDistributionAfterChunkMutation(document,
-                "Chunk đã được chỉnh sửa thủ công; tài liệu cần xử lý lại và kiểm duyệt an toàn trước khi chia sẻ.");
+        if (documentSafetyReviewService.isSafetyModerationEnabled()) {
+            invalidateDistributionAfterChunkMutation(document,
+                    "Chunk đã được chỉnh sửa thủ công; tài liệu cần xử lý lại và kiểm duyệt an toàn trước khi chia sẻ.");
+        } else {
+            markSafeAfterChunkMutation(document,
+                    "Chunk was edited while document safety moderation was disabled by admin.");
+        }
         safeLogAiUsage(userId, AiActionType.DOCUMENT_EMBEDDING, savedChunk.getTokenEstimate());
 
         log.info("Updated text and embedding for document {} chunk {}", documentId, chunkId);
@@ -419,9 +432,11 @@ public class DocumentChunkService {
         if (documentIds == null || documentIds.isEmpty()) {
             return List.of();
         }
+        boolean safetyModerationEnabled = documentSafetyReviewService.isSafetyModerationEnabled();
         Set<Long> safeIds = documentRepository.findAllById(documentIds).stream()
                 .filter(document -> document.getProcessingStatus() == ProcessingStatus.SUCCESS)
-                .filter(document -> document.getModerationStatus() == DocumentModerationStatus.SAFE)
+                .filter(document -> !safetyModerationEnabled
+                        || document.getModerationStatus() == DocumentModerationStatus.SAFE)
                 .map(Document::getId)
                 .collect(Collectors.toSet());
         return documentIds.stream()
@@ -547,7 +562,10 @@ public class DocumentChunkService {
         }
 
         String reviewText = buildExistingChunksReviewText(chunks);
-        GeminiChunkingService.SafetyReview safetyReview = geminiChunkingService.reviewTextSafety(reviewText);
+        boolean safetyModerationEnabled = documentSafetyReviewService.isSafetyModerationEnabled();
+        GeminiChunkingService.SafetyReview safetyReview = safetyModerationEnabled
+                ? geminiChunkingService.reviewTextSafety(reviewText)
+                : disabledSafetyReview();
         List<TextChunkingService.ChunkResult> chunkResults = chunks.stream()
                 .map(chunk -> new TextChunkingService.ChunkResult(
                         chunk.getChunkIndex(),
@@ -558,8 +576,17 @@ public class DocumentChunkService {
                         null))
                 .toList();
 
-        if (shouldBlockDocument(safetyReview)) {
+        DocumentSafetyDecision safetyDecision = resolveSafetyDecision(safetyReview);
+        if (safetyDecision == DocumentSafetyDecision.BLOCK) {
             applyModerationBlock(document, safetyReview);
+            documentSafetyReviewService.recordNotApproved(
+                    document,
+                    document.getUser().getId(),
+                    DocumentSafetyReviewEventType.EDITED_CHUNKS_REVIEW,
+                    safetyReview,
+                    DocumentModerationStatus.BLOCKED,
+                    buildModerationNote(safetyReview),
+                    reviewText);
             safeLogAiUsage(document.getUser().getId(), AiActionType.DOCUMENT_CHUNKING,
                     estimateDocumentChunkingTokens(reviewText, chunkResults));
 
@@ -576,33 +603,52 @@ public class DocumentChunkService {
                     .build();
         }
 
-        document.setProcessingStatus(ProcessingStatus.SUCCESS);
-        document.setModerationStatus(DocumentModerationStatus.SAFE);
-        document.setViolationSeverity(resolveSeverity(safetyReview));
-        document.setModerationNote(buildModerationNote(safetyReview));
-        document.setModeratedAt(LocalDateTime.now());
-        document.setAiVerdictNote("Gemini safety review passed for edited chunks: "
-                + buildModerationNote(safetyReview));
-        documentRepository.save(document);
-
         List<DocumentChunkResponse> responses = chunks.stream()
                 .map(chunk -> toResponse(chunk, document.getTitle()))
                 .toList();
-        safeLogAiUsage(document.getUser().getId(), AiActionType.DOCUMENT_CHUNKING,
-                estimateDocumentChunkingTokens(reviewText, chunkResults));
+        String moderationNote = buildModerationNote(safetyReview);
+        if (safetyDecision == DocumentSafetyDecision.REVIEW_REQUIRED) {
+            applyModerationReviewRequired(document, safetyReview,
+                    "Edited chunks require admin safety review before distribution.");
+            documentSafetyReviewService.recordNotApproved(
+                    document,
+                    document.getUser().getId(),
+                    DocumentSafetyReviewEventType.EDITED_CHUNKS_REVIEW,
+                    safetyReview,
+                    DocumentModerationStatus.REVIEW_REQUIRED,
+                    moderationNote,
+                    reviewText);
+        } else {
+            document.setProcessingStatus(ProcessingStatus.SUCCESS);
+            document.setModerationStatus(DocumentModerationStatus.SAFE);
+            document.setViolationSeverity(resolveSeverity(safetyReview));
+            document.setModerationNote(moderationNote);
+            document.setModeratedAt(LocalDateTime.now());
+            document.setAiVerdictNote((safetyModerationEnabled
+                    ? "Gemini safety review passed for edited chunks: "
+                    : "Document safety moderation is disabled by admin: ") + moderationNote);
+            documentRepository.save(document);
+        }
 
-        log.info("Document {} edited chunks safety review passed without re-chunking: {} chunks preserved",
-                documentId, responses.size());
+        if (safetyModerationEnabled) {
+            safeLogAiUsage(document.getUser().getId(), AiActionType.DOCUMENT_CHUNKING,
+                    estimateDocumentChunkingTokens(reviewText, chunkResults));
+        }
+
+        log.info("Document {} edited chunks safety review completed with decision={} and {} chunks preserved",
+                documentId, safetyDecision, responses.size());
 
         return DocumentProcessResponse.builder()
                 .documentId(documentId)
                 .processingStatus(ProcessingStatus.SUCCESS.name())
-                .moderationStatus(DocumentModerationStatus.SAFE.name())
+                .moderationStatus(document.getModerationStatus().name())
                 .violationSeverity(resolveSeverity(safetyReview).name())
-                .moderationNote(buildModerationNote(safetyReview))
+                .moderationNote(document.getModerationNote())
                 .chunkCount(responses.size())
                 .chunks(responses)
-                .message("Edited chunks safety review passed. Manual chunk edits were preserved.")
+                .message(safetyDecision == DocumentSafetyDecision.REVIEW_REQUIRED
+                        ? "Edited chunks require admin safety review. Manual chunk edits were preserved."
+                        : "Edited chunks safety review passed. Manual chunk edits were preserved.")
                 .build();
     }
 
@@ -628,16 +674,43 @@ public class DocumentChunkService {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
         }
 
-        GeminiChunkingService.ModeratedChunkingOutcome chunkingOutcome = geminiChunkingService.chunkTextWithSafetyReview(
-                rawText,
-                request != null ? request.getChunkSize() : null,
-                request != null ? request.getOverlap() : null);
-        List<TextChunkingService.ChunkResult> chunkResults = chunkingOutcome.chunks();
-        GeminiChunkingService.SafetyReview safetyReview = chunkingOutcome.safetyReview();
+        boolean safetyModerationEnabled = documentSafetyReviewService.isSafetyModerationEnabled();
+        List<TextChunkingService.ChunkResult> chunkResults;
+        GeminiChunkingService.SafetyReview safetyReview;
+        GeminiChunkingService.ChunkingStrategy chunkingStrategy;
 
-        if (shouldBlockDocument(safetyReview)) {
+        if (safetyModerationEnabled) {
+            GeminiChunkingService.ModeratedChunkingOutcome chunkingOutcome =
+                    geminiChunkingService.chunkTextWithSafetyReview(
+                            rawText,
+                            request != null ? request.getChunkSize() : null,
+                            request != null ? request.getOverlap() : null);
+            chunkResults = chunkingOutcome.chunks();
+            safetyReview = chunkingOutcome.safetyReview();
+            chunkingStrategy = chunkingOutcome.strategy();
+        } else {
+            GeminiChunkingService.ChunkingOutcome chunkingOutcome =
+                    geminiChunkingService.chunkTextWithMetadata(
+                            rawText,
+                            request != null ? request.getChunkSize() : null,
+                            request != null ? request.getOverlap() : null);
+            chunkResults = chunkingOutcome.chunks();
+            safetyReview = disabledSafetyReview();
+            chunkingStrategy = chunkingOutcome.strategy();
+        }
+
+        DocumentSafetyDecision safetyDecision = resolveSafetyDecision(safetyReview);
+        if (safetyDecision == DocumentSafetyDecision.BLOCK) {
             applyModerationBlock(document, safetyReview);
-            logDocumentAiUsage(document.getUser().getId(), rawText, chunkingOutcome.strategy(), chunkResults, false);
+            documentSafetyReviewService.recordNotApproved(
+                    document,
+                    document.getUser().getId(),
+                    DocumentSafetyReviewEventType.PROCESS_CHUNKING,
+                    safetyReview,
+                    DocumentModerationStatus.BLOCKED,
+                    buildModerationNote(safetyReview),
+                    rawText);
+            logDocumentAiUsage(document.getUser().getId(), rawText, chunkingStrategy, chunkResults, false);
 
             return DocumentProcessResponse.builder()
                     .documentId(documentId)
@@ -653,7 +726,7 @@ public class DocumentChunkService {
 
         if (chunkResults.isEmpty()) {
             throw new AppException(ErrorCode.DOCUMENT_EMPTY_CONTENT,
-                    "Gemini safety review produced no chunks");
+                    "Document processing produced no chunks");
         }
 
         Map<Integer, OpenAIEmbeddingService.EmbeddingResult> embeddingResults =
@@ -683,42 +756,62 @@ public class DocumentChunkService {
                 .toList();
 
         List<DocumentChunk> savedChunks = documentChunkRepository.saveAll(chunks);
-        document.setProcessingStatus(ProcessingStatus.SUCCESS);
-        document.setModerationStatus(DocumentModerationStatus.SAFE);
-        document.setViolationSeverity(resolveSeverity(safetyReview));
-        document.setModerationNote(buildModerationNote(safetyReview));
-        document.setModeratedAt(LocalDateTime.now());
-        document.setAiVerdictNote("Gemini safety review passed: " + buildModerationNote(safetyReview));
-        documentRepository.save(document);
+        String moderationNote = buildModerationNote(safetyReview);
+        if (safetyDecision == DocumentSafetyDecision.REVIEW_REQUIRED) {
+            applyModerationReviewRequired(document, safetyReview,
+                    "Document requires admin safety review before distribution.");
+            documentSafetyReviewService.recordNotApproved(
+                    document,
+                    document.getUser().getId(),
+                    DocumentSafetyReviewEventType.PROCESS_CHUNKING,
+                    safetyReview,
+                    DocumentModerationStatus.REVIEW_REQUIRED,
+                    moderationNote,
+                    rawText);
+        } else {
+            document.setProcessingStatus(ProcessingStatus.SUCCESS);
+            document.setModerationStatus(DocumentModerationStatus.SAFE);
+            document.setViolationSeverity(resolveSeverity(safetyReview));
+            document.setModerationNote(moderationNote);
+            document.setModeratedAt(LocalDateTime.now());
+            document.setAiVerdictNote((safetyModerationEnabled
+                    ? "Gemini safety review passed: "
+                    : "Document safety moderation is disabled by admin: ") + moderationNote);
+            documentRepository.save(document);
+        }
 
         List<DocumentChunkResponse> responses = savedChunks.stream()
                 .map(chunk -> toResponse(chunk, document.getTitle()))
                 .toList();
 
-        logDocumentAiUsage(document.getUser().getId(), rawText, chunkingOutcome.strategy(), chunkResults, true);
+        logDocumentAiUsage(document.getUser().getId(), rawText, chunkingStrategy, chunkResults, true);
 
-        log.info("Document {} processed safely with {} + OpenAI embeddings: {} chunks created",
+        log.info("Document {} processed with safety decision={} using {} + OpenAI embeddings: {} chunks created",
                 documentId,
-                chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
-                        ? "Gemini safety review and semantic chunking"
+                safetyDecision,
+                chunkingStrategy == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
+                        ? (safetyModerationEnabled ? "Gemini safety review and semantic chunking" : "Gemini semantic chunking")
                         : "local heuristic chunking fallback",
                 responses.size());
 
         return DocumentProcessResponse.builder()
                 .documentId(documentId)
                 .processingStatus(ProcessingStatus.SUCCESS.name())
-                .moderationStatus(DocumentModerationStatus.SAFE.name())
+                .moderationStatus(document.getModerationStatus().name())
                 .violationSeverity(resolveSeverity(safetyReview).name())
-                .moderationNote(buildModerationNote(safetyReview))
+                .moderationNote(document.getModerationNote())
                 .chunkCount(responses.size())
                 .chunks(responses)
                 .message("Processed with "
-                        + (chunkingOutcome.strategy() == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
-                        ? "Gemini safety review and semantic chunking"
+                        + (chunkingStrategy == GeminiChunkingService.ChunkingStrategy.GEMINI_SEMANTIC
+                        ? (safetyModerationEnabled ? "Gemini safety review and semantic chunking" : "Gemini semantic chunking")
                         : "local heuristic chunking fallback")
                         + " and OpenAI embeddings: "
                         + responses.size()
-                        + " chunks")
+                        + " chunks"
+                        + (safetyDecision == DocumentSafetyDecision.REVIEW_REQUIRED
+                        ? ". Awaiting admin safety review before distribution."
+                        : ""))
                 .build();
     }
 
@@ -733,10 +826,54 @@ public class DocumentChunkService {
         disableShareLink(document.getId());
     }
 
-    private boolean shouldBlockDocument(GeminiChunkingService.SafetyReview safetyReview) {
-        return safetyReview == null
-                || !safetyReview.safe()
-                || severityAtLeast(resolveSeverity(safetyReview), DocumentViolationSeverity.MEDIUM);
+    private void markSafeAfterChunkMutation(Document document, String reason) {
+        document.setProcessingStatus(ProcessingStatus.SUCCESS);
+        document.setModerationStatus(DocumentModerationStatus.SAFE);
+        document.setViolationSeverity(DocumentViolationSeverity.NONE);
+        document.setModerationNote(reason);
+        document.setModeratedAt(LocalDateTime.now());
+        document.setAiVerdictNote(reason);
+    }
+
+    private DocumentSafetyDecision resolveSafetyDecision(GeminiChunkingService.SafetyReview safetyReview) {
+        if (safetyReview == null) {
+            return DocumentSafetyDecision.REVIEW_REQUIRED;
+        }
+        DocumentViolationSeverity severity = resolveSeverity(safetyReview);
+        if (severityAtLeast(severity, DocumentViolationSeverity.HIGH)) {
+            return DocumentSafetyDecision.BLOCK;
+        }
+        if (!safetyReview.safe() || severity == DocumentViolationSeverity.MEDIUM) {
+            return DocumentSafetyDecision.REVIEW_REQUIRED;
+        }
+        return DocumentSafetyDecision.SAFE;
+    }
+
+    private GeminiChunkingService.SafetyReview disabledSafetyReview() {
+        return new GeminiChunkingService.SafetyReview(
+                true,
+                DocumentViolationSeverity.NONE,
+                "DISABLED",
+                0.0,
+                "Document safety moderation is disabled by admin.",
+                List.of("SAFETY_MODERATION_DISABLED"));
+    }
+
+    private void applyModerationReviewRequired(Document document,
+                                               GeminiChunkingService.SafetyReview safetyReview,
+                                               String prefix) {
+        String moderationNote = normalizeReason(prefix, "Document requires admin safety review.")
+                + " " + buildModerationNote(safetyReview);
+        document.setProcessingStatus(ProcessingStatus.SUCCESS);
+        document.setModerationStatus(DocumentModerationStatus.REVIEW_REQUIRED);
+        document.setViolationSeverity(resolveSeverity(safetyReview));
+        document.setModerationNote(moderationNote);
+        document.setModeratedAt(LocalDateTime.now());
+        document.setVisibility(Visibility.PRIVATE);
+        document.setMarketStatus(MarketStatus.NONE);
+        document.setAiVerdictNote("Gemini safety review requires admin decision: " + moderationNote);
+        disableShareLink(document.getId());
+        documentRepository.save(document);
     }
 
     private void applyModerationBlock(Document document, GeminiChunkingService.SafetyReview safetyReview) {
@@ -745,7 +882,6 @@ public class DocumentChunkService {
 
         documentChunkRepository.deleteByDocumentId(document.getId());
         disableShareLink(document.getId());
-        deleteStoredFile(document);
 
         document.setProcessingStatus(ProcessingStatus.FAILED);
         document.setModerationStatus(DocumentModerationStatus.BLOCKED);
@@ -757,8 +893,6 @@ public class DocumentChunkService {
         document.setAiVerdictNote("Gemini safety review blocked this document: " + moderationNote);
         documentRepository.save(document);
 
-        applyModerationPenalty(document, moderationNote);
-        banOwnerIfCritical(document, severity, moderationNote);
         notifyModerationBlocked(document, severity, moderationNote);
 
         log.warn("Document {} blocked by Gemini safety review. severity={}, note={}",

@@ -25,7 +25,7 @@ export function useDocuments(params: { keyword?: string; filters?: DocumentSearc
   });
 }
 
-// ─── UPLOAD DOCUMENT + CHUNKING ──────────────────────────────────────────────
+// ─── UPLOAD DOCUMENT + BACKGROUND CHUNKING ───────────────────────────────────
 export function useUploadDocument(callbacks?: { onSuccess?: (doc: DocumentDTO) => void }) {
   const queryClient = useQueryClient();
 
@@ -39,24 +39,16 @@ export function useUploadDocument(callbacks?: { onSuccess?: (doc: DocumentDTO) =
       // Hiển thị document ở trạng thái PENDING/PROCESSING ngay trong danh sách.
       await queryClient.invalidateQueries({ queryKey: documentKeys.all });
 
-      const processRes = await documentService.processDocumentChunks(uploadRes.data.id, {
-        chunkSize: 800,
-        overlap: 120,
-      });
-      if (!processRes.success) {
-        throw new Error(processRes.message || "Upload thành công nhưng xử lý chunk thất bại");
-      }
-
       return uploadRes;
     },
     onSuccess: (res) => {
       if (res.success && res.data) {
-        Notify.success("Tải lên và xử lý AI chunks thành công!");
+        Notify.success("Tải lên thành công. AI đang xử lý chunks tự động.");
         callbacks?.onSuccess?.(res.data);
       }
     },
     onError: (e: any) => {
-      Notify.failure("Tải lên/xử lý thất bại: " + (e.message || "Unknown error"));
+      Notify.failure("Tải lên thất bại: " + (e.message || "Unknown error"));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all });
