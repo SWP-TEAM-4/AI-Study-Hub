@@ -24,16 +24,6 @@ Repo hiện có 2 ứng dụng chính:
 | Backend | `backend/` | Spring Boot REST API, JWT security, business modules, RAG, marketplace, reputation, admin |
 | Tài liệu phân tích | Root repo | API contract, ERD Mermaid, task plan backend, main flow, reward/badge analysis |
 
-Các file tham chiếu quan trọng:
-
-| File | Nội dung |
-|---|---|
-| `Full-Task-Project-BE-Ver3.md` | Task plan backend theo epic BE-001 đến BE-056 |
-| `MAIN_FLOW_OVERVIEW.md` | Product flow end-to-end, reputation, quota AI, leaderboard, nomination |
-| `[Update V1]Cơ-chế-trao-danh-hiệu-và-điểm-thưởng.md` | Phân tích badge, reward, referral, leaderboard |
-| `ERD-Final-Ver1.mmd` | ERD Mermaid cho schema chính |
-| `ai_study_hub_mock_openapi_contract.json` | OpenAPI contract dạng JSON |
-| `ai_study_hub_full_api_contract.html` | API contract dạng HTML |
 
 ## Problem & Solution
 
