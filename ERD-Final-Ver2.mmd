@@ -1,0 +1,711 @@
+%%{init: {"theme": "neutral", "er": {"useMaxWidth": false}}}%%
+%% ============================================================================
+%% AI STUDY HUB - ERD FINAL VER2
+%% ============================================================================
+%% Nguồn sự thật: 32 Flyway migrations V1 -> V32
+%% Thư mục: backend/src/main/resources/db/migration
+%% Trạng thái schema: sau khi áp dụng thành công V32
+%% Tổng số: 45 bảng
+%%
+%% PHÂN NHÓM NGHIỆP VỤ
+%%  1. Academic master data: semesters, combos, subjects, combo_subjects
+%%  2. Users & auth: users, password_resets, registration_verifications
+%%  3. System & audit: notifications, system_feedbacks, system_configs,
+%%     activity_logs, ai_usage_logs
+%%  4. Rewards & community roles: badges, user_badges, community_roles,
+%%     reward_rules, reputation_events, ai_quota_tiers,
+%%     community_role_nominations, referrals
+%%  5. Learning workspace: notebooks, chat_sessions, chat_messages
+%%  6. Documents & RAG: tags, documents, notebook_documents, document_chunks,
+%%     document_tags, document_share_links, document_safety_reviews
+%%  7. Quiz & tests: quizzes, quiz_questions, quiz_options, tests,
+%%     user_quiz_progress, user_quiz_progress_selected_options
+%%  8. Flashcards: flashcard_decks, flashcards, user_flashcard_progress
+%%  9. Marketplace & governance: market_reviews, content_reports,
+%%     community_comments, subject_review_policies, marketplace_submissions,
+%%     marketplace_clone_receipts
+%%
+%% DẤU VẾT 32 MIGRATION
+%%  V1  : tạo 30 bảng lõi và các FK/index ban đầu.
+%%  V2  : chỉ seed dữ liệu; không đổi cấu trúc.
+%%  V3-4: mở rộng document_chunks cho RAG và embedding.
+%%  V5-6: admin note/status feedback; public system config.
+%%  V7-8: AI practice trong chat_messages; bảo đảm cột is_public.
+%%  V9-10: submit_note và self-FK cloned_from_id cho 3 loại tài nguyên.
+%%  V11-13: ai_usage_logs; chuẩn hóa config/status dữ liệu.
+%%  V14-17: share link, activity log, xử lý report, community comment.
+%%  V18-19: policy/submission marketplace; analytics AI usage.
+%%  V20-22: referral, soft-delete câu hỏi, chọn nhiều đáp án.
+%%  V23-24: clone receipt cho document/quiz/flashcard deck.
+%%  V25-26: reputation/reward/quota/nomination và giới hạn report.
+%%  V27-28: xác minh email đăng ký và giới hạn theo IP.
+%%  V29-30: moderation trạng thái tài liệu và safety review queue.
+%%  V31-32: governance chat session; documents.file_url đổi sang TEXT.
+%%
+%% QUY ƯỚC
+%%  PK = primary key; FK = foreign key vật lý; UK = unique key đơn.
+%%  UQ(a,b) trong comment = unique key ghép; nullable = cột cho phép NULL.
+%%  Các quan hệ bên dưới chỉ là FK vật lý trong PostgreSQL/Flyway.
+%%
+%% THAM CHIẾU ĐA HÌNH KHÔNG CÓ FK VẬT LÝ
+%%  - activity_logs(target_type, target_id)
+%%  - chat_messages(imported_target_type, imported_target_id)
+%%  - community_roles(scope_type, scope_id)
+%%  - marketplace_submissions(target_type, target_id)
+%%  - marketplace_clone_receipts(target_type, source_id, cloned_resource_id)
+%%  - reputation_events(target_type, target_id, source_type, source_id)
+%%  Chúng có thể trỏ đến DOCUMENT / QUIZ / FLASHCARD_DECK hoặc đối tượng nghiệp
+%%  vụ khác tùy cột type; không được hiểu nhầm là FK database.
+%%
+%% RÀNG BUỘC NGHIỆP VỤ QUAN TRỌNG
+%%  - market_reviews: num_nonnulls(document_id, quiz_id, flashcard_deck_id) = 1
+%%    (constraint NOT VALID duoc them tai V18).
+%%  - content_reports: cung phai co dung mot trong ba target tren (NOT VALID).
+%%  - marketplace_submissions: UQ(target_type, target_id, submission_round).
+%%  - marketplace_clone_receipts: UQ(user_id, target_type, source_id), target_type
+%%    chỉ nhận DOCUMENT, QUIZ, FLASHCARD_DECK.
+%%  - referrals: mỗi owner_user_id có tối đa một dòng; status ACTIVE/APPLIED.
+%%  - quiz_questions.deleted_at là soft-delete; selected_option_id cũ vẫn được giữ
+%%    để tương thích, bảng selected_options hỗ trợ chọn nhiều đáp án từ V22.
+%%  - documents.file_url có kiểu TEXT sau V32 (không còn VARCHAR(500)).
+%% ============================================================================
+
+erDiagram
+    semesters {
+        BIGSERIAL id PK
+        VARCHAR_50 code UK
+        VARCHAR_255 name
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    combos {
+        BIGSERIAL id PK
+        VARCHAR_50 code UK
+        VARCHAR_255 name
+        TEXT description "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    subjects {
+        BIGSERIAL id PK
+        VARCHAR_50 code UK
+        VARCHAR_255 name
+        INT standard_semester_number "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    combo_subjects {
+        BIGSERIAL id PK
+        BIGINT combo_id FK "UQ(combo_id, subject_id); ON DELETE CASCADE"
+        BIGINT subject_id FK "UQ(combo_id, subject_id); ON DELETE CASCADE"
+    }
+
+    users {
+        BIGSERIAL id PK
+        VARCHAR_255 google_id "nullable"
+        VARCHAR_50 type "nullable"
+        VARCHAR_255 email UK
+        VARCHAR_255 password_hash "nullable"
+        VARCHAR_255 full_name
+        VARCHAR_500 avatar_url "nullable"
+        BIGINT current_semester_id FK "nullable; ON DELETE SET NULL"
+        BIGINT combo_id FK "nullable; ON DELETE SET NULL"
+        VARCHAR_50 role "default STUDENT"
+        INT reputation_points "default 0"
+        BOOLEAN is_active "default TRUE"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+        BOOLEAN email_verified "default TRUE"
+        VARCHAR_45 registration_ip "nullable"
+    }
+
+    password_resets {
+        BIGSERIAL id PK
+        BIGINT user_id FK "ON DELETE CASCADE"
+        VARCHAR_255 reset_token UK
+        TIMESTAMP expired_at
+    }
+
+    registration_verifications {
+        BIGSERIAL id PK
+        BIGINT user_id FK, UK "ON DELETE CASCADE"
+        VARCHAR_255 verification_code
+        TIMESTAMP expired_at
+        TIMESTAMP verified_at "nullable"
+        INT attempt_count "default 0"
+        TIMESTAMP last_sent_at "default CURRENT_TIMESTAMP"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+    }
+
+    notifications {
+        BIGSERIAL id PK
+        BIGINT user_id FK "ON DELETE CASCADE"
+        VARCHAR_255 title
+        TEXT content "nullable"
+        BOOLEAN is_read "default FALSE"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    system_feedbacks {
+        BIGSERIAL id PK
+        BIGINT user_id FK "nullable; ON DELETE SET NULL"
+        VARCHAR_255 title
+        TEXT content "nullable"
+        VARCHAR_500 screen_url "nullable"
+        VARCHAR_50 status "default OPEN; nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TEXT admin_note "nullable"
+    }
+
+    system_configs {
+        BIGSERIAL id PK
+        VARCHAR_100 config_key UK
+        TEXT config_value "nullable"
+        VARCHAR_500 description "nullable"
+        BOOLEAN is_public "default FALSE"
+    }
+
+    activity_logs {
+        BIGSERIAL id PK
+        BIGINT actor_user_id FK
+        VARCHAR_100 action
+        VARCHAR_100 target_type
+        BIGINT target_id "nullable; logical reference"
+        JSONB metadata "nullable"
+        TEXT search_text "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+    }
+
+    ai_usage_logs {
+        BIGSERIAL id PK
+        BIGINT user_id FK "ON DELETE CASCADE"
+        VARCHAR_50 action_type
+        INT token_count "nullable"
+        DECIMAL_12_6 estimated_cost "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    badges {
+        BIGSERIAL id PK
+        VARCHAR_100 name
+        TEXT description "nullable"
+        VARCHAR_500 icon_url "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    user_badges {
+        BIGSERIAL id PK
+        BIGINT user_id FK "UQ(user_id, badge_id); ON DELETE CASCADE"
+        BIGINT badge_id FK "UQ(user_id, badge_id)"
+        TIMESTAMP earned_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    community_roles {
+        BIGSERIAL id PK
+        BIGINT user_id FK "ON DELETE CASCADE"
+        BIGINT granted_by_user_id FK "nullable"
+        VARCHAR_100 role_type
+        VARCHAR_100 scope_type "nullable"
+        BIGINT scope_id "nullable; logical reference"
+        TIMESTAMP start_at "nullable"
+        TIMESTAMP end_at "nullable"
+        VARCHAR_50 status "default ACTIVE"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    reward_rules {
+        BIGSERIAL id PK
+        VARCHAR_80 event_type UK
+        INT points_delta "default 0"
+        BOOLEAN enabled "default TRUE"
+        INT max_events_per_user_per_period "nullable"
+        INT threshold_value "nullable"
+        INT min_rating "nullable"
+        INT max_rating "nullable"
+        TEXT description "nullable"
+        BIGINT updated_by_id FK "nullable; ON DELETE SET NULL"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP"
+    }
+
+    reputation_events {
+        BIGSERIAL id PK
+        BIGINT user_id FK "ON DELETE CASCADE"
+        BIGINT subject_id FK "nullable; ON DELETE SET NULL"
+        VARCHAR_80 event_type
+        VARCHAR_40 target_type "nullable"
+        BIGINT target_id "nullable; logical reference"
+        VARCHAR_80 source_type "nullable"
+        BIGINT source_id "nullable; logical reference"
+        INT points_delta
+        TEXT reason "nullable"
+        VARCHAR_255 idempotency_key UK
+        VARCHAR_7 period_key
+        BIGINT created_by_id FK "nullable; ON DELETE SET NULL"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+    }
+
+    ai_quota_tiers {
+        BIGSERIAL id PK
+        VARCHAR_120 name UK
+        INT min_reputation_points UK
+        INT daily_chat_limit
+        INT monthly_chat_limit
+        INT daily_summary_limit
+        INT monthly_summary_limit
+        INT daily_generation_limit
+        INT monthly_generation_limit
+        BOOLEAN enabled "default TRUE"
+        BIGINT updated_by_id FK "nullable; ON DELETE SET NULL"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP"
+    }
+
+    community_role_nominations {
+        BIGSERIAL id PK
+        BIGINT user_id FK "UQ(user, role, scope, scope_id, period); ON DELETE CASCADE"
+        BIGINT subject_id FK "nullable; ON DELETE CASCADE"
+        VARCHAR_60 nomination_type
+        VARCHAR_100 role_type "UQ(user, role, scope, scope_id, period)"
+        VARCHAR_100 scope_type "UQ(user, role, scope, scope_id, period)"
+        BIGINT scope_id "nullable; UQ(user, role, scope, scope_id, period)"
+        VARCHAR_7 period_key "UQ(user, role, scope, scope_id, period)"
+        INT score "default 0"
+        VARCHAR_50 status "default PENDING"
+        TEXT reason "nullable"
+        TIMESTAMP effective_start_at "nullable"
+        TIMESTAMP effective_end_at "nullable"
+        BIGINT reviewed_by_id FK "nullable; ON DELETE SET NULL"
+        TIMESTAMP reviewed_at "nullable"
+        TEXT review_note "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP"
+    }
+
+    referrals {
+        BIGSERIAL id PK
+        BIGINT owner_user_id FK, UK "ON DELETE CASCADE"
+        VARCHAR_50 code UK
+        BIGINT applied_referral_id FK "nullable; self-reference; ON DELETE SET NULL"
+        BIGINT applied_by_user_id FK "nullable; ON DELETE SET NULL"
+        VARCHAR_50 status "default ACTIVE; CHECK ACTIVE or APPLIED"
+        INT reward_points "default 0"
+        TIMESTAMP applied_at "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    notebooks {
+        BIGSERIAL id PK
+        BIGINT user_id FK "ON DELETE CASCADE"
+        BIGINT subject_id FK
+        VARCHAR_255 title
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    chat_sessions {
+        BIGSERIAL id PK
+        BIGINT notebook_id FK "ON DELETE CASCADE"
+        BIGINT user_id FK "ON DELETE CASCADE"
+        VARCHAR_255 title "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        BOOLEAN is_private "default FALSE"
+        BOOLEAN admin_access_allowed "default FALSE"
+        BOOLEAN reported_to_admin "default FALSE"
+        TEXT admin_report_reason "nullable"
+        TIMESTAMP admin_reported_at "nullable"
+    }
+
+    chat_messages {
+        BIGSERIAL id PK
+        BIGINT session_id FK "ON DELETE CASCADE"
+        INT message_sequence
+        VARCHAR_50 sender_role
+        TEXT content
+        TEXT cited_sources "nullable; JSON text"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        VARCHAR_50 message_type "default TEXT"
+        VARCHAR_30 practice_type "nullable"
+        JSONB generated_payload "nullable"
+        JSONB validation_errors "nullable"
+        VARCHAR_30 practice_status "default NONE"
+        VARCHAR_30 imported_target_type "nullable"
+        BIGINT imported_target_id "nullable; logical reference"
+        TIMESTAMP imported_at "nullable"
+    }
+
+    tags {
+        BIGSERIAL id PK
+        VARCHAR_100 name UK
+        VARCHAR_50 type "nullable"
+        VARCHAR_20 color "nullable"
+    }
+
+    documents {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        BIGINT subject_id FK "nullable"
+        VARCHAR_255 title
+        TEXT description "nullable"
+        TEXT file_url "nullable; changed by V32"
+        VARCHAR_500 cloud_file_path "nullable"
+        VARCHAR_50 file_type "nullable"
+        BIGINT file_size "nullable"
+        VARCHAR_50 visibility "default PRIVATE"
+        VARCHAR_50 market_status "default NONE"
+        INT download_count "default 0"
+        INT review_count "default 0"
+        DECIMAL_5_2 accept_percentage "default 0"
+        TEXT ai_verdict_note "nullable"
+        VARCHAR_50 processing_status "default PENDING"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+        TEXT submit_note "nullable"
+        BIGINT cloned_from_id FK "nullable; self-reference; ON DELETE SET NULL"
+        INT community_review_count "default 0"
+        DECIMAL_3_2 community_rating_avg "default 0"
+        VARCHAR_50 moderation_status "default PENDING"
+        VARCHAR_50 violation_severity "default NONE"
+        TEXT moderation_note "nullable"
+        TIMESTAMP moderated_at "nullable"
+    }
+
+    notebook_documents {
+        BIGSERIAL id PK
+        BIGINT notebook_id FK "UQ(notebook_id, document_id); ON DELETE CASCADE"
+        BIGINT document_id FK "UQ(notebook_id, document_id); ON DELETE CASCADE"
+    }
+
+    document_chunks {
+        BIGSERIAL id PK
+        BIGINT document_id FK "UQ(document_id, chunk_index); ON DELETE CASCADE"
+        INT chunk_index "UQ(document_id, chunk_index)"
+        TEXT text_content
+        VARCHAR_255 vector_id "nullable"
+        INT token_estimate "nullable"
+        INT source_page "nullable"
+        VARCHAR_255 source_section "nullable"
+        TEXT embedding_vector "nullable"
+        VARCHAR_100 embedding_model "nullable"
+    }
+
+    document_tags {
+        BIGSERIAL id PK
+        BIGINT document_id FK "UQ(document_id, tag_id); ON DELETE CASCADE"
+        BIGINT tag_id FK "UQ(document_id, tag_id)"
+    }
+
+    document_share_links {
+        BIGSERIAL id PK
+        BIGINT document_id FK, UK "ON DELETE CASCADE"
+        BIGINT owner_user_id FK
+        VARCHAR_100 share_token UK
+        BOOLEAN is_enabled "default TRUE"
+        BOOLEAN allow_preview "default TRUE"
+        BOOLEAN allow_download "default TRUE"
+        TIMESTAMP expires_at "nullable"
+        INT access_count "default 0"
+        TIMESTAMP last_accessed_at "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP"
+    }
+
+    document_safety_reviews {
+        BIGSERIAL id PK
+        BIGINT document_id FK "nullable; ON DELETE SET NULL"
+        BIGINT owner_user_id FK "nullable; ON DELETE SET NULL"
+        BIGINT triggered_by_user_id FK "nullable; ON DELETE SET NULL"
+        BIGINT reviewer_user_id FK "nullable; ON DELETE SET NULL"
+        VARCHAR_50 event_type
+        VARCHAR_50 review_status "default PENDING"
+        VARCHAR_50 document_moderation_status
+        VARCHAR_50 violation_severity "default NONE"
+        VARCHAR_100 category "nullable"
+        DECIMAL_5_4 confidence "nullable"
+        TEXT policy_flags "nullable"
+        TEXT reason "nullable"
+        TEXT moderation_note "nullable"
+        TEXT text_excerpt "nullable"
+        TEXT reviewed_note "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+        TIMESTAMP reviewed_at "nullable"
+    }
+
+    quizzes {
+        BIGSERIAL id PK
+        BIGINT notebook_id FK "nullable; ON DELETE SET NULL"
+        BIGINT subject_id FK "nullable"
+        BIGINT creator_id FK
+        VARCHAR_255 title
+        TEXT description "nullable"
+        BIGINT academic_term_id FK "nullable"
+        VARCHAR_100 exam_type "nullable"
+        VARCHAR_50 visibility "default PRIVATE"
+        VARCHAR_50 market_status "default NONE"
+        INT download_count "default 0"
+        INT review_count "default 0"
+        DECIMAL_5_2 accept_percentage "default 0"
+        TEXT ai_verdict_note "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+        TEXT submit_note "nullable"
+        BIGINT cloned_from_id FK "nullable; self-reference; ON DELETE SET NULL"
+        INT community_review_count "default 0"
+        DECIMAL_3_2 community_rating_avg "default 0"
+    }
+
+    quiz_questions {
+        BIGSERIAL id PK
+        BIGINT quiz_id FK "ON DELETE CASCADE"
+        TEXT question_text
+        VARCHAR_50 question_type
+        TEXT explanation "nullable"
+        TIMESTAMP deleted_at "nullable; soft-delete"
+    }
+
+    quiz_options {
+        BIGSERIAL id PK
+        BIGINT question_id FK "ON DELETE CASCADE"
+        TEXT option_text
+        BOOLEAN is_correct "default FALSE"
+    }
+
+    tests {
+        BIGSERIAL id PK
+        BIGINT quiz_id FK
+        BIGINT user_id FK
+        VARCHAR_255 title "nullable"
+        DECIMAL_5_2 total_score "nullable"
+        INT duration "nullable"
+        VARCHAR_50 status "default IN_PROGRESS"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    user_quiz_progress {
+        BIGSERIAL id PK
+        BIGINT test_id FK "UQ(test_id, question_id); ON DELETE CASCADE"
+        BIGINT question_id FK "UQ(test_id, question_id)"
+        BIGINT selected_option_id FK "nullable; legacy single selection"
+        TEXT user_answer_text "nullable"
+        BOOLEAN is_correct "nullable"
+        TIMESTAMP answered_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    user_quiz_progress_selected_options {
+        BIGINT progress_id PK, FK "ON DELETE CASCADE"
+        BIGINT option_id PK, FK
+    }
+
+    flashcard_decks {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        BIGINT notebook_id FK "nullable; ON DELETE SET NULL"
+        BIGINT subject_id FK "nullable"
+        VARCHAR_255 title
+        VARCHAR_50 visibility "default PRIVATE"
+        VARCHAR_50 market_status "default NONE"
+        INT download_count "default 0"
+        INT review_count "default 0"
+        DECIMAL_5_2 accept_percentage "default 0"
+        TEXT ai_verdict_note "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+        TEXT submit_note "nullable"
+        BIGINT cloned_from_id FK "nullable; self-reference; ON DELETE SET NULL"
+        INT community_review_count "default 0"
+        DECIMAL_3_2 community_rating_avg "default 0"
+    }
+
+    flashcards {
+        BIGSERIAL id PK
+        BIGINT deck_id FK "ON DELETE CASCADE"
+        TEXT front_text
+        TEXT back_text
+    }
+
+    user_flashcard_progress {
+        BIGSERIAL id PK
+        BIGINT user_id FK "UQ(user_id, flashcard_id); ON DELETE CASCADE"
+        BIGINT flashcard_id FK "UQ(user_id, flashcard_id); ON DELETE CASCADE"
+        INT box_level "default 1"
+        TIMESTAMP last_reviewed "nullable"
+    }
+
+    market_reviews {
+        BIGSERIAL id PK
+        BIGINT reviewer_id FK
+        BIGINT document_id FK "nullable; exactly one target; ON DELETE CASCADE"
+        BIGINT quiz_id FK "nullable; exactly one target; ON DELETE CASCADE"
+        BIGINT flashcard_deck_id FK "nullable; exactly one target; ON DELETE CASCADE"
+        VARCHAR_50 vote_result "nullable"
+        INT rating "nullable"
+        TEXT review_note "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        BIGINT submission_id FK "nullable; UQ with reviewer; ON DELETE CASCADE"
+    }
+
+    content_reports {
+        BIGSERIAL id PK
+        BIGINT reporter_id FK
+        BIGINT document_id FK "nullable; exactly one target"
+        BIGINT quiz_id FK "nullable; exactly one target"
+        BIGINT flashcard_deck_id FK "nullable; exactly one target"
+        VARCHAR_100 reason_type
+        TEXT report_details "nullable"
+        VARCHAR_50 severity_level "default LOW; nullable"
+        VARCHAR_50 status "default PENDING_ADMIN"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TEXT admin_note "nullable"
+        BIGINT resolved_by_id FK "nullable"
+    }
+
+    community_comments {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        BIGINT document_id FK "nullable"
+        BIGINT parent_comment_id FK "nullable; self-reference"
+        TEXT content
+        BOOLEAN hidden "default FALSE"
+        BOOLEAN deleted "default FALSE"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    subject_review_policies {
+        BIGSERIAL id PK
+        BIGINT subject_id FK, UK "ON DELETE CASCADE"
+        VARCHAR_30 policy_mode "default SINGLE_REVIEWER"
+        INT required_votes "default 1; CHECK >= 1"
+        INT approval_percentage "default 100; CHECK 1..100"
+        BOOLEAN enabled "default TRUE"
+        BIGINT updated_by_id FK "nullable"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP; nullable"
+    }
+
+    marketplace_submissions {
+        BIGSERIAL id PK
+        VARCHAR_30 target_type "UQ(type, target, round)"
+        BIGINT target_id "UQ(type, target, round); logical reference"
+        BIGINT subject_id FK "ON DELETE CASCADE"
+        BIGINT owner_id FK
+        INT submission_round "UQ(type, target, round)"
+        VARCHAR_30 status "default PENDING"
+        VARCHAR_30 policy_mode_snapshot
+        INT required_votes_snapshot
+        INT approval_percentage_snapshot
+        TEXT submit_note "nullable"
+        TIMESTAMP submitted_at "default CURRENT_TIMESTAMP; nullable"
+        TIMESTAMP decided_at "nullable"
+        BIGINT decided_by_id FK "nullable"
+        BIGINT version "default 0"
+    }
+
+    marketplace_clone_receipts {
+        BIGSERIAL id PK
+        BIGINT user_id FK "UQ(user_id, target_type, source_id); ON DELETE CASCADE"
+        VARCHAR_30 target_type "UQ(user_id, target_type, source_id); CHECK 3 types"
+        BIGINT source_id "UQ(user_id, target_type, source_id); logical reference"
+        BIGINT cloned_resource_id "nullable; logical reference"
+        TIMESTAMP created_at "default CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "default CURRENT_TIMESTAMP"
+    }
+
+    combos ||--o{ combo_subjects : contains
+    subjects ||--o{ combo_subjects : belongs_to
+    semesters o|--o{ users : current_semester
+    combos o|--o{ users : chosen_combo
+
+    users ||--o{ password_resets : requests
+    users ||--o| registration_verifications : verifies
+    users ||--o{ notifications : receives
+    users o|--o{ system_feedbacks : submits
+    users ||--o{ activity_logs : acts
+    users ||--o{ ai_usage_logs : consumes_AI
+
+    users ||--o{ user_badges : earns
+    badges ||--o{ user_badges : awarded_as
+    users ||--o{ community_roles : holds
+    users o|--o{ community_roles : grants
+    users o|--o{ reward_rules : updates
+    users ||--o{ reputation_events : receives
+    subjects o|--o{ reputation_events : scoped_to
+    users o|--o{ reputation_events : creates
+    users o|--o{ ai_quota_tiers : updates
+    users ||--o{ community_role_nominations : nominated_user
+    subjects o|--o{ community_role_nominations : subject_scope
+    users o|--o{ community_role_nominations : reviews
+    users ||--o| referrals : owns
+    users o|--o{ referrals : applies_code
+    referrals o|--o{ referrals : applied_referral
+
+    users ||--o{ notebooks : owns
+    subjects ||--o{ notebooks : organizes
+    notebooks ||--o{ chat_sessions : contains
+    users ||--o{ chat_sessions : owns
+    chat_sessions ||--o{ chat_messages : contains
+
+    users ||--o{ documents : uploads
+    subjects o|--o{ documents : classifies
+    documents o|--o{ documents : cloned_from
+    notebooks ||--o{ notebook_documents : includes
+    documents ||--o{ notebook_documents : attached_as
+    documents ||--o{ document_chunks : split_into
+    documents ||--o{ document_tags : tagged_with
+    tags ||--o{ document_tags : labels
+    documents ||--o| document_share_links : shares_via
+    users ||--o{ document_share_links : owns
+    documents o|--o{ document_safety_reviews : reviewed_document
+    users o|--o{ document_safety_reviews : document_owner
+    users o|--o{ document_safety_reviews : triggers
+    users o|--o{ document_safety_reviews : safety_reviewer
+
+    notebooks o|--o{ quizzes : contains
+    subjects o|--o{ quizzes : classifies
+    users ||--o{ quizzes : creates
+    semesters o|--o{ quizzes : academic_term
+    quizzes o|--o{ quizzes : cloned_from
+    quizzes ||--o{ quiz_questions : contains
+    quiz_questions ||--o{ quiz_options : offers
+    quizzes ||--o{ tests : instantiated_as
+    users ||--o{ tests : takes
+    tests ||--o{ user_quiz_progress : records
+    quiz_questions ||--o{ user_quiz_progress : answered_question
+    quiz_options o|--o{ user_quiz_progress : legacy_selection
+    user_quiz_progress ||--o{ user_quiz_progress_selected_options : selections
+    quiz_options ||--o{ user_quiz_progress_selected_options : selected_option
+
+    users ||--o{ flashcard_decks : owns
+    notebooks o|--o{ flashcard_decks : contains
+    subjects o|--o{ flashcard_decks : classifies
+    flashcard_decks o|--o{ flashcard_decks : cloned_from
+    flashcard_decks ||--o{ flashcards : contains
+    users ||--o{ user_flashcard_progress : studies
+    flashcards ||--o{ user_flashcard_progress : tracked_card
+
+    users ||--o{ market_reviews : writes
+    documents o|--o{ market_reviews : document_target
+    quizzes o|--o{ market_reviews : quiz_target
+    flashcard_decks o|--o{ market_reviews : deck_target
+    marketplace_submissions o|--o{ market_reviews : groups
+
+    users ||--o{ content_reports : reports
+    documents o|--o{ content_reports : document_target
+    quizzes o|--o{ content_reports : quiz_target
+    flashcard_decks o|--o{ content_reports : deck_target
+    users o|--o{ content_reports : resolves
+
+    users ||--o{ community_comments : comments
+    documents o|--o{ community_comments : discussed_document
+    community_comments o|--o{ community_comments : replies_to
+
+    subjects ||--o| subject_review_policies : governed_by
+    users o|--o{ subject_review_policies : updates
+    subjects ||--o{ marketplace_submissions : submitted_under
+    users ||--o{ marketplace_submissions : owns
+    users o|--o{ marketplace_submissions : decides
+    users ||--o{ marketplace_clone_receipts : clones
